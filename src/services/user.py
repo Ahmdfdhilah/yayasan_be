@@ -203,22 +203,22 @@ class UserService:
         users = await self.user_repo.get_users_by_role(role)
         return [UserResponse.from_user_model(user) for user in users]
     
-    async def authenticate_user(self, username: str, password: str) -> Optional[User]:
+    async def authenticate_user(self, email: str, password: str) -> Optional[User]:
         """Authenticate user untuk login."""
-        # 1. Get user by username
-        user = await self.user_repo.get_by_username(username)
+        # 1. Get user by email
+        user = await self.user_repo.get_by_email(email)
         if not user:
             return None
         
         # 2. Check if user is active
-        if not user.is_active:
+        if not user.is_active():
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User account is deactivated"
             )
         
         # 3. Verify password
-        if not verify_password(password, user.hashed_password):
+        if not verify_password(password, user.password):
             return None
         
         # 4. Update last login

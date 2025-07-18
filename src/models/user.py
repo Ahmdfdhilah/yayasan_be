@@ -1,97 +1,125 @@
-"""Simplified User model sesuai ERD - tanpa Role tables."""
+"""Unified User model based on DB.MD schema."""
 
-from typing import Optional
-from datetime import datetime, date
-from sqlmodel import Field, SQLModel, Column
+from typing import Optional, List, TYPE_CHECKING
+from datetime import datetime
+from sqlmodel import Field, SQLModel, Column, JSON, Relationship
 from sqlalchemy import Enum as SQLEnum
-import uuid as uuid_lib
 
 from .base import BaseModel
-from .enums import UserRole
+from .enums import UserStatus
+
+if TYPE_CHECKING:
+    from .organization import Organization
+    from .user_role import UserRole
+    from .media_file import MediaFile
 
 
 class User(BaseModel, SQLModel, table=True):
-    """User model yang disederhanakan sesuai ERD."""
+    """Unified User model for all system users."""
     
     __tablename__ = "users"
     
-    id: str = Field(
-        default_factory=lambda: str(uuid_lib.uuid4()),
-        primary_key=True,
-        max_length=36
+    id: int = Field(primary_key=True)
+    email: str = Field(max_length=255, unique=True, nullable=False, index=True)
+    password: str = Field(nullable=False, description="Hashed password")
+    
+    # JSON profile data for flexible user information
+    profile: dict = Field(
+        sa_column=Column(JSON, nullable=False),
+        description="User profile: name, phone, address, etc"
     )
     
-    # Personal Information
-    nama: str = Field(max_length=200, index=True, description="Nama lengkap atau nama perwadag")
-    username: str = Field(max_length=50, unique=True, index=True, description="Auto-generated username")
-    # tempat_lahir: str = Field(max_length=100)
-    # tanggal_lahir: date
-    
-    # Government Position
-    # pangkat: str = Field(max_length=100, description="Pangkat/golongan pegawai")
-    jabatan: str = Field(max_length=200, description="Jabatan/posisi pegawai")
-    
-    # Authentication
-    hashed_password: str = Field(description="Password yang sudah di-hash")
-    email: Optional[str] = Field(default=None, unique=True, index=True, max_length=255)
-    
-    # Status
-    is_active: bool = Field(default=True)
-    last_login: Optional[datetime] = Field(default=None)
-    
-    # Role - ENUM FIELD (MAJOR CHANGE!)
-    role: UserRole = Field(
-        sa_column=Column(SQLEnum(UserRole), nullable=False, index=True),
-        description="Role pengguna: admin, inspektorat, atau perwadag"
-    )
-    
-    # Inspektorat Assignment (KHUSUS UNTUK PERWADAG)
-    inspektorat: Optional[str] = Field(
+    # Organization relationship
+    organization_id: Optional[int] = Field(
         default=None, 
-        max_length=100,
-        description="Wajib diisi untuk role perwadag. Menentukan wilayah kerja inspektorat"
+        foreign_key="organizations.id",
+        index=True
     )
+    
+    # Status and authentication
+    status: UserStatus = Field(
+        sa_column=Column(SQLEnum(UserStatus), nullable=False, default=UserStatus.ACTIVE),
+        description="User status: active, inactive, or suspended"
+    )
+    email_verified_at: Optional[datetime] = Field(default=None)
+    last_login_at: Optional[datetime] = Field(default=None)
+    remember_token: Optional[str] = Field(default=None, max_length=100)
+    
+    # Relationships
+    organization: Optional["Organization"] = Relationship(back_populates="users")
+    user_roles: List["UserRole"] = Relationship(back_populates="user")
+    uploaded_files: List["MediaFile"] = Relationship(back_populates="uploader")
+    
+    def __repr__(self) -> str:
+        return f"<User(id={self.id}, email={self.email}, status={self.status.value})>"
     
     @property
     def display_name(self) -> str:
-        """Display name adalah nama lengkap."""
-        return self.nama
+        """Get display name from profile."""
+        if self.profile and isinstance(self.profile, dict):
+            return self.profile.get("name", self.email)
+        return self.email
     
-    # @property
-    # def age(self) -> int:
-    #     """Calculate user's age."""
-    #     today = date.today()
-    #     return today.year - self.tanggal_lahir.year - (
-    #         (today.month, today.day) < (self.tanggal_lahir.month, self.tanggal_lahir.day)
-    #     )
+    @property
+    def full_name(self) -> str:
+        """Get full name from profile."""
+        if self.profile and isinstance(self.profile, dict):
+            return self.profile.get("name", "")
+        return ""
     
-    def has_email(self) -> bool:
-        """Check if user has email set."""
-        return self.email is not None and self.email.strip() != ""
+    @property
+    def phone(self) -> Optional[str]:
+        """Get phone from profile."""
+        if self.profile and isinstance(self.profile, dict):
+            return self.profile.get("phone")
+        return None
     
-    def is_admin(self) -> bool:
-        """Check if user is admin."""
-        return self.role == UserRole.ADMIN
+    @property
+    def address(self) -> Optional[str]:
+        """Get address from profile."""
+        if self.profile and isinstance(self.profile, dict):
+            return self.profile.get("address")
+        return None
     
-    def is_inspektorat(self) -> bool:
-        """Check if user is inspektorat."""
-        return self.role == UserRole.INSPEKTORAT
+    def has_email_verified(self) -> bool:
+        """Check if user has verified email."""
+        return self.email_verified_at is not None
     
-    def is_perwadag(self) -> bool:
-        """Check if user is perwadag."""
-        return self.role == UserRole.PERWADAG
+    def is_active(self) -> bool:
+        """Check if user is active."""
+        return self.status == UserStatus.ACTIVE
     
-    def get_role_display(self) -> str:
-        """Get role display name."""
-        role_display = {
-            UserRole.ADMIN: "Administrator",
-            UserRole.INSPEKTORAT: "Inspektorat",
-            UserRole.PERWADAG: "Perwakilan Dagang"
-        }
-        return role_display.get(self.role, self.role.value)
+    def is_suspended(self) -> bool:
+        """Check if user is suspended."""
+        return self.status == UserStatus.SUSPENDED
     
-    def __repr__(self) -> str:
-        return f"<User(id={self.id}, username={self.username}, nama={self.nama}, role={self.role.value})>"
+    def get_profile_field(self, key: str) -> Optional[str]:
+        """Get specific profile field."""
+        if self.profile and isinstance(self.profile, dict):
+            return self.profile.get(key)
+        return None
+    
+    def update_profile_field(self, key: str, value: str) -> None:
+        """Update specific profile field."""
+        if self.profile is None:
+            self.profile = {}
+        self.profile[key] = value
+    
+    def get_roles(self) -> List[str]:
+        """Get all role names for this user."""
+        return [role.role_name for role in self.user_roles if role.is_active]
+    
+    def has_role(self, role_name: str) -> bool:
+        """Check if user has specific role."""
+        return role_name in self.get_roles()
+    
+    def has_permission(self, permission: str) -> bool:
+        """Check if user has specific permission."""
+        for role in self.user_roles:
+            if role.is_active and role.permissions and isinstance(role.permissions, dict):
+                if permission in role.permissions:
+                    return True
+        return False
 
 
 class PasswordResetToken(BaseModel, SQLModel, table=True):

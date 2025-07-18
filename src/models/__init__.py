@@ -1,20 +1,51 @@
-# ===== src/models/__init__.py (UPDATE EXISTING) =====
-"""Models initialization - Updated dengan penilaian risiko models."""
+"""Database models initialization - Updated to match DB.MD schema."""
 
-# ===== EXISTING MODELS =====
-from .base import BaseModel, TimestampMixin, SoftDeleteMixin, AuditMixin
-from .enums import UserRole
+# Base classes
+from .base import BaseModel, TimestampMixin, AuditMixin, SoftDeleteMixin
+
+# Core models
 from .user import User, PasswordResetToken
+from .organization import Organization
+from .user_role import UserRole
+from .media_file import MediaFile
+
+# Enums
+from .enums import (
+    UserRole as UserRoleEnum,
+    UserStatus,
+    OrganizationType,
+    RPPStatus,
+    EvaluationGrade,
+    ContentStatus,
+    MessageStatus,
+    MessagePriority,
+    AuditAction,
+    SystemSettingDataType,
+)
 
 __all__ = [
     # Base classes
     "BaseModel",
     "TimestampMixin", 
-    "SoftDeleteMixin",
     "AuditMixin",
+    "SoftDeleteMixin",
     
-    # Existing models
-    "UserRole",
+    # Core models
     "User",
-    "PasswordResetToken", 
+    "PasswordResetToken",
+    "Organization",
+    "UserRole",
+    "MediaFile",
+    
+    # Enums
+    "UserRoleEnum",
+    "UserStatus",
+    "OrganizationType",
+    "RPPStatus",
+    "EvaluationGrade",
+    "ContentStatus",
+    "MessageStatus",
+    "MessagePriority",
+    "AuditAction",
+    "SystemSettingDataType",
 ]

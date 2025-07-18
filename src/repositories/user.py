@@ -6,7 +6,7 @@ from sqlalchemy import select, and_, or_, func, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.user import User, PasswordResetToken
-from src.models.enums import UserRole
+from src.models.enums import UserRole, UserStatus
 from src.schemas.user import UserCreate, UserUpdate
 from src.schemas.filters import UserFilterParams
 from src.auth.jwt import get_password_hash
@@ -20,25 +20,22 @@ class UserRepository:
     
     # ===== USER CRUD OPERATIONS =====
     
-    async def create(self, user_data: UserCreate, username: str) -> User:
-        """Create user dengan single table approach."""
+    async def create(self, user_data: UserCreate, organization_id: Optional[int] = None) -> User:
+        """Create user with new unified schema."""
         # Default password untuk semua user
         default_password = "@Kemendag123"
         hashed_password = get_password_hash(default_password)
         
         # Create user instance
         user = User(
-            nama=user_data.nama,
-            username=username,
-            # tempat_lahir=user_data.tempat_lahir,
-            # tanggal_lahir=user_data.tanggal_lahir,
-            # pangkat=user_data.pangkat,
-            jabatan=user_data.jabatan,
-            hashed_password=hashed_password,
             email=user_data.email,
-            is_active=user_data.is_active,
-            role=user_data.role,  # ENUM field
-            inspektorat=user_data.inspektorat  # For perwadag
+            password=hashed_password,
+            profile=user_data.profile,  # JSON field with user data
+            organization_id=organization_id,
+            status=user_data.status if hasattr(user_data, 'status') else UserStatus.ACTIVE,
+            email_verified_at=None,
+            last_login_at=None,
+            remember_token=None
         )
         
         self.session.add(user)
@@ -46,21 +43,17 @@ class UserRepository:
         await self.session.refresh(user)
         return user
     
-    async def get_by_id(self, user_id: str) -> Optional[User]:
-        """Get user by UUID."""
+    async def get_by_id(self, user_id: int) -> Optional[User]:
+        """Get user by ID."""
         query = select(User).where(
             and_(User.id == user_id, User.deleted_at.is_(None))
         )
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    async def get_by_username(self, username: str) -> Optional[User]:
-        """Get user by username (untuk login)."""
-        query = select(User).where(
-            and_(User.username == username, User.deleted_at.is_(None))
-        )
-        result = await self.session.execute(query)
-        return result.scalar_one_or_none()
+    async def get_by_email_login(self, email: str) -> Optional[User]:
+        """Get user by email for login."""
+        return await self.get_by_email(email)
     
     async def get_by_email(self, email: str) -> Optional[User]:
         """Get user by email."""
@@ -70,7 +63,7 @@ class UserRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    async def update(self, user_id: str, user_data: UserUpdate) -> Optional[User]:
+    async def update(self, user_id: int, user_data: UserUpdate) -> Optional[User]:
         """Update user information."""
         user = await self.get_by_id(user_id)
         if not user:
@@ -82,6 +75,13 @@ class UserRepository:
             if key == "email" and value:
                 # Normalize email
                 value = value.lower()
+            elif key == "profile" and value:
+                # Merge profile data instead of replacing
+                if user.profile:
+                    user.profile.update(value)
+                else:
+                    user.profile = value
+                continue
             setattr(user, key, value)
         
         user.updated_at = datetime.utcnow()
@@ -89,13 +89,13 @@ class UserRepository:
         await self.session.refresh(user)
         return user
     
-    async def update_password(self, user_id: str, new_hashed_password: str) -> bool:
+    async def update_password(self, user_id: int, new_hashed_password: str) -> bool:
         """Update user password."""
         query = (
             update(User)
             .where(User.id == user_id)
             .values(
-                hashed_password=new_hashed_password,
+                password=new_hashed_password,
                 updated_at=datetime.utcnow()
             )
         )
@@ -103,12 +103,12 @@ class UserRepository:
         await self.session.commit()
         return result.rowcount > 0
     
-    async def update_last_login(self, user_id: str) -> bool:
+    async def update_last_login(self, user_id: int) -> bool:
         """Update user's last login timestamp."""
         query = (
             update(User)
             .where(User.id == user_id)
-            .values(last_login=datetime.utcnow())
+            .values(last_login_at=datetime.utcnow())
         )
         result = await self.session.execute(query)
         await self.session.commit()

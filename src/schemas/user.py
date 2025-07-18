@@ -1,110 +1,56 @@
-"""Simplified user schemas tanpa Role management."""
+"""Updated user schemas for unified schema."""
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, EmailStr, ConfigDict, field_validator, Field
-from datetime import datetime, date
-import re
+from datetime import datetime
 
-from src.models.enums import UserRole
-from src.schemas.shared import BaseListResponse
+from src.models.enums import UserStatus
+from src.schemas.shared import BaseListResponse, MessageResponse
 
 
 # ===== BASE SCHEMAS =====
 
 class UserBase(BaseModel):
-    """Base user schema dengan role field."""
-    nama: str = Field(..., min_length=1, max_length=200, description="Nama lengkap atau nama perwadag")
-    # tempat_lahir: str = Field(..., min_length=1, max_length=100)
-    # tanggal_lahir: date
-    # pangkat: str = Field(..., min_length=1, max_length=100)
-    jabatan: str = Field(..., min_length=1, max_length=200)
-    email: Optional[EmailStr] = Field(None, description="Email is optional")
-    is_active: bool = True
-    role: UserRole = Field(..., description="Role pengguna: admin, inspektorat, atau perwadag")
-    inspektorat: Optional[str] = Field(None, max_length=100, description="Wajib untuk role perwadag")
+    """Base user schema with unified fields."""
+    email: EmailStr = Field(..., description="User email address")
+    profile: Dict[str, Any] = Field(..., description="User profile data as JSON")
+    organization_id: Optional[int] = Field(None, description="Organization ID")
+    status: UserStatus = Field(default=UserStatus.ACTIVE, description="User status")
     
-    @field_validator('nama')
+    @field_validator('email')
     @classmethod
-    def validate_nama(cls, nama: str) -> str:
-        """Validate nama format."""
-        nama = nama.strip()
-        if not nama:
-            raise ValueError("Nama cannot be empty")
-        
-        # For perwadag, allow special format like "ITPC Lagos – Nigeria"
-        if not re.match(r"^[a-zA-Z\s.,'\-–—]+$", nama):
-            raise ValueError("Nama can only contain letters, spaces, and common punctuation")
-        
-        return nama
+    def validate_email(cls, email: str) -> str:
+        """Validate and normalize email."""
+        return email.lower().strip()
     
-    @field_validator('inspektorat')
+    @field_validator('profile')
     @classmethod
-    def validate_inspektorat(cls, inspektorat: Optional[str], values) -> Optional[str]:
-        """Validate inspektorat field based on role."""
-        role = values.data.get('role') if hasattr(values, 'data') else None
-        
-        # For perwadag, inspektorat is required
-        if role == UserRole.PERWADAG and not inspektorat:
-            raise ValueError("Inspektorat is required for role 'perwadag'")
-        
-        # # For non-perwadag, inspektorat should be None
-        # if role != UserRole.PERWADAG and inspektorat:
-        #     raise ValueError("Inspektorat should only be set for role 'perwadag'")
-        
-        return inspektorat.strip() if inspektorat else None
-    
-    # @field_validator('tanggal_lahir')
-    # @classmethod
-    # def validate_tanggal_lahir(cls, tanggal_lahir: date) -> date:
-    #     """Validate birth date."""
-    #     today = date.today()
-        
-    #     if tanggal_lahir > today:
-    #         raise ValueError("Tanggal lahir cannot be in the future")
-        
-    #     # Check age range (17-70 years)
-    #     age = today.year - tanggal_lahir.year - (
-    #         (today.month, today.day) < (tanggal_lahir.month, tanggal_lahir.day)
-    #     )
-        
-    #     if age < 17:
-    #         raise ValueError("Minimum age is 17 years old")
-    #     if age > 70:
-    #         raise ValueError("Maximum age is 70 years old")
-        
-    #     return tanggal_lahir
+    def validate_profile(cls, profile: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate profile has required fields."""
+        if not profile.get('name'):
+            raise ValueError("Profile must contain 'name' field")
+        return profile
 
 
 # ===== REQUEST SCHEMAS =====
 
 class UserCreate(UserBase):
     """Schema for creating a user."""
-    pass  # Inherits all validation from UserBase
+    password: Optional[str] = Field(None, min_length=6, max_length=128, description="Optional password, uses default if not provided")
 
 
 class UserUpdate(BaseModel):
     """Schema for updating a user."""
-    nama: Optional[str] = Field(None, min_length=1, max_length=200)
-    # tempat_lahir: Optional[str] = Field(None, min_length=1, max_length=100)
-    # tanggal_lahir: Optional[date] = None
-    # pangkat: Optional[str] = Field(None, min_length=1, max_length=100)
-    jabatan: Optional[str] = Field(None, min_length=1, max_length=200)
     email: Optional[EmailStr] = None
-    is_active: Optional[bool] = None
-    role: Optional[UserRole] = None
-    inspektorat: Optional[str] = Field(None, max_length=100)
+    profile: Optional[Dict[str, Any]] = None
+    organization_id: Optional[int] = None
+    status: Optional[UserStatus] = None
     
-    @field_validator('nama')
+    @field_validator('email')
     @classmethod
-    def validate_nama(cls, nama: Optional[str]) -> Optional[str]:
-        """Validate nama if provided."""
-        if nama is not None:
-            nama = nama.strip()
-            if not nama:
-                raise ValueError("Nama cannot be empty")
-            if not re.match(r"^[a-zA-Z\s.,'\-–—]+$", nama):
-                raise ValueError("Nama can only contain letters, spaces, and common punctuation")
-        return nama
+    def validate_email(cls, email: Optional[str]) -> Optional[str]:
+        """Validate and normalize email if provided."""
+        return email.lower().strip() if email else None
 
 
 class UserChangePassword(BaseModel):
@@ -115,40 +61,39 @@ class UserChangePassword(BaseModel):
 
 # ===== RESPONSE SCHEMAS =====
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     """Schema for user response."""
-    id: str
-    username: str
-    display_name: str
-    # age: int
-    has_email: bool
-    last_login: Optional[datetime] = None
-    role_display: str = Field(..., description="Human-readable role name")
+    id: int
+    email: str
+    profile: Dict[str, Any]
+    organization_id: Optional[int] = None
+    status: UserStatus
+    email_verified_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+    
+    # Computed fields
+    display_name: str = Field(..., description="Display name from profile")
+    full_name: str = Field(..., description="Full name from profile")
+    roles: List[str] = Field(default_factory=list, description="User roles")
     
     @classmethod
     def from_user_model(cls, user) -> "UserResponse":
         """Create UserResponse from User model."""
         return cls(
             id=user.id,
-            nama=user.nama,
-            username=user.username,
-            # tempat_lahir=user.tempat_lahir,
-            # tanggal_lahir=user.tanggal_lahir,
-            # pangkat=user.pangkat,
-            jabatan=user.jabatan,
             email=user.email,
-            is_active=user.is_active,
-            role=user.role,
-            inspektorat=user.inspektorat,
-            display_name=user.display_name,
-            # age=user.age,
-            has_email=user.has_email(),
-            last_login=user.last_login,
-            role_display=user.get_role_display(),
+            profile=user.profile or {},
+            organization_id=user.organization_id,
+            status=user.status,
+            email_verified_at=user.email_verified_at,
+            last_login_at=user.last_login_at,
             created_at=user.created_at,
-            updated_at=user.updated_at
+            updated_at=user.updated_at,
+            display_name=user.display_name,
+            full_name=user.full_name,
+            roles=user.get_roles() if hasattr(user, 'get_roles') else []
         )
     
     model_config = ConfigDict(from_attributes=True)
@@ -161,16 +106,28 @@ class UserListResponse(BaseListResponse[UserResponse]):
 
 class UserSummary(BaseModel):
     """Schema for user summary (lighter response)."""
-    id: str
-    nama: str
-    username: str
-    # pangkat: str
-    jabatan: str
-    role: UserRole
-    role_display: str
-    inspektorat: Optional[str] = None
-    has_email: bool
+    id: int
+    email: str
+    display_name: str
+    organization_id: Optional[int] = None
+    status: UserStatus
+    roles: List[str] = Field(default_factory=list)
     is_active: bool
+    last_login_at: Optional[datetime] = None
+    
+    @classmethod
+    def from_user_model(cls, user) -> "UserSummary":
+        """Create UserSummary from User model."""
+        return cls(
+            id=user.id,
+            email=user.email,
+            display_name=user.display_name,
+            organization_id=user.organization_id,
+            status=user.status,
+            roles=user.get_roles() if hasattr(user, 'get_roles') else [],
+            is_active=user.is_active(),
+            last_login_at=user.last_login_at
+        )
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -179,7 +136,7 @@ class UserSummary(BaseModel):
 
 class UserLogin(BaseModel):
     """Schema for user login."""
-    username: str = Field(..., description="Username for login")
+    email: EmailStr = Field(..., description="Email for login")
     password: str = Field(..., min_length=1)
 
 
@@ -199,49 +156,64 @@ class TokenRefresh(BaseModel):
 
 class PasswordReset(BaseModel):
     """Schema for password reset request."""
-    email: EmailStr = Field(..., description="Email must be set in profile first")
+    email: EmailStr = Field(..., description="Email address for password reset")
 
 
 class PasswordResetConfirm(BaseModel):
     """Schema for password reset confirmation."""
-    token: str = Field(..., min_length=1)
+    token: str = Field(..., description="Password reset token")
     new_password: str = Field(..., min_length=6, max_length=128)
 
 
-# ===== COMMON RESPONSE SCHEMAS =====
+# ===== ROLE MANAGEMENT SCHEMAS =====
 
-class MessageResponse(BaseModel):
-    """Standard message response."""
-    message: str
-    success: bool = True
-
-
-class ErrorResponse(BaseModel):
-    """Standard error response."""
-    detail: str
-    error_code: Optional[str] = None
+class UserRoleCreate(BaseModel):
+    """Schema for creating user role."""
+    user_id: int
+    role_name: str = Field(..., min_length=1, max_length=50)
+    permissions: Optional[Dict[str, Any]] = None
+    organization_id: Optional[int] = None
+    expires_at: Optional[datetime] = None
 
 
-class PerwadagSummary(BaseModel):
-    """Schema ringkas khusus untuk daftar perwadag."""
-    id: str
-    nama: str = Field(..., description="Nama perwadag/perwakilan dagang")
-    inspektorat: str = Field(..., description="Wilayah kerja inspektorat")
-    is_active: bool = Field(..., description="Status aktif perwadag")
-    
-    @classmethod
-    def from_user_model(cls, user) -> "PerwadagSummary":
-        """Create PerwadagSummary from User model."""
-        return cls(
-            id=user.id,
-            nama=user.nama,
-            inspektorat=user.inspektorat or "",
-            is_active=user.is_active
-        )
+class UserRoleUpdate(BaseModel):
+    """Schema for updating user role."""
+    permissions: Optional[Dict[str, Any]] = None
+    is_active: Optional[bool] = None
+    expires_at: Optional[datetime] = None
+
+
+class UserRoleResponse(BaseModel):
+    """Schema for user role response."""
+    id: int
+    user_id: int
+    role_name: str
+    permissions: Optional[Dict[str, Any]] = None
+    organization_id: Optional[int] = None
+    is_active: bool
+    expires_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
 
 
+# ===== LEGACY COMPATIBILITY SCHEMAS =====
+
+class PerwadagSummary(UserSummary):
+    """Legacy schema for perwadag summary."""
+    inspektorat: Optional[str] = None
+    
+    @classmethod
+    def from_user_model(cls, user) -> "PerwadagSummary":
+        """Create PerwadagSummary from User model."""
+        base = super().from_user_model(user)
+        return cls(
+            **base.model_dump(),
+            inspektorat=user.get_profile_field('inspektorat') if hasattr(user, 'get_profile_field') else None
+        )
+
+
 class PerwadagListResponse(BaseListResponse[PerwadagSummary]):
-    """Standardized perwadag list response dengan pagination."""
+    """Legacy response for perwadag list."""
     pass

@@ -35,7 +35,7 @@ class MediaFile(BaseModel, SQLModel, table=True):
     )
     
     # File metadata and visibility
-    metadata: Optional[dict] = Field(
+    file_metadata: Optional[dict] = Field(
         default=None,
         sa_column=Column(JSON, comment="File metadata: width, height, duration, etc")
     )
@@ -90,15 +90,15 @@ class MediaFile(BaseModel, SQLModel, table=True):
     
     def get_metadata_field(self, key: str) -> Optional[str]:
         """Get specific metadata field."""
-        if self.metadata and isinstance(self.metadata, dict):
-            return self.metadata.get(key)
+        if self.file_metadata and isinstance(self.file_metadata, dict):
+            return self.file_metadata.get(key)
         return None
     
     def update_metadata_field(self, key: str, value: str) -> None:
         """Update specific metadata field."""
-        if self.metadata is None:
-            self.metadata = {}
-        self.metadata[key] = value
+        if self.file_metadata is None:
+            self.file_metadata = {}
+        self.file_metadata[key] = value
     
     def get_url(self, base_url: str = "") -> str:
         """Get file URL."""

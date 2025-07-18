@@ -40,7 +40,6 @@ async def lifespan(app: FastAPI):
     logger.info(f"   - Rate Limiting: {settings.RATE_LIMIT_CALLS} calls/{settings.RATE_LIMIT_PERIOD}s")
     logger.info(f"   - Auth Rate Limiting: {settings.AUTH_RATE_LIMIT_CALLS} calls/{settings.AUTH_RATE_LIMIT_PERIOD}s")
     
-    logger.info("🎯 Government Auth API started successfully!")
     
     yield
     
@@ -54,41 +53,6 @@ def create_application() -> FastAPI:
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
-        description="""
-        **Government Authentication API**
-        
-        A secure authentication system for government applications with:
-        
-        * **JWT-based authentication** with refresh tokens
-        * **Role-based access control (RBAC)** for different government units
-        * **User management** with government-specific fields (NIP, unit kerja, jabatan)
-        * **Password reset** functionality
-        * **Rate limiting** for security
-        * **Comprehensive validation** and error handling
-        
-        ## Default Roles
-        
-        * `admin` - System Administrator
-        * `inspektorat_1` to `inspektorat_4` - Inspektorat regional offices
-        * `perwadag` - Perdagangan department
-        * `bappeda` - Regional Planning Agency
-        * `dinas_kesehatan` - Health Department
-        * `dinas_pendidikan` - Education Department
-        * `dinas_sosial` - Social Affairs Department
-        
-        ## Authentication
-        
-        1. **Login**: POST `/api/v1/auth/login` with email/username and password
-        2. **Use Bearer token**: Include `Authorization: Bearer <token>` in headers
-        3. **Refresh token**: POST `/api/v1/auth/refresh` when token expires
-        
-        ## Access Levels
-        
-        * **Public**: Login, password reset
-        * **Authenticated**: View own profile, change password
-        * **Admin**: Full user and role management
-        * **Inspektorat**: View users and some management functions
-        """,
         debug=settings.DEBUG,
         lifespan=lifespan,
         docs_url="/docs" if settings.DEBUG else None,

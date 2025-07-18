@@ -25,7 +25,7 @@ class Organization(BaseModel, SQLModel, table=True):
         sa_column=Column(SQLEnum(OrganizationType), nullable=False, default=OrganizationType.SCHOOL),
         description="Type of organization: school, foundation, or department"
     )
-    description: Optional[str] = Field(default=None, sa_column=Column("description", nullable=True))
+    description: Optional[str] = Field(default=None)
     image_url: Optional[str] = Field(default=None, max_length=255)
     website_url: Optional[str] = Field(default=None, max_length=255)
     

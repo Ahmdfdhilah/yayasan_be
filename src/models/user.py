@@ -2,6 +2,7 @@
 
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
+import uuid as uuid_lib
 from sqlmodel import Field, SQLModel, Column, JSON, Relationship
 from sqlalchemy import Enum as SQLEnum
 
@@ -123,7 +124,7 @@ class User(BaseModel, SQLModel, table=True):
 
 
 class PasswordResetToken(BaseModel, SQLModel, table=True):
-    """Password reset token model - tidak berubah."""
+    """Password reset token model for unified schema."""
     
     __tablename__ = "password_reset_tokens"
     
@@ -132,7 +133,7 @@ class PasswordResetToken(BaseModel, SQLModel, table=True):
         primary_key=True,
         max_length=36
     )
-    user_id: str = Field(foreign_key="users.id", index=True, max_length=36)
+    user_id: int = Field(foreign_key="users.id", index=True)  # Changed to int
     token: str = Field(unique=True, index=True, max_length=255)
     expires_at: datetime
     used: bool = Field(default=False)

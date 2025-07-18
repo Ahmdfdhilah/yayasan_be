@@ -1,4 +1,4 @@
-"""Authentication service for government project (revised)."""
+"""Authentication service for unified schema system."""
 
 from datetime import datetime, timedelta
 from typing import Optional
@@ -8,8 +8,9 @@ from src.repositories.user import UserRepository
 from src.services.user import UserService
 from src.schemas.user import (
     UserLogin, Token, PasswordReset, PasswordResetConfirm, 
-    MessageResponse, UserResponse
+    UserResponse
 )
+from src.schemas.shared import MessageResponse
 from src.auth.jwt import create_access_token, create_refresh_token, verify_token
 from src.services.email import EmailService
 from src.utils.password import generate_password_reset_token, mask_email
@@ -17,19 +18,18 @@ from src.core.config import settings
 
 
 class AuthService:
-    """Service for authentication operations - simplified."""
+    """Authentication service for unified schema system."""
     
     def __init__(self, user_service: UserService, user_repo: UserRepository):
         self.user_service = user_service
         self.user_repo = user_repo
-        self.email_service = EmailService()  
-        # No more role_repo needed!
+        self.email_service = EmailService()
     
     async def login(self, login_data: UserLogin) -> Token:
-        """Login user with simplified role handling."""
+        """Login user with email and password."""
         # Authenticate user
         user = await self.user_service.authenticate_user(
-            login_data.email,  # Use email for authentication
+            login_data.email,
             login_data.password
         )
         
@@ -46,7 +46,7 @@ class AuthService:
             "sub": str(user.id),
             "email": user.email,
             "name": user.full_name,
-            "roles": user_roles,  # Multiple roles from UserRole table
+            "roles": user_roles,
             "organization_id": user.organization_id,
             "type": "access"
         }
@@ -56,25 +56,19 @@ class AuthService:
             "type": "refresh"
         }
         
-        # ✅ CREATE TOKENS (match your existing JWT functions)
+        # Create tokens
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
             data=token_data,
             expires_delta=access_token_expires
         )
         
-        # ✅ Call refresh token WITHOUT expires_delta (match your JWT function signature)
         refresh_token = create_refresh_token(data=refresh_token_data)
         
-        # ✅ BUILD USER RESPONSE
-        # Check if method exists, otherwise use alternative
-        try:
-            user_response = self.user_service._model_to_response(user)
-        except AttributeError:
-            # Fallback to direct conversion
-            user_response = UserResponse.from_user_model(user)
+        # Build user response
+        user_response = UserResponse.from_user_model(user)
         
-        # ✅ RETURN TOKEN RESPONSE
+        # Return token response
         return Token(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -104,7 +98,7 @@ class AuthService:
                 )
             
             # Get user
-            user = await self.user_repo.get_by_id(user_id)
+            user = await self.user_repo.get_by_id(int(user_id))
             if not user or not user.is_active():
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -130,7 +124,6 @@ class AuthService:
                 expires_delta=access_token_expires
             )
             
-            # ✅ FIXED: Use correct method
             user_response = UserResponse.from_user_model(user)
             
             return Token(
@@ -150,7 +143,7 @@ class AuthService:
             )
     
     async def request_password_reset(self, reset_data: PasswordReset) -> MessageResponse:
-        """Request password reset token dengan proper email validation."""
+        """Request password reset token with email validation."""
         import logging
         logger = logging.getLogger(__name__)
         
@@ -159,25 +152,24 @@ class AuthService:
         # Always return success message to prevent email enumeration
         success_message = "If the email exists and is associated with an account, a password reset link has been sent"
         
-        # Case 1: Email tidak ditemukan di database
+        # Case 1: Email not found
         if not user:
             logger.warning(f"Password reset requested for non-existent email: {mask_email(reset_data.email)}")
             return MessageResponse(message=success_message)
         
-        # Case 2: User tidak aktif
+        # Case 2: User not active
         if not user.is_active():
             logger.warning(f"Password reset requested for inactive user: {user.full_name} ({mask_email(reset_data.email)})")
             return MessageResponse(message=success_message)
         
-        # Case 3: User aktif tapi tidak punya email (edge case - seharusnya tidak terjadi)
+        # Case 3: User active but no email (edge case)
         if not user.email:
             logger.warning(f"Password reset requested for user without email: {user.full_name}")
-            # Return specific error karena ini edge case
             return MessageResponse(
                 message="User account does not have email configured. Please contact administrator."
             )
         
-        # Case 4: Semua validasi passed - process reset
+        # Case 4: All validation passed - process reset
         logger.info(f"Processing password reset for user: {user.full_name} ({mask_email(user.email)})")
         
         # Generate reset token
@@ -211,16 +203,14 @@ class AuthService:
                 logger.info(f"Password reset email sent successfully to {mask_email(user.email)}")
             else:
                 logger.error(f"Failed to send password reset email to {mask_email(user.email)}")
-                # Still return success message for security
                 
         except Exception as e:
             logger.error(f"Exception while sending password reset email to {mask_email(user.email)}: {str(e)}")
-            # Still return success message for security
         
         return MessageResponse(message=success_message)
     
     async def confirm_password_reset(self, reset_data: PasswordResetConfirm) -> MessageResponse:
-        """Confirm password reset with token dan send success email."""
+        """Confirm password reset with token and send success email."""
         import logging
         logger = logging.getLogger(__name__)
         
@@ -271,7 +261,6 @@ class AuthService:
             logger.info(f"Reset token marked as used: {reset_data.token[:8]}...")
         except Exception as e:
             logger.error(f"Failed to mark reset token as used: {str(e)}")
-            # Continue anyway, password is already updated
         
         # Send success confirmation email
         if user.email:
@@ -285,11 +274,9 @@ class AuthService:
                     logger.info(f"Password reset success email sent to {mask_email(user.email)}")
                 else:
                     logger.error(f"Failed to send success email to {mask_email(user.email)}")
-                    # Don't fail the whole operation if email fails
                     
             except Exception as e:
                 logger.error(f"Exception while sending success email to {mask_email(user.email)}: {str(e)}")
-                # Don't fail the whole operation if email fails
         
         return MessageResponse(message="Password reset successful")
     
@@ -300,7 +287,7 @@ class AuthService:
         # you might want to blacklist the token.
         return MessageResponse(message="Logged out successfully")
     
-    async def get_current_user_info(self, user_id: str) -> UserResponse:
+    async def get_current_user_info(self, user_id: int) -> UserResponse:
         """Get current user information."""
         user = await self.user_service.get_user(user_id)
         if not user:
@@ -310,7 +297,7 @@ class AuthService:
             )
         return user
     
-    async def validate_user_access(self, user_id: str, required_roles: Optional[list] = None) -> bool:
+    async def validate_user_access(self, user_id: int, required_roles: Optional[list] = None) -> bool:
         """Validate if user has required access."""
         user = await self.user_repo.get_by_id(user_id)
         
@@ -323,7 +310,7 @@ class AuthService:
         
         return True
     
-    async def check_password_reset_eligibility(self, user_id: str) -> dict:
+    async def check_password_reset_eligibility(self, user_id: int) -> dict:
         """Check if user is eligible for password reset."""
         user = await self.user_repo.get_by_id(user_id)
         

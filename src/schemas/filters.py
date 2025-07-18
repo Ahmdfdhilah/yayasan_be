@@ -22,7 +22,7 @@ class UserFilterParams(BaseModel):
     
     # Sorting
     sort_by: str = Field(default="created_at", description="Sort field")
-    sort_order: str = Field(default="desc", regex="^(asc|desc)$", description="Sort order")
+    sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sort order")
     
     # Date filtering
     created_after: Optional[date] = Field(default=None, description="Filter users created after this date")
@@ -63,7 +63,7 @@ class SearchParams(BaseModel):
     
     q: Optional[str] = Field(default=None, description="Search query")
     sort_by: str = Field(default="created_at", description="Sort field")
-    sort_order: str = Field(default="desc", regex="^(asc|desc)$", description="Sort order")
+    sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sort order")
 
 
 class DateRangeFilter(BaseModel):

@@ -80,11 +80,11 @@ class TeacherEvaluationService:
         assignment_data: AssignTeachersToPeriod,
         created_by: Optional[int] = None
     ) -> Dict[str, Any]:
-        """Bulk assign teachers to evaluation period."""
+        """Bulk assign all teachers to evaluation period automatically."""
         created_count, errors = await self.evaluation_repo.assign_teachers_to_period(
             period_id=assignment_data.period_id,
-            teacher_ids=assignment_data.teacher_ids,
-            aspect_ids=assignment_data.aspect_ids,
+            teacher_ids=None,  # Auto-assign all teachers with GURU role
+            aspect_ids=None,   # Auto-assign all active aspects
             created_by=created_by
         )
         

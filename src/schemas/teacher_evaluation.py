@@ -73,10 +73,8 @@ class TeacherEvaluationBulkUpdate(BaseModel):
 
 
 class AssignTeachersToPeriod(BaseModel):
-    """Schema for assigning teachers to evaluation period."""
+    """Schema for automatically assigning all teachers to evaluation period."""
     period_id: int = Field(..., description="Period ID")
-    teacher_ids: Optional[List[int]] = Field(None, description="Specific teacher IDs (if None, assign all teachers)")
-    aspect_ids: Optional[List[int]] = Field(None, description="Specific aspect IDs (if None, assign all active aspects)")
 
 
 class CompleteTeacherEvaluation(BaseModel):

@@ -33,18 +33,20 @@ async def get_teacher_evaluation_service(session: AsyncSession = Depends(get_db)
     return TeacherEvaluationService(evaluation_repo)
 
 
-@router.post("/assign-teachers-to-period", summary="Bulk assign teachers to evaluation period")
+@router.post("/assign-teachers-to-period", summary="Automatically assign all teachers to evaluation period")
 async def assign_teachers_to_period(
     assignment_data: AssignTeachersToPeriod,
     current_user: dict = Depends(admin_or_manager),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service)
 ):
     """
-    Bulk assign teachers to evaluation period with all aspects.
+    Automatically assign all teachers to evaluation period with all aspects.
     
     Creates evaluation records for all teacher-aspect combinations in the period.
-    If teacher_ids is None, assigns all active teachers.
-    If aspect_ids is None, assigns all active aspects.
+    - Automatically assigns ALL users with GURU role
+    - Automatically assigns ALL active evaluation aspects
+    - Automatically assigns evaluators (KEPALA_SEKOLAH from same organization, fallback to admin)
+    - Skips existing teacher-aspect combinations (safe to run multiple times for new teachers/aspects)
     """
     return await service.assign_teachers_to_period(assignment_data, current_user["id"])
 

@@ -515,34 +515,62 @@ class TeacherEvaluationRepository:
             result = await self.session.execute(aspect_query)
             aspect_ids = [row[0] for row in result.fetchall()]
         
+        # Get all existing evaluations for this period to avoid duplicates
+        existing_evaluations_query = select(
+            TeacherEvaluation.teacher_id,
+            TeacherEvaluation.aspect_id
+        ).where(TeacherEvaluation.period_id == period_id)
+        
+        existing_result = await self.session.execute(existing_evaluations_query)
+        existing_combinations = set(existing_result.fetchall())
+        
+        # Get teacher organizations in bulk for evaluator assignment
+        teacher_orgs_query = select(User.id, User.organization_id).where(User.id.in_(teacher_ids))
+        teacher_orgs_result = await self.session.execute(teacher_orgs_query)
+        teacher_org_map = dict(teacher_orgs_result.fetchall())
+        
+        # Get all KEPALA_SEKOLAH by organization for evaluator assignment
+        kepala_sekolah_query = select(User.id, User.organization_id).join(
+            UserRole, User.id == UserRole.user_id
+        ).where(
+            and_(
+                UserRole.role_name == UserRoleEnum.KEPALA_SEKOLAH,
+                UserRole.is_active == True,
+                User.status == "active"
+            )
+        )
+        kepala_result = await self.session.execute(kepala_sekolah_query)
+        org_evaluator_map = {org_id: user_id for user_id, org_id in kepala_result.fetchall()}
+        
         # Create evaluations for each teacher-aspect combination
+        skipped_count = 0
         for teacher_id in teacher_ids:
+            # Get evaluator for this teacher
+            teacher_org_id = teacher_org_map.get(teacher_id)
+            evaluator_id = org_evaluator_map.get(teacher_org_id, created_by)  # Fallback to created_by
+            
             for aspect_id in aspect_ids:
-                # Check if evaluation already exists
-                existing_query = select(TeacherEvaluation).where(
-                    and_(
-                        TeacherEvaluation.teacher_id == teacher_id,
-                        TeacherEvaluation.aspect_id == aspect_id,
-                        TeacherEvaluation.period_id == period_id
-                    )
-                )
-                existing = await self.session.execute(existing_query)
+                # Skip if combination already exists
+                if (teacher_id, aspect_id) in existing_combinations:
+                    skipped_count += 1
+                    continue
                 
-                if existing.scalar_one_or_none() is None:
-                    # Create new evaluation record without grade (to be filled later)
-                    evaluation = TeacherEvaluation(
-                        teacher_id=teacher_id,
-                        evaluator_id=created_by,  # Will be updated when actually evaluated
-                        aspect_id=aspect_id,
-                        period_id=period_id,
-                        grade=EvaluationGrade.D,  # Default grade, to be updated
-                        notes="Auto-created - pending evaluation",
-                        created_by=created_by
-                    )
-                    self.session.add(evaluation)
-                    created_count += 1
-                else:
-                    errors.append(f"Evaluation already exists for teacher {teacher_id}, aspect {aspect_id}")
+                # Create new evaluation record
+                evaluation = TeacherEvaluation(
+                    teacher_id=teacher_id,
+                    evaluator_id=evaluator_id,  # Auto-assigned based on organization
+                    aspect_id=aspect_id,
+                    period_id=period_id,
+                    grade=EvaluationGrade.D,  # Default grade, to be updated
+                    notes="Auto-created - pending evaluation",
+                    created_by=created_by
+                )
+                self.session.add(evaluation)
+                created_count += 1
+        
+        # Add summary to errors if any were skipped
+        if skipped_count > 0:
+            errors.append(f"Skipped {skipped_count} existing teacher-aspect combinations")
         
         await self.session.commit()
         return created_count, errors

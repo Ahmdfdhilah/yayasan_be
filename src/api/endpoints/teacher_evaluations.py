@@ -12,7 +12,7 @@ from src.schemas.teacher_evaluation import (
     TeacherEvaluationUpdate,
     TeacherEvaluationResponse,
     TeacherEvaluationBulkUpdate,
-    AssignTeachersToPerio,
+    AssignTeachersToPeriod,
     CompleteTeacherEvaluation,
     PeriodEvaluationStats
 )
@@ -35,7 +35,7 @@ async def get_teacher_evaluation_service(session: AsyncSession = Depends(get_db)
 
 @router.post("/assign-teachers-to-period", summary="Bulk assign teachers to evaluation period")
 async def assign_teachers_to_period(
-    assignment_data: AssignTeachersToPerio,
+    assignment_data: AssignTeachersToPeriod,
     current_user: dict = Depends(admin_or_manager),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service)
 ):

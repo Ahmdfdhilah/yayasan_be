@@ -72,7 +72,7 @@ class TeacherEvaluationBulkUpdate(BaseModel):
         return evaluations
 
 
-class AssignTeachersToPerio(BaseModel):
+class AssignTeachersToPeriod(BaseModel):
     """Schema for assigning teachers to evaluation period."""
     period_id: int = Field(..., description="Period ID")
     teacher_ids: Optional[List[int]] = Field(None, description="Specific teacher IDs (if None, assign all teachers)")

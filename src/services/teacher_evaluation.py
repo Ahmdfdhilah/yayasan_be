@@ -10,7 +10,7 @@ from src.schemas.teacher_evaluation import (
     TeacherEvaluationResponse,
     TeacherEvaluationBulkCreate,
     TeacherEvaluationBulkUpdate,
-    AssignTeachersToPerio,
+    AssignTeachersToPeriod,
     CompleteTeacherEvaluation,
     TeacherEvaluationSummary,
     PeriodEvaluationStats,
@@ -77,7 +77,7 @@ class TeacherEvaluationService:
     
     async def assign_teachers_to_period(
         self,
-        assignment_data: AssignTeachersToPerio,
+        assignment_data: AssignTeachersToPeriod,
         created_by: Optional[int] = None
     ) -> Dict[str, Any]:
         """Bulk assign teachers to evaluation period."""

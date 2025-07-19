@@ -9,6 +9,12 @@ from .organization import Organization
 from .user_role import UserRole
 from .media_file import MediaFile
 
+# PKG System models
+from .rpp_submission import RPPSubmission
+from .evaluation_aspect import EvaluationAspect
+from .teacher_evaluation import TeacherEvaluation
+from .evaluation_result import EvaluationResult
+
 # Enums
 from .enums import (
     UserRole as UserRoleEnum,
@@ -36,6 +42,12 @@ __all__ = [
     "Organization",
     "UserRole",
     "MediaFile",
+    
+    # PKG System models
+    "RPPSubmission",
+    "EvaluationAspect",
+    "TeacherEvaluation",
+    "EvaluationResult",
     
     # Enums
     "UserRoleEnum",

@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     from .organization import Organization
     from .user_role import UserRole
     from .media_file import MediaFile
+    from .rpp_submission import RPPSubmission
+    from .teacher_evaluation import TeacherEvaluation
+    from .evaluation_result import EvaluationResult
 
 
 class User(BaseModel, SQLModel, table=True):
@@ -50,6 +53,14 @@ class User(BaseModel, SQLModel, table=True):
     organization: Optional["Organization"] = Relationship(back_populates="users")
     user_roles: List["UserRole"] = Relationship(back_populates="user")
     uploaded_files: List["MediaFile"] = Relationship(back_populates="uploader")
+    
+    # PKG System relationships
+    submitted_rpps: List["RPPSubmission"] = Relationship(back_populates="teacher")
+    reviewed_rpps: List["RPPSubmission"] = Relationship(back_populates="reviewer")
+    conducted_evaluations: List["TeacherEvaluation"] = Relationship(back_populates="evaluator")
+    received_evaluations: List["TeacherEvaluation"] = Relationship(back_populates="teacher")
+    evaluation_results_given: List["EvaluationResult"] = Relationship(back_populates="evaluator")
+    evaluation_results_received: List["EvaluationResult"] = Relationship(back_populates="teacher")
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, status={self.status.value})>"

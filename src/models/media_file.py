@@ -1,6 +1,6 @@
 """MediaFile model for unified file management."""
 
-from typing import Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Column, JSON, Relationship
 
 from .base import BaseModel
@@ -8,6 +8,7 @@ from .base import BaseModel
 if TYPE_CHECKING:
     from .user import User
     from .organization import Organization
+    from .rpp_submission import RPPSubmission
 
 
 class MediaFile(BaseModel, SQLModel, table=True):
@@ -44,6 +45,7 @@ class MediaFile(BaseModel, SQLModel, table=True):
     # Relationships
     uploader: Optional["User"] = Relationship(back_populates="uploaded_files")
     organization: Optional["Organization"] = Relationship(back_populates="media_files")
+    rpp_submissions: List["RPPSubmission"] = Relationship(back_populates="file")
     
     def __repr__(self) -> str:
         return f"<MediaFile(id={self.id}, file_name={self.file_name}, type={self.file_type})>"

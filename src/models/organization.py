@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .user import User
     from .user_role import UserRole
     from .media_file import MediaFile
+    from .evaluation_aspect import EvaluationAspect
 
 
 class Organization(BaseModel, SQLModel, table=True):
@@ -43,6 +44,7 @@ class Organization(BaseModel, SQLModel, table=True):
     users: List["User"] = Relationship(back_populates="organization")
     user_roles: List["UserRole"] = Relationship(back_populates="organization")
     media_files: List["MediaFile"] = Relationship(back_populates="organization")
+    evaluation_aspects: List["EvaluationAspect"] = Relationship(back_populates="organization")
     
     def __repr__(self) -> str:
         return f"<Organization(id={self.id}, name={self.name}, type={self.type.value})>"

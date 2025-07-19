@@ -2,10 +2,10 @@
 
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, field_validator
-from datetime import datetime
+from datetime import datetime, date
 
 from src.schemas.shared import BaseListResponse
-from src.schemas.filters import PaginationParams, SearchParams, DateRangeFilter
+from src.schemas.filters import PaginationParams, SearchParams
 
 
 # ===== BASE SCHEMAS =====
@@ -122,16 +122,19 @@ class EvaluationAspectSummary(BaseModel):
 
 # ===== FILTER SCHEMAS =====
 
-class EvaluationAspectFilterParams(PaginationParams, SearchParams, DateRangeFilter):
+class EvaluationAspectFilterParams(PaginationParams, SearchParams):
     """Filter parameters for evaluation aspect listing."""
     
     # Aspect-specific filters
     category: Optional[str] = Field(None, description="Filter by category")
     is_active: Optional[bool] = Field(None, description="Filter by active status")
-    has_evaluations: Optional[bool] = Field(None, description="Filter aspects with/without evaluations")
+    
+    # Date filtering for creation date
+    created_after: Optional[date] = Field(None, description="Filter aspects created after this date")
+    created_before: Optional[date] = Field(None, description="Filter aspects created before this date")
     
     # Override search field description
-    q: Optional[str] = Field(None, description="Search in aspect name or description")
+    q: Optional[str] = Field(None, description="Search in aspect name, description, or category")
     
     # Override default sort
     sort_by: str = Field(default="aspect_name", description="Sort field (aspect_name, category, is_active, created_at, updated_at)")

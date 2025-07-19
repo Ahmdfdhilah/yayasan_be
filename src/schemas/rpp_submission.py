@@ -107,7 +107,7 @@ class RPPSubmissionResponse(BaseModel):
                 "reviewer_name": submission.reviewer.display_name if hasattr(submission, 'reviewer') and submission.reviewer else None,
                 "file_name": submission.file.file_name if hasattr(submission, 'file') and submission.file else None,
                 "file_url": submission.file.get_url(base_url) if hasattr(submission, 'file') and submission.file else None,
-                "period_name": submission.period.period_name if hasattr(submission, 'period') and submission.period else None,
+                "period_name": f"{submission.period.academic_year} - {submission.period.semester}" if hasattr(submission, 'period') and submission.period else None,
                 "academic_year": submission.period.academic_year if hasattr(submission, 'period') and submission.period else None,
                 "semester": submission.period.semester if hasattr(submission, 'period') and submission.period else None
             })

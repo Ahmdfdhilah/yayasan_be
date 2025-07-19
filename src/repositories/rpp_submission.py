@@ -37,7 +37,12 @@ class RPPSubmissionRepository:
         
         self.session.add(submission)
         await self.session.commit()
-        await self.session.refresh(submission)
+        
+        # Refresh with relationships loaded
+        await self.session.refresh(
+            submission,
+            ["teacher", "reviewer", "file", "period"]
+        )
         return submission
     
     async def get_by_id(self, submission_id: int) -> Optional[RPPSubmission]:

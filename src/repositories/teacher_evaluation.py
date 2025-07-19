@@ -411,162 +411,7 @@ class TeacherEvaluationRepository:
         
         return evaluations
     
-    # ===== ANALYTICS AND AGGREGATION =====
-    
-    async def get_teacher_evaluation_summary(
-        self,
-        teacher_id: int,
-        academic_year: str,
-        semester: str
-    ) -> Dict[str, Any]:
-        """Get comprehensive evaluation summary for a teacher."""
-        evaluations = await self.get_teacher_period_evaluations(teacher_id, academic_year, semester)
-        
-        if not evaluations:
-            return {
-                "teacher_id": teacher_id,
-                "academic_year": academic_year,
-                "semester": semester,
-                "total_score": 0,
-                "max_possible_score": 0,
-                "weighted_total": Decimal("0.00"),
-                "aspect_count": 0,
-                "completion_status": "not_started",
-                "aspect_scores": []
-            }
-        
-        total_score = sum(eval.score for eval in evaluations)
-        max_possible_score = sum(eval.aspect.max_score for eval in evaluations)
-        weighted_total = sum(eval.get_weighted_score() for eval in evaluations)
-        
-        aspect_scores = []
-        for eval in evaluations:
-            aspect_scores.append({
-                "aspect_id": eval.aspect_id,
-                "aspect_name": eval.aspect.aspect_name,
-                "score": eval.score,
-                "max_score": eval.aspect.max_score,
-                "weight": float(eval.aspect.weight),
-                "weighted_score": eval.get_weighted_score(),
-                "notes": eval.notes,
-                "evaluation_date": eval.evaluation_date
-            })
-        
-        # Determine completion status
-        completion_status = "completed"
-        if len(evaluations) == 0:
-            completion_status = "not_started"
-        else:
-            # Check if all required aspects are evaluated
-            # This would need business logic to determine required aspects
-            completion_status = "partial"  # Simplified for now
-        
-        return {
-            "teacher_id": teacher_id,
-            "academic_year": academic_year,
-            "semester": semester,
-            "total_score": total_score,
-            "max_possible_score": max_possible_score,
-            "weighted_total": float(weighted_total),
-            "aspect_count": len(evaluations),
-            "completion_status": completion_status,
-            "aspect_scores": aspect_scores
-        }
-    
-    async def get_evaluations_analytics(self) -> Dict[str, Any]:
-        """Get comprehensive evaluations analytics."""
-        base_filter = TeacherEvaluation.deleted_at.is_(None)
-        
-        # Total evaluations
-        total_query = select(func.count(TeacherEvaluation.id)).where(base_filter)
-        total_result = await self.session.execute(total_query)
-        total_evaluations = total_result.scalar()
-        
-        # Unique teachers and evaluators
-        teachers_query = select(func.count(func.distinct(TeacherEvaluation.teacher_id))).where(base_filter)
-        teachers_result = await self.session.execute(teachers_query)
-        unique_teachers = teachers_result.scalar()
-        
-        evaluators_query = select(func.count(func.distinct(TeacherEvaluation.evaluator_id))).where(base_filter)
-        evaluators_result = await self.session.execute(evaluators_query)
-        unique_evaluators = evaluators_result.scalar()
-        
-        # Average score
-        avg_score_query = select(func.avg(TeacherEvaluation.score)).where(base_filter)
-        avg_score_result = await self.session.execute(avg_score_query)
-        avg_score = avg_score_result.scalar()
-        
-        # Score distribution
-        score_dist_query = (
-            select(TeacherEvaluation.score, func.count(TeacherEvaluation.id))
-            .where(base_filter)
-            .group_by(TeacherEvaluation.score)
-            .order_by(TeacherEvaluation.score)
-        )
-        score_dist_result = await self.session.execute(score_dist_query)
-        score_distribution = {str(score): count for score, count in score_dist_result.fetchall()}
-        
-        # Evaluations by period
-        period_query = (
-            select(
-                TeacherEvaluation.academic_year,
-                TeacherEvaluation.semester,
-                func.count(TeacherEvaluation.id)
-            )
-            .where(base_filter)
-            .group_by(TeacherEvaluation.academic_year, TeacherEvaluation.semester)
-            .order_by(TeacherEvaluation.academic_year.desc(), TeacherEvaluation.semester.desc())
-        )
-        period_result = await self.session.execute(period_query)
-        evaluations_by_period = {
-            f"{year}-{semester}": count
-            for year, semester, count in period_result.fetchall()
-        }
-        
-        # Evaluations by aspect
-        aspect_query = (
-            select(EvaluationAspect.aspect_name, func.count(TeacherEvaluation.id))
-            .join(EvaluationAspect, TeacherEvaluation.aspect_id == EvaluationAspect.id)
-            .where(base_filter)
-            .group_by(EvaluationAspect.aspect_name)
-            .order_by(func.count(TeacherEvaluation.id).desc())
-        )
-        aspect_result = await self.session.execute(aspect_query)
-        evaluations_by_aspect = dict(aspect_result.fetchall())
-        
-        # Evaluator activity - using subquery approach
-        evaluator_counts_query = (
-            select(
-                TeacherEvaluation.evaluator_id,
-                func.count(TeacherEvaluation.id).label("evaluation_count")
-            )
-            .where(base_filter)
-            .group_by(TeacherEvaluation.evaluator_id)
-            .order_by(func.count(TeacherEvaluation.id).desc())
-        )
-        evaluator_counts_result = await self.session.execute(evaluator_counts_query)
-        evaluator_counts = evaluator_counts_result.fetchall()
-        
-        # Get evaluator names separately
-        evaluator_activity = {}
-        for evaluator_id, count in evaluator_counts:
-            user_query = select(User.profile).where(User.id == evaluator_id)
-            user_result = await self.session.execute(user_query)
-            user_profile = user_result.scalar_one_or_none()
-            evaluator_name = user_profile.get('name', 'Unknown') if user_profile else 'Unknown'
-            evaluator_activity[evaluator_name] = count
-        
-        return {
-            "total_evaluations": total_evaluations,
-            "unique_teachers": unique_teachers,
-            "unique_evaluators": unique_evaluators,
-            "avg_score_overall": float(avg_score) if avg_score else 0.0,
-            "score_distribution": score_distribution,
-            "evaluations_by_period": evaluations_by_period,
-            "evaluations_by_aspect": evaluations_by_aspect,
-            "evaluator_activity": evaluator_activity
-        }
-    
+   
     async def get_aspect_performance_analysis(self, aspect_id: int) -> Dict[str, Any]:
         """Get detailed performance analysis for a specific aspect."""
         evaluations = await self.get_evaluations_by_aspect(aspect_id)
@@ -629,40 +474,6 @@ class TeacherEvaluationRepository:
             "improvement_needed": improvement_needed
         }
     
-    async def get_teacher_performance_trend(self, teacher_id: int, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get performance trend for a teacher over time."""
-        query = select(
-            TeacherEvaluation.academic_year,
-            TeacherEvaluation.semester,
-            func.avg(TeacherEvaluation.score).label("avg_score"),
-            func.count(TeacherEvaluation.id).label("evaluation_count"),
-            func.max(TeacherEvaluation.evaluation_date).label("latest_evaluation")
-        ).where(
-            and_(
-                TeacherEvaluation.teacher_id == teacher_id,
-                TeacherEvaluation.deleted_at.is_(None)
-            )
-        ).group_by(
-            TeacherEvaluation.academic_year,
-            TeacherEvaluation.semester
-        ).order_by(
-            TeacherEvaluation.academic_year.desc(),
-            TeacherEvaluation.semester.desc()
-        ).limit(limit)
-        
-        result = await self.session.execute(query)
-        trend_data = []
-        
-        for row in result.fetchall():
-            trend_data.append({
-                "academic_year": row.academic_year,
-                "semester": row.semester,
-                "avg_score": float(row.avg_score),
-                "evaluation_count": row.evaluation_count,
-                "latest_evaluation": row.latest_evaluation
-            })
-        
-        return trend_data
     
     # ===== BULK ASSIGNMENT METHODS =====
     
@@ -754,6 +565,7 @@ class TeacherEvaluationRepository:
     ) -> List[TeacherEvaluation]:
         """Get all evaluations for a teacher in a specific period."""
         query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.teacher),
             selectinload(TeacherEvaluation.aspect),
             selectinload(TeacherEvaluation.period)
         ).where(

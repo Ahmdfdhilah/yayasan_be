@@ -5,7 +5,9 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 
 from src.schemas.shared import BaseListResponse
-from src.schemas.filters import PaginationParams, SearchParams, DateRangeFilter
+from typing import Optional
+from datetime import date
+from pydantic import Field
 
 
 # ===== BASE SCHEMAS =====
@@ -173,6 +175,30 @@ class MediaFileSummary(BaseModel):
         )
     
     model_config = {"from_attributes": True}
+
+
+# ===== BASE FILTER SCHEMAS =====
+
+class PaginationParams(BaseModel):
+    """Base pagination parameters."""
+    
+    page: int = Field(default=1, ge=1, description="Page number")
+    size: int = Field(default=10, ge=1, le=100, description="Items per page")
+
+
+class SearchParams(BaseModel):
+    """Base search parameters."""
+    
+    q: Optional[str] = Field(default=None, description="Search query")
+    sort_by: str = Field(default="created_at", description="Sort field")
+    sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sort order")
+
+
+class DateRangeFilter(BaseModel):
+    """Date range filter parameters."""
+    
+    start_date: Optional[date] = Field(default=None, description="Start date")
+    end_date: Optional[date] = Field(default=None, description="End date")
 
 
 # ===== FILTER SCHEMAS =====

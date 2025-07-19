@@ -12,7 +12,7 @@ from src.models.media_file import MediaFile
 from src.models.period import Period
 from src.models.enums import RPPStatus
 from src.schemas.rpp_submission import RPPSubmissionCreate, RPPSubmissionUpdate
-from src.schemas.filters import RPPSubmissionFilterParams
+from src.schemas.rpp_submission import RPPSubmissionFilterParams
 
 
 class RPPSubmissionRepository:

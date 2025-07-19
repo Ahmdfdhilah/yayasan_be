@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import datetime, date
 
 from src.schemas.shared import BaseListResponse
-from src.schemas.filters import PaginationParams, SearchParams
+from typing import Optional
+from pydantic import Field
 
 
 # ===== BASE SCHEMAS =====
@@ -120,6 +121,23 @@ class EvaluationAspectSummary(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ===== BASE FILTER SCHEMAS =====
+
+class PaginationParams(BaseModel):
+    """Base pagination parameters."""
+    
+    page: int = Field(default=1, ge=1, description="Page number")
+    size: int = Field(default=10, ge=1, le=100, description="Items per page")
+
+
+class SearchParams(BaseModel):
+    """Base search parameters."""
+    
+    q: Optional[str] = Field(default=None, description="Search query")
+    sort_by: str = Field(default="created_at", description="Sort field")
+    sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sort order")
+
+
 # ===== FILTER SCHEMAS =====
 
 class EvaluationAspectFilterParams(PaginationParams, SearchParams):
@@ -128,6 +146,7 @@ class EvaluationAspectFilterParams(PaginationParams, SearchParams):
     # Aspect-specific filters
     category: Optional[str] = Field(None, description="Filter by category")
     is_active: Optional[bool] = Field(None, description="Filter by active status")
+    has_evaluations: Optional[bool] = Field(None, description="Filter aspects with/without evaluations")
     
     # Date filtering for creation date
     created_after: Optional[date] = Field(None, description="Filter aspects created after this date")

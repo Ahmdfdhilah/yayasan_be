@@ -13,7 +13,7 @@ from src.schemas.media_file import (
     MediaFileListResponse, MediaFileUploadResponse
 )
 from src.schemas.shared import MessageResponse
-from src.schemas.filters import MediaFileFilterParams
+from src.schemas.media_file import MediaFileFilterParams
 from src.models.media_file import MediaFile
 
 

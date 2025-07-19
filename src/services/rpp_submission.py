@@ -22,7 +22,7 @@ from src.schemas.rpp_submission import (
     TeacherRPPProgress,
     RPPSubmissionStats
 )
-from src.schemas.filters import RPPSubmissionFilterParams
+from src.schemas.rpp_submission import RPPSubmissionFilterParams
 from src.models.enums import RPPStatus
 
 

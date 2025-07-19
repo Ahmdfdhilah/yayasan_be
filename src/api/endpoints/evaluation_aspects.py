@@ -21,7 +21,7 @@ from src.schemas.evaluation_aspect import (
     AspectPerformanceAnalysis,
     EvaluationAspectStats
 )
-from src.schemas.filters import EvaluationAspectFilterParams
+from src.schemas.evaluation_aspect import EvaluationAspectFilterParams
 from src.schemas.shared import MessageResponse
 
 router = APIRouter(prefix="/evaluation-aspects", tags=["Evaluation Aspects"])

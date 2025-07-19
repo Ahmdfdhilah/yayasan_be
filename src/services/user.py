@@ -9,7 +9,7 @@ from src.schemas.user import (
     UserChangePassword, UserSummary
 )
 from src.schemas.shared import MessageResponse
-from src.schemas.filters import UserFilterParams
+from src.schemas.user import UserFilterParams
 from src.auth.jwt import get_password_hash, verify_password
 from src.models.user import User
 from src.models.enums import UserStatus

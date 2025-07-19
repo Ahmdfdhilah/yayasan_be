@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from src.models.evaluation_aspect import EvaluationAspect
 from src.models.teacher_evaluation import TeacherEvaluation
 from src.schemas.evaluation_aspect import EvaluationAspectCreate, EvaluationAspectUpdate
-from src.schemas.filters import EvaluationAspectFilterParams
+from src.schemas.evaluation_aspect import EvaluationAspectFilterParams
 
 
 class EvaluationAspectRepository:

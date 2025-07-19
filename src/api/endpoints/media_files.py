@@ -15,7 +15,7 @@ from src.schemas.media_file import (
     MediaFileUploadResponse
 )
 from src.schemas.shared import MessageResponse
-from src.schemas.filters import MediaFileFilterParams
+from src.schemas.media_file import MediaFileFilterParams
 
 router = APIRouter(prefix="/media-files", tags=["Media Files"])
 

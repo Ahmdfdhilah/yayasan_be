@@ -9,7 +9,7 @@ from src.schemas.organization import (
     OrganizationListResponse, OrganizationSummary, ContactInfoUpdate, SettingsUpdate
 )
 from src.schemas.shared import MessageResponse
-from src.schemas.filters import OrganizationFilterParams
+from src.schemas.organization import OrganizationFilterParams
 from src.models.organization import Organization
 from src.models.enums import OrganizationType
 

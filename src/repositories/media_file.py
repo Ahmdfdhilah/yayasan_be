@@ -9,7 +9,7 @@ from src.models.media_file import MediaFile
 from src.models.user import User
 from src.models.organization import Organization
 from src.schemas.media_file import MediaFileCreate, MediaFileUpdate
-from src.schemas.filters import MediaFileFilterParams
+from src.schemas.media_file import MediaFileFilterParams
 
 
 class MediaFileRepository:

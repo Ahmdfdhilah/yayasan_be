@@ -13,7 +13,7 @@ from src.schemas.user_role import (
     PermissionUpdate, RoleAnalytics, RoleAnalyticsResponse
 )
 from src.schemas.shared import MessageResponse
-from src.schemas.filters import UserRoleFilterParams
+from src.schemas.user_role import UserRoleFilterParams
 from src.models.user_role import UserRole
 
 

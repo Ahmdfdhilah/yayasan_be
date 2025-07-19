@@ -18,7 +18,7 @@ from src.schemas.evaluation_aspect import (
     AspectPerformanceAnalysis,
     EvaluationAspectStats
 )
-from src.schemas.filters import EvaluationAspectFilterParams
+from src.schemas.evaluation_aspect import EvaluationAspectFilterParams
 
 
 class EvaluationAspectService:

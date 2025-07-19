@@ -9,7 +9,7 @@ from src.models.user import User, PasswordResetToken
 from src.models.user_role import UserRole
 from src.models.enums import UserStatus
 from src.schemas.user import UserCreate, UserUpdate
-from src.schemas.filters import UserFilterParams
+from src.schemas.user import UserFilterParams
 from src.auth.jwt import get_password_hash
 
 

@@ -12,7 +12,7 @@ from src.schemas.user import (
     UserChangePassword, UserRoleCreate, UserRoleUpdate, UserRoleResponse
 )
 from src.schemas.shared import MessageResponse
-from src.schemas.filters import UserFilterParams
+from src.schemas.user import UserFilterParams
 from src.auth.permissions import get_current_active_user, require_roles
 
 router = APIRouter()

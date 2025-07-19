@@ -30,8 +30,8 @@ from .user import (
     UserRoleResponse,
 )
 
-# Filter schemas
-from .filters import (
+# Filter schemas moved to individual schema files
+from .user import (
     UserFilterParams,
     UsernameGenerationPreview,
     UsernameGenerationResponse,
@@ -70,7 +70,7 @@ __all__ = [
     "UserRoleUpdate",
     "UserRoleResponse",
     
-    # Filters
+    # Filters (now from individual schema files)
     "UserFilterParams",
     "UsernameGenerationPreview", 
     "UsernameGenerationResponse",

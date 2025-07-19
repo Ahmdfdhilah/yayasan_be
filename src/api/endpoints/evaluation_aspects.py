@@ -203,7 +203,7 @@ async def bulk_create_aspects(
     
     Requires admin role.
     """
-    return await aspect_service.bulk_create_aspects(bulk_data)
+    return await aspect_service.bulk_create_aspects(bulk_data, current_user.get("id"))
 
 
 @router.patch(

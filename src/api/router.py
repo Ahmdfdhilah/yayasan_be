@@ -93,6 +93,8 @@ api_router.include_router(
 # Teacher Evaluations - untuk evaluasi individual per aspek
 api_router.include_router(
     teacher_evaluations.router,
+    prefix="/teacher-evaluations",
+    tags=["Teacher Evaluations"],
     responses={
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},

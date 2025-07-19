@@ -134,7 +134,7 @@ class EvaluationAspectFilterParams(PaginationParams, SearchParams, DateRangeFilt
     q: Optional[str] = Field(None, description="Search in aspect name or description")
     
     # Override default sort
-    sort_by: str = Field(default="aspect_name", description="Sort field")
+    sort_by: str = Field(default="aspect_name", description="Sort field (aspect_name, category, is_active, created_at, updated_at)")
 
 
 # ===== BULK OPERATIONS =====

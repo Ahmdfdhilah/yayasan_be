@@ -130,21 +130,10 @@ class EvaluationAspectRepository:
             query = query.where(EvaluationAspect.is_active == filters.is_active)
             count_query = count_query.where(EvaluationAspect.is_active == filters.is_active)
         
-        if filters.min_weight is not None:
-            query = query.where(EvaluationAspect.weight >= filters.min_weight)
-            count_query = count_query.where(EvaluationAspect.weight >= filters.min_weight)
+        if filters.category:
+            query = query.where(EvaluationAspect.category.ilike(f"%{filters.category}%"))
+            count_query = count_query.where(EvaluationAspect.category.ilike(f"%{filters.category}%"))
         
-        if filters.max_weight is not None:
-            query = query.where(EvaluationAspect.weight <= filters.max_weight)
-            count_query = count_query.where(EvaluationAspect.weight <= filters.max_weight)
-        
-        if filters.min_score is not None:
-            query = query.where(EvaluationAspect.max_score >= filters.min_score)
-            count_query = count_query.where(EvaluationAspect.max_score >= filters.min_score)
-        
-        if filters.max_score is not None:
-            query = query.where(EvaluationAspect.max_score <= filters.max_score)
-            count_query = count_query.where(EvaluationAspect.max_score <= filters.max_score)
         
         if filters.created_after:
             query = query.where(EvaluationAspect.created_at >= filters.created_after)
@@ -157,10 +146,8 @@ class EvaluationAspectRepository:
         # Apply sorting
         if filters.sort_by == "aspect_name":
             sort_column = EvaluationAspect.aspect_name
-        elif filters.sort_by == "weight":
-            sort_column = EvaluationAspect.weight
-        elif filters.sort_by == "max_score":
-            sort_column = EvaluationAspect.max_score
+        elif filters.sort_by == "category":
+            sort_column = EvaluationAspect.category
         elif filters.sort_by == "is_active":
             sort_column = EvaluationAspect.is_active
         elif filters.sort_by == "created_at":
@@ -215,18 +202,16 @@ class EvaluationAspectRepository:
     
     # ===== BULK OPERATIONS =====
     
-    async def bulk_create(self, aspects_data: List[EvaluationAspectCreate]) -> List[EvaluationAspect]:
+    async def bulk_create(self, aspects_data: List[EvaluationAspectCreate], created_by: Optional[int] = None) -> List[EvaluationAspect]:
         """Bulk create evaluation aspects."""
         aspects = []
         for aspect_data in aspects_data:
             aspect = EvaluationAspect(
                 aspect_name=aspect_data.aspect_name,
-                category=getattr(aspect_data, 'category', 'General'),
+                category=aspect_data.category,
                 description=aspect_data.description,
-                weight=aspect_data.weight,
-                min_score=getattr(aspect_data, 'min_score', 1),
-                max_score=aspect_data.max_score,
-                is_active=aspect_data.is_active
+                is_active=aspect_data.is_active,
+                created_by=created_by
             )
             aspects.append(aspect)
             self.session.add(aspect)
@@ -267,35 +252,9 @@ class EvaluationAspectRepository:
         eval_count_result = await self.session.execute(eval_count_query)
         evaluation_count = eval_count_result.scalar()
         
-        # Calculate average score
-        avg_score_query = select(func.avg(TeacherEvaluation.score)).where(
-            and_(
-                TeacherEvaluation.aspect_id == aspect_id,
-                TeacherEvaluation.deleted_at.is_(None)
-            )
-        )
-        avg_score_result = await self.session.execute(avg_score_query)
-        avg_score = avg_score_result.scalar()
-        
-        # Get score distribution
-        score_dist_query = (
-            select(TeacherEvaluation.score, func.count(TeacherEvaluation.id))
-            .where(
-                and_(
-                    TeacherEvaluation.aspect_id == aspect_id,
-                    TeacherEvaluation.deleted_at.is_(None)
-                )
-            )
-            .group_by(TeacherEvaluation.score)
-            .order_by(TeacherEvaluation.score)
-        )
-        score_dist_result = await self.session.execute(score_dist_query)
-        score_distribution = dict(score_dist_result.fetchall())
-        
         return {
             "evaluation_count": evaluation_count,
-            "avg_score": float(avg_score) if avg_score else 0.0,
-            "score_distribution": score_distribution
+            "avg_score": 0.0  # Simplified - no scores in this version
         }
     
     async def get_aspects_analytics(self) -> Dict[str, Any]:
@@ -314,53 +273,12 @@ class EvaluationAspectRepository:
         active_result = await self.session.execute(active_query)
         active_aspects = active_result.scalar()
         
-        # Weight distribution
-        weight_query = (
-            select(EvaluationAspect.aspect_name, EvaluationAspect.weight)
-            .where(and_(base_filter, EvaluationAspect.is_active == True))
-            .order_by(EvaluationAspect.weight.desc())
-        )
-        weight_result = await self.session.execute(weight_query)
-        weight_data = weight_result.fetchall()
-        
-        total_weight = sum(weight for _, weight in weight_data)
-        weight_distribution = {name: float(weight) for name, weight in weight_data}
-        
         return {
             "total_aspects": total_aspects,
             "active_aspects": active_aspects,
-            "inactive_aspects": total_aspects - active_aspects,
-            "total_weight": float(total_weight),
-            "weight_distribution": weight_distribution
+            "inactive_aspects": total_aspects - active_aspects
         }
     
-    async def validate_aspect_weights(self) -> Dict[str, Any]:
-        """Validate that aspect weights are properly balanced."""
-        active_aspects = await self.get_active_aspects()
-        
-        total_weight = sum(aspect.weight for aspect in active_aspects)
-        expected_weight = Decimal("100.00")
-        
-        is_valid = total_weight == expected_weight
-        errors = []
-        warnings = []
-        
-        if total_weight > expected_weight:
-            errors.append(f"Total weight ({total_weight}%) exceeds 100%")
-        elif total_weight < expected_weight:
-            warnings.append(f"Total weight ({total_weight}%) is less than 100%")
-        
-        # Check for zero weights
-        zero_weight_aspects = [a for a in active_aspects if a.weight == 0]
-        if zero_weight_aspects:
-            warnings.append(f"{len(zero_weight_aspects)} aspects have zero weight")
-        
-        return {
-            "is_valid": is_valid,
-            "total_weight": float(total_weight),
-            "errors": errors,
-            "warnings": warnings
-        }
     
     # ===== HELPER METHODS =====
     

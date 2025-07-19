@@ -206,7 +206,7 @@ class EvaluationAspectService:
     
     # ===== BULK OPERATIONS =====
     
-    async def bulk_create_aspects(self, bulk_data: EvaluationAspectBulkCreate) -> List[EvaluationAspectResponse]:
+    async def bulk_create_aspects(self, bulk_data: EvaluationAspectBulkCreate, created_by: Optional[int] = None) -> List[EvaluationAspectResponse]:
         """Bulk create evaluation aspects."""
         # Validate unique names within the batch
         aspect_names = [aspect.aspect_name for aspect in bulk_data.aspects]
@@ -224,7 +224,7 @@ class EvaluationAspectService:
                     detail=f"Evaluation aspect '{aspect_data.aspect_name}' already exists"
                 )
         
-        aspects = await self.aspect_repo.bulk_create(bulk_data.aspects)
+        aspects = await self.aspect_repo.bulk_create(bulk_data.aspects, created_by)
         
         return [
             EvaluationAspectResponse.from_evaluation_aspect_model(aspect, include_stats=True)

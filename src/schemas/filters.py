@@ -144,13 +144,9 @@ class EvaluationAspectFilterParams(PaginationParams, SearchParams, DateRangeFilt
     """Filter parameters for evaluation aspect listing."""
     
     # Aspect-specific filters
-    organization_id: Optional[int] = Field(None, description="Filter by organization ID")
+    category: Optional[str] = Field(None, description="Filter by category")
     is_active: Optional[bool] = Field(None, description="Filter by active status")
     has_evaluations: Optional[bool] = Field(None, description="Filter aspects with/without evaluations")
-    min_weight: Optional[Decimal] = Field(None, ge=0, description="Minimum weight")
-    max_weight: Optional[Decimal] = Field(None, ge=0, description="Maximum weight")
-    min_score: Optional[int] = Field(None, ge=0, description="Minimum max score")
-    max_score: Optional[int] = Field(None, description="Maximum max score")
     
     # Date filtering for creation date
     created_after: Optional[date] = Field(None, description="Filter aspects created after this date")

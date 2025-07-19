@@ -201,6 +201,10 @@ class RPPSubmissionFilterParams(PaginationParams, SearchParams, DateRangeFilter)
     reviewed_after: Optional[datetime] = Field(None, description="Filter reviewed after this date")
     reviewed_before: Optional[datetime] = Field(None, description="Filter reviewed before this date")
     
+    # Date filtering for creation date
+    created_after: Optional[date] = Field(None, description="Filter submissions created after this date")
+    created_before: Optional[date] = Field(None, description="Filter submissions created before this date")
+    
     # Override search field description
     q: Optional[str] = Field(None, description="Search in RPP type, teacher name, or review notes")
     

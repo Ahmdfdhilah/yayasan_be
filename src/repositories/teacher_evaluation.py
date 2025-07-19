@@ -578,6 +578,7 @@ class TeacherEvaluationRepository:
     async def get_evaluations_by_period(self, period_id: int) -> List[TeacherEvaluation]:
         """Get all evaluations for a specific period."""
         query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.evaluator),
             selectinload(TeacherEvaluation.teacher),
             selectinload(TeacherEvaluation.aspect),
             selectinload(TeacherEvaluation.period)

@@ -432,7 +432,10 @@ class UserRoleService:
         analytics = await self.role_repo.get_role_analytics()
         
         # Convert to response format
-        summary = analytics
+        summary = {
+            "total_roles": len(analytics.get("by_role_type", {})),
+            "total_assignments": sum(analytics.get("by_role_type", {}).values())
+        }
         by_role = []
         
         for role_name, count in analytics["by_role_type"].items():

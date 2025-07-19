@@ -137,8 +137,13 @@ class UserRoleRepository:
     
     async def get_all_user_roles_filtered(self, filters: UserRoleFilterParams) -> Tuple[List[UserRole], int]:
         """Get user roles with filters and pagination."""
-        # Base query
-        query = select(UserRole).where(UserRole.deleted_at.is_(None))
+        from sqlalchemy.orm import selectinload
+        
+        # Base query with eager loading
+        query = select(UserRole).options(
+            selectinload(UserRole.user),
+            selectinload(UserRole.organization)
+        ).where(UserRole.deleted_at.is_(None))
         count_query = select(func.count(UserRole.id)).where(UserRole.deleted_at.is_(None))
         
         # Join with User and Organization for search

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.repositories.rpp_submission import RPPSubmissionRepository
 from src.repositories.user import UserRepository
 from src.repositories.media_file import MediaFileRepository
+from src.repositories.organization import OrganizationRepository
 from src.schemas.rpp_submission import (
     RPPSubmissionCreate,
     RPPSubmissionUpdate,
@@ -16,11 +17,7 @@ from src.schemas.rpp_submission import (
     RPPSubmissionSummary,
     RPPSubmissionReview,
     RPPSubmissionResubmit,
-    RPPSubmissionBulkReview,
-    RPPSubmissionBulkAssignReviewer,
-    RPPSubmissionAnalytics,
-    TeacherRPPProgress,
-    RPPSubmissionStats
+    RPPSubmissionBulkReview
 )
 from src.schemas.rpp_submission import RPPSubmissionFilterParams
 from src.models.enums import RPPStatus
@@ -33,16 +30,18 @@ class RPPSubmissionService:
         self,
         submission_repo: RPPSubmissionRepository,
         user_repo: UserRepository,
-        media_repo: MediaFileRepository
+        media_repo: MediaFileRepository,
+        org_repo: OrganizationRepository
     ):
         self.submission_repo = submission_repo
         self.user_repo = user_repo
         self.media_repo = media_repo
+        self.org_repo = org_repo
     
     # ===== BASIC CRUD OPERATIONS =====
     
     async def create_submission(self, submission_data: RPPSubmissionCreate, created_by: Optional[int] = None) -> RPPSubmissionResponse:
-        """Create new RPP submission."""
+        """Create new RPP submission with automatic reviewer assignment."""
         # Validate teacher exists
         teacher = await self.user_repo.get_by_id(submission_data.teacher_id)
         if not teacher:
@@ -59,8 +58,36 @@ class RPPSubmissionService:
                 detail="File not found"
             )
         
-        # Create submission (period-based, no need to check academic_year/semester)
-        submission = await self.submission_repo.create(submission_data, created_by)
+        # Get teacher's organization to find the head/principal
+        if not teacher.organization_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Teacher must be assigned to an organization"
+            )
+        
+        organization = await self.org_repo.get_by_id(teacher.organization_id)
+        if not organization:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Teacher's organization not found"
+            )
+        
+        # Automatically assign organization head as reviewer
+        reviewer_id = None
+        if organization.head_id:
+            # Validate that the head exists and is active
+            head = await self.user_repo.get_by_id(organization.head_id)
+            if head and not head.deleted_at:
+                reviewer_id = organization.head_id
+        
+        if not reviewer_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No active head/principal found for the teacher's organization to assign as reviewer"
+            )
+        
+        # Create submission with automatic reviewer assignment
+        submission = await self.submission_repo.create(submission_data, created_by, reviewer_id)
         return RPPSubmissionResponse.from_rpp_submission_model(
             submission, include_relations=True
         )
@@ -402,130 +429,3 @@ class RPPSubmissionService:
             "reviewed_count": reviewed_count
         }
     
-    async def bulk_assign_reviewer(self, bulk_data: RPPSubmissionBulkAssignReviewer) -> Dict[str, Any]:
-        """Bulk assign reviewer to submissions."""
-        # Validate reviewer exists
-        reviewer = await self.user_repo.get_by_id(bulk_data.reviewer_id)
-        if not reviewer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Reviewer not found"
-            )
-        
-        # Validate submission IDs exist
-        for submission_id in bulk_data.submission_ids:
-            submission = await self.submission_repo.get_by_id(submission_id)
-            if not submission:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"RPP submission with ID {submission_id} not found"
-                )
-        
-        assigned_count = await self.submission_repo.bulk_assign_reviewer(
-            bulk_data.submission_ids,
-            bulk_data.reviewer_id
-        )
-        
-        return {
-            "message": f"Successfully assigned reviewer to {assigned_count} submissions",
-            "assigned_count": assigned_count
-        }
-    
-    # ===== ANALYTICS AND STATISTICS =====
-    
-    async def get_submissions_analytics(self, organization_id: Optional[int] = None, current_user: dict = None) -> RPPSubmissionAnalytics:
-        """Get comprehensive submissions analytics."""
-        analytics_data = await self.submission_repo.get_submissions_analytics(organization_id)
-        
-        return RPPSubmissionAnalytics(
-            total_submissions=analytics_data["total_submissions"],
-            by_status=analytics_data["by_status"],
-            by_academic_year=analytics_data["by_academic_year"],
-            by_semester=analytics_data["by_semester"],
-            by_rpp_type=analytics_data["by_rpp_type"],
-            avg_review_time_hours=analytics_data["avg_review_time_hours"],
-            avg_revision_count=analytics_data["avg_revision_count"],
-            pending_reviews=analytics_data["pending_reviews"],
-            overdue_reviews=analytics_data["overdue_reviews"]
-        )
-    
-    async def get_teacher_progress(self, teacher_id: int, current_user: dict = None) -> TeacherRPPProgress:
-        """Get progress statistics for a specific teacher."""
-        # Validate teacher exists
-        teacher = await self.user_repo.get_by_id(teacher_id)
-        if not teacher:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher not found"
-            )
-        
-        progress_data = await self.submission_repo.get_teacher_progress(teacher_id)
-        
-        return TeacherRPPProgress(
-            teacher_id=teacher_id,
-            teacher_name=teacher.display_name,
-            teacher_email=teacher.email,
-            total_submitted=progress_data["total_submitted"],
-            approved=progress_data["approved"],
-            rejected=progress_data["rejected"],
-            pending=progress_data["pending"],
-            revision_needed=progress_data["revision_needed"],
-            completion_rate=progress_data["completion_rate"],
-            avg_revision_count=progress_data["avg_revision_count"],
-            last_submission=progress_data["last_submission"]
-        )
-    
-    async def get_reviewer_workload(self, reviewer_id: int, current_user: dict = None) -> Dict[str, Any]:
-        """Get workload statistics for a reviewer."""
-        # Validate reviewer exists
-        reviewer = await self.user_repo.get_by_id(reviewer_id)
-        if not reviewer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Reviewer not found"
-            )
-        
-        workload_data = await self.submission_repo.get_reviewer_workload(reviewer_id)
-        
-        return {
-            "reviewer_id": reviewer_id,
-            "reviewer_name": reviewer.display_name,
-            "total_assigned": workload_data["total_assigned"],
-            "pending_reviews": workload_data["pending_reviews"],
-            "completed_reviews": workload_data["completed_reviews"],
-            "avg_review_time_hours": workload_data["avg_review_time_hours"]
-        }
-    
-    async def get_comprehensive_stats(self, organization_id: Optional[int] = None, current_user: dict = None) -> RPPSubmissionStats:
-        """Get comprehensive RPP submission statistics."""
-        # Get main analytics
-        analytics = await self.get_submissions_analytics(organization_id)
-        
-        # Get teacher progress for all teachers with submissions
-        # This is a simplified version - in production, you'd want pagination
-        teacher_progress = []
-        
-        # Get recent activity (submissions in last 30 days)
-        from datetime import timedelta
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        
-        # This would need additional repository methods for time-based queries
-        recent_activity = {
-            "submissions_last_30_days": 0,
-            "reviews_last_30_days": 0,
-            "new_teachers": 0
-        }
-        
-        # Submission trends would need historical data
-        submission_trends = {
-            "monthly_submissions": [],
-            "monthly_approvals": [],
-            "monthly_rejections": []
-        }
-        
-        return RPPSubmissionStats(
-            summary=analytics,
-            teacher_progress=teacher_progress,
-            recent_activity=recent_activity,
-            submission_trends=submission_trends
-        )

@@ -23,13 +23,14 @@ class RPPSubmissionRepository:
     
     # ===== BASIC CRUD OPERATIONS =====
     
-    async def create(self, submission_data: RPPSubmissionCreate, created_by: Optional[int] = None) -> RPPSubmission:
-        """Create new RPP submission - updated for periods."""
+    async def create(self, submission_data: RPPSubmissionCreate, created_by: Optional[int] = None, reviewer_id: Optional[int] = None) -> RPPSubmission:
+        """Create new RPP submission - updated for periods with automatic reviewer assignment."""
         submission = RPPSubmission(
             teacher_id=submission_data.teacher_id,
             period_id=submission_data.period_id,
             rpp_type=submission_data.rpp_type,
             file_id=submission_data.file_id,
+            reviewer_id=reviewer_id,
             status=RPPStatus.PENDING,
             revision_count=0,
             created_by=created_by

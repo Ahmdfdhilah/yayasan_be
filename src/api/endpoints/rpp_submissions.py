@@ -15,6 +15,7 @@ from src.auth.permissions import (
 from src.repositories.rpp_submission import RPPSubmissionRepository
 from src.repositories.user import UserRepository
 from src.repositories.media_file import MediaFileRepository
+from src.repositories.organization import OrganizationRepository
 from src.services.rpp_submission import RPPSubmissionService
 from src.schemas.rpp_submission import (
     RPPSubmissionCreate,
@@ -23,11 +24,7 @@ from src.schemas.rpp_submission import (
     RPPSubmissionListResponse,
     RPPSubmissionReview,
     RPPSubmissionResubmit,
-    RPPSubmissionBulkReview,
-    RPPSubmissionBulkAssignReviewer,
-    RPPSubmissionAnalytics,
-    TeacherRPPProgress,
-    RPPSubmissionStats
+    RPPSubmissionBulkReview
 )
 from src.schemas.rpp_submission import RPPSubmissionFilterParams
 from src.schemas.shared import MessageResponse
@@ -40,7 +37,8 @@ def get_submission_service(db: AsyncSession = Depends(get_db)) -> RPPSubmissionS
     submission_repo = RPPSubmissionRepository(db)
     user_repo = UserRepository(db)
     media_repo = MediaFileRepository(db)
-    return RPPSubmissionService(submission_repo, user_repo, media_repo)
+    org_repo = OrganizationRepository(db)
+    return RPPSubmissionService(submission_repo, user_repo, media_repo, org_repo)
 
 
 # ===== BASIC CRUD OPERATIONS =====
@@ -262,85 +260,5 @@ async def bulk_review_submissions(
     return await submission_service.bulk_review_submissions(bulk_data, current_user["id"])
 
 
-@router.post(
-    "/bulk/assign-reviewer",
-    response_model=MessageResponse,
-    summary="Bulk assign reviewer"
-)
-async def bulk_assign_reviewer(
-    bulk_data: RPPSubmissionBulkAssignReviewer,
-    current_user: dict = Depends(admin_required),
-    submission_service: RPPSubmissionService = Depends(get_submission_service)
-):
-    """
-    Bulk assign reviewer to multiple submissions.
-    
-    Requires admin role.
-    """
-    return await submission_service.bulk_assign_reviewer(bulk_data)
 
 
-# ===== ANALYTICS AND STATISTICS =====
-
-@router.get(
-    "/analytics/overview",
-    response_model=RPPSubmissionAnalytics,
-    summary="Get RPP submissions analytics"
-)
-async def get_submissions_analytics(
-    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
-    current_user: dict = Depends(get_current_active_user),
-    submission_service: RPPSubmissionService = Depends(get_submission_service)
-):
-    """Get comprehensive RPP submissions analytics."""
-    return await submission_service.get_submissions_analytics(organization_id, current_user)
-
-
-@router.get(
-    "/teacher/{teacher_id}/progress",
-    response_model=TeacherRPPProgress,
-    summary="Get teacher RPP progress"
-)
-async def get_teacher_progress(
-    teacher_id: int,
-    current_user: dict = Depends(get_current_active_user),
-    submission_service: RPPSubmissionService = Depends(get_submission_service)
-):
-    """Get progress statistics for a specific teacher."""
-    return await submission_service.get_teacher_progress(teacher_id, current_user)
-
-
-@router.get(
-    "/reviewer/{reviewer_id}/workload",
-    response_model=dict,
-    summary="Get reviewer workload"
-)
-async def get_reviewer_workload(
-    reviewer_id: int,
-    current_user: dict = Depends(management_roles_required),
-    submission_service: RPPSubmissionService = Depends(get_submission_service)
-):
-    """
-    Get workload statistics for a reviewer.
-    
-    Requires management role (super_admin, admin, or kepala_sekolah).
-    """
-    return await submission_service.get_reviewer_workload(reviewer_id, current_user)
-
-
-@router.get(
-    "/analytics/comprehensive",
-    response_model=RPPSubmissionStats,
-    summary="Get comprehensive submission statistics"
-)
-async def get_comprehensive_stats(
-    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
-    current_user: dict = Depends(management_roles_required),
-    submission_service: RPPSubmissionService = Depends(get_submission_service)
-):
-    """
-    Get comprehensive RPP submission statistics.
-    
-    Requires management role (super_admin, admin, or kepala_sekolah).
-    """
-    return await submission_service.get_comprehensive_stats(organization_id, current_user)

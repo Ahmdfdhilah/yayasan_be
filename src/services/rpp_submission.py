@@ -170,9 +170,10 @@ class RPPSubmissionService:
         self, 
         submission_id: int, 
         reviewer_id: int, 
-        review_data: RPPSubmissionReview
+        review_data: RPPSubmissionReview,
+        current_user: dict = None
     ) -> RPPSubmissionResponse:
-        """Review RPP submission."""
+        """Review RPP submission with organization-based access control."""
         submission = await self.submission_repo.get_by_id(submission_id)
         if not submission:
             raise HTTPException(
@@ -194,6 +195,26 @@ class RPPSubmissionService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Reviewer not found"
             )
+        
+        # Organization-based access control for principals
+        if current_user:
+            # Get the teacher who submitted the RPP
+            teacher = await self.user_repo.get_by_id(submission.teacher_id)
+            if not teacher:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Teacher who submitted RPP not found"
+                )
+            
+            # Check if current user is a principal (kepala_sekolah) and can only review RPPs from their organization
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            if current_user_obj and current_user_obj.organization_id:
+                # Principal can only review submissions from teachers in their organization
+                if teacher.organization_id != current_user_obj.organization_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You can only review RPP submissions from teachers in your organization"
+                    )
         
         # Perform review action
         if review_data.action == "approve":
@@ -339,7 +360,7 @@ class RPPSubmissionService:
         ]
     
     async def get_pending_reviews(self, reviewer_id: Optional[int] = None, current_user: dict = None) -> List[RPPSubmissionResponse]:
-        """Get all pending review submissions."""
+        """Get all pending review submissions with organization-based filtering."""
         if reviewer_id:
             # Validate reviewer exists
             reviewer = await self.user_repo.get_by_id(reviewer_id)
@@ -349,7 +370,19 @@ class RPPSubmissionService:
                     detail="Reviewer not found"
                 )
         
+        # Get submissions assigned to the reviewer
         submissions = await self.submission_repo.get_pending_reviews(reviewer_id)
+        
+        # Additional organization-based filtering for security
+        filtered_submissions = []
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            if current_user_obj and current_user_obj.organization_id:
+                # Only include submissions from teachers in the same organization
+                for submission in submissions:
+                    if submission.teacher and submission.teacher.organization_id == current_user_obj.organization_id:
+                        filtered_submissions.append(submission)
+                submissions = filtered_submissions
         
         return [
             RPPSubmissionResponse.from_rpp_submission_model(
@@ -369,22 +402,16 @@ class RPPSubmissionService:
             for submission in submissions
         ]
     
-    async def get_overdue_reviews(self, days_threshold: int = 7, current_user: dict = None) -> List[RPPSubmissionResponse]:
-        """Get submissions that are overdue for review."""
-        submissions = await self.submission_repo.get_overdue_reviews(days_threshold)
-        
-        return [
-            RPPSubmissionResponse.from_rpp_submission_model(
-                submission, include_relations=True
-            )
-            for submission in submissions
-        ]
-    
     # ===== BULK OPERATIONS =====
     
-    async def bulk_review_submissions(self, bulk_data: RPPSubmissionBulkReview, current_user_id: int) -> Dict[str, Any]:
-        """Bulk review submissions."""
-        # Validate all submission IDs exist and are pending
+    async def bulk_review_submissions(self, bulk_data: RPPSubmissionBulkReview, current_user_id: int, current_user: dict = None) -> Dict[str, Any]:
+        """Bulk review submissions with organization-based access control."""
+        # Get current user's organization for access control
+        current_user_obj = None
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+        
+        # Validate all submission IDs exist and are pending, and check organization access
         for submission_id in bulk_data.submission_ids:
             submission = await self.submission_repo.get_by_id(submission_id)
             if not submission:
@@ -398,6 +425,23 @@ class RPPSubmissionService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Submission {submission_id} is not pending review"
                 )
+            
+            # Organization-based access control
+            if current_user_obj and current_user_obj.organization_id:
+                # Get the teacher who submitted the RPP
+                teacher = await self.user_repo.get_by_id(submission.teacher_id)
+                if not teacher:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Teacher who submitted RPP {submission_id} not found"
+                    )
+                
+                # Principal can only review submissions from teachers in their organization
+                if teacher.organization_id != current_user_obj.organization_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"You can only review RPP submissions from teachers in your organization. Submission {submission_id} is from a different organization."
+                    )
         
         reviewed_count = 0
         

@@ -103,15 +103,27 @@ class RPPSubmissionResponse(BaseModel):
         }
         
         if include_relations:
+            # Use SQLAlchemy inspection to check if attributes are loaded without triggering lazy loading
+            from sqlalchemy.inspection import inspect
+            from sqlalchemy.orm.attributes import PASSIVE_NO_RESULT
+            
+            state = inspect(submission)
+            
+            # Safely check if relationships are loaded
+            teacher = state.attrs.teacher.loaded_value if state.attrs.teacher.loaded_value is not PASSIVE_NO_RESULT else None
+            reviewer = state.attrs.reviewer.loaded_value if state.attrs.reviewer.loaded_value is not PASSIVE_NO_RESULT else None
+            file = state.attrs.file.loaded_value if state.attrs.file.loaded_value is not PASSIVE_NO_RESULT else None
+            period = state.attrs.period.loaded_value if state.attrs.period.loaded_value is not PASSIVE_NO_RESULT else None
+            
             data.update({
-                "teacher_name": submission.teacher.display_name if hasattr(submission, 'teacher') and submission.teacher else None,
-                "teacher_email": submission.teacher.email if hasattr(submission, 'teacher') and submission.teacher else None,
-                "reviewer_name": submission.reviewer.display_name if hasattr(submission, 'reviewer') and submission.reviewer else None,
-                "file_name": submission.file.file_name if hasattr(submission, 'file') and submission.file else None,
-                "file_url": submission.file.get_url(base_url) if hasattr(submission, 'file') and submission.file else None,
-                "period_name": f"{submission.period.academic_year} - {submission.period.semester}" if hasattr(submission, 'period') and submission.period else None,
-                "academic_year": submission.period.academic_year if hasattr(submission, 'period') and submission.period else None,
-                "semester": submission.period.semester if hasattr(submission, 'period') and submission.period else None
+                "teacher_name": teacher.display_name if teacher else None,
+                "teacher_email": teacher.email if teacher else None,
+                "reviewer_name": reviewer.display_name if reviewer else None,
+                "file_name": file.file_name if file else None,
+                "file_url": file.get_url(base_url) if file else None,
+                "period_name": f"{period.academic_year} - {period.semester}" if period else None,
+                "academic_year": period.academic_year if period else None,
+                "semester": period.semester if period else None
             })
         
         return cls(**data)

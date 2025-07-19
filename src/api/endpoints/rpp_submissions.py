@@ -66,30 +66,11 @@ async def create_submission(
     summary="Get pending reviews"
 )
 async def get_pending_reviews(
-    reviewer_id: Optional[int] = Query(None, description="Filter by reviewer ID"),
     current_user: dict = Depends(get_current_active_user),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
-    """Get all pending review submissions."""
-    return await submission_service.get_pending_reviews(reviewer_id, current_user)
-
-
-@router.get(
-    "/overdue-reviews",
-    response_model=List[RPPSubmissionResponse],
-    summary="Get overdue reviews"
-)
-async def get_overdue_reviews(
-    days_threshold: int = Query(7, ge=1, le=30, description="Days threshold for overdue"),
-    current_user: dict = Depends(management_roles_required),
-    submission_service: RPPSubmissionService = Depends(get_submission_service)
-):
-    """
-    Get submissions that are overdue for review.
-    
-    Requires management role (super_admin, admin, or kepala_sekolah).
-    """
-    return await submission_service.get_overdue_reviews(days_threshold, current_user)
+    """Get all pending review submissions for the current user."""
+    return await submission_service.get_pending_reviews(current_user["id"], current_user)
 
 
 @router.get(
@@ -183,7 +164,7 @@ async def review_submission(
     Only school principals (kepala_sekolah) can approve RPPs for their organization.
     """
     return await submission_service.review_submission(
-        submission_id, current_user["id"], review_data
+        submission_id, current_user["id"], review_data, current_user
     )
 
 
@@ -257,7 +238,7 @@ async def bulk_review_submissions(
     
     Only school principals (kepala_sekolah) can approve RPPs for their organization.
     """
-    return await submission_service.bulk_review_submissions(bulk_data, current_user["id"])
+    return await submission_service.bulk_review_submissions(bulk_data, current_user["id"], current_user)
 
 
 

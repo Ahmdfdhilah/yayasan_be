@@ -288,8 +288,10 @@ class RPPSubmissionRepository:
     async def get_teacher_submissions(self, teacher_id: int, period_id: Optional[int] = None) -> List[RPPSubmission]:
         """Get all submissions for a specific teacher."""
         query = select(RPPSubmission).options(
+            selectinload(RPPSubmission.teacher),
             selectinload(RPPSubmission.reviewer),
-            selectinload(RPPSubmission.file)
+            selectinload(RPPSubmission.file),
+            selectinload(RPPSubmission.period)
         ).where(
             and_(
                 RPPSubmission.teacher_id == teacher_id,
@@ -308,7 +310,9 @@ class RPPSubmissionRepository:
         """Get all pending review submissions."""
         query = select(RPPSubmission).options(
             selectinload(RPPSubmission.teacher),
-            selectinload(RPPSubmission.file)
+            selectinload(RPPSubmission.reviewer),
+            selectinload(RPPSubmission.file),
+            selectinload(RPPSubmission.period)
         ).where(
             and_(
                 RPPSubmission.status == RPPStatus.PENDING,
@@ -328,7 +332,8 @@ class RPPSubmissionRepository:
         query = select(RPPSubmission).options(
             selectinload(RPPSubmission.teacher),
             selectinload(RPPSubmission.reviewer),
-            selectinload(RPPSubmission.file)
+            selectinload(RPPSubmission.file),
+            selectinload(RPPSubmission.period)
         ).where(RPPSubmission.period_id == period_id).order_by(desc(RPPSubmission.submitted_at))
         
         result = await self.session.execute(query)
@@ -356,23 +361,6 @@ class RPPSubmissionRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    async def get_overdue_reviews(self, days_threshold: int = 7) -> List[RPPSubmission]:
-        """Get submissions that are overdue for review."""
-        threshold_date = datetime.utcnow() - timedelta(days=days_threshold)
-        
-        query = select(RPPSubmission).options(
-            selectinload(RPPSubmission.teacher),
-            selectinload(RPPSubmission.reviewer)
-        ).where(
-            and_(
-                RPPSubmission.status == RPPStatus.PENDING,
-                RPPSubmission.submitted_at <= threshold_date,
-                RPPSubmission.deleted_at.is_(None)
-            )
-        ).order_by(RPPSubmission.submitted_at.asc())
-        
-        result = await self.session.execute(query)
-        return list(result.scalars().all())
     
     # ===== BULK OPERATIONS =====
     

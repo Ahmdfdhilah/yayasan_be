@@ -21,7 +21,7 @@ from src.services.user import UserService
 from src.services.organization import OrganizationService
 from src.services.user_role import UserRoleService
 from src.schemas.user import UserCreate
-from src.schemas.organization import OrganizationCreate
+from src.schemas.organization import OrganizationCreate, OrganizationUpdate
 from src.schemas.user_role import UserRoleCreate
 from src.models.enums import UserStatus, UserRole as UserRoleEnum
 import hashlib
@@ -307,7 +307,8 @@ class UserSeeder:
         for org, head_id in head_assignments:
             if org and head_id:
                 try:
-                    await self.org_repo.update(org.id, {"head_id": head_id})
+                    update_data = OrganizationUpdate(head_id=head_id)
+                    await self.org_repo.update(org.id, update_data)
                     print(f"  -> Assigned head {head_id} to organization {org.name}")
                 except Exception as e:
                     print(f"  -> Error assigning head to {org.name}: {e}")

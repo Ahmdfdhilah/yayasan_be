@@ -49,7 +49,10 @@ class User(BaseModel, SQLModel, table=True):
     remember_token: Optional[str] = Field(default=None, max_length=100)
     
     # Relationships
-    organization: Optional["Organization"] = Relationship(back_populates="users")
+    organization: Optional["Organization"] = Relationship(
+        back_populates="users",
+        sa_relationship_kwargs={"foreign_keys": "User.organization_id"}
+    )
     user_roles: List["UserRole"] = Relationship(back_populates="user")
     uploaded_files: List["MediaFile"] = Relationship(back_populates="uploader")
     

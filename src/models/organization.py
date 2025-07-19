@@ -33,7 +33,10 @@ class Organization(BaseModel, SQLModel, table=True):
     head: Optional["User"] = Relationship(
         sa_relationship_kwargs={"foreign_keys": "Organization.head_id"}
     )
-    users: List["User"] = Relationship(back_populates="organization")
+    users: List["User"] = Relationship(
+        back_populates="organization",
+        sa_relationship_kwargs={"foreign_keys": "User.organization_id"}
+    )
     user_roles: List["UserRole"] = Relationship(back_populates="organization")
     media_files: List["MediaFile"] = Relationship(back_populates="organization")
     

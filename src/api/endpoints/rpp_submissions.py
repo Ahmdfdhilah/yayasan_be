@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
-from src.auth.permissions import get_current_active_user, admin_required, admin_or_inspektorat_required
+from src.auth.permissions import get_current_active_user, admin_required, management_roles_required
 from src.repositories.rpp_submission import RPPSubmissionRepository
 from src.repositories.user import UserRepository
 from src.repositories.media_file import MediaFileRepository
@@ -107,13 +107,13 @@ async def delete_submission(
 async def review_submission(
     submission_id: int,
     review_data: RPPSubmissionReview,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(management_roles_required),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """
     Review RPP submission (approve, reject, or request revision).
     
-    Requires admin or inspektorat role.
+    Requires management role (super_admin, admin, or kepala_sekolah).
     """
     return await submission_service.review_submission(
         submission_id, current_user["id"], review_data
@@ -221,13 +221,13 @@ async def get_submissions_by_period(
 )
 async def get_overdue_reviews(
     days_threshold: int = Query(7, ge=1, le=30, description="Days threshold for overdue"),
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(management_roles_required),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """
     Get submissions that are overdue for review.
     
-    Requires admin or inspektorat role.
+    Requires management role (super_admin, admin, or kepala_sekolah).
     """
     return await submission_service.get_overdue_reviews(days_threshold)
 
@@ -241,13 +241,13 @@ async def get_overdue_reviews(
 )
 async def bulk_review_submissions(
     bulk_data: RPPSubmissionBulkReview,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(management_roles_required),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """
     Bulk review RPP submissions (approve or reject multiple submissions).
     
-    Requires admin or inspektorat role.
+    Requires management role (super_admin, admin, or kepala_sekolah).
     """
     return await submission_service.bulk_review_submissions(bulk_data)
 
@@ -307,13 +307,13 @@ async def get_teacher_progress(
 )
 async def get_reviewer_workload(
     reviewer_id: int,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(management_roles_required),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """
     Get workload statistics for a reviewer.
     
-    Requires admin or inspektorat role.
+    Requires management role (super_admin, admin, or kepala_sekolah).
     """
     return await submission_service.get_reviewer_workload(reviewer_id)
 
@@ -325,12 +325,12 @@ async def get_reviewer_workload(
 )
 async def get_comprehensive_stats(
     organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(management_roles_required),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """
     Get comprehensive RPP submission statistics.
     
-    Requires admin or inspektorat role.
+    Requires management role (super_admin, admin, or kepala_sekolah).
     """
     return await submission_service.get_comprehensive_stats(organization_id)

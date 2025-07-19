@@ -198,22 +198,3 @@ class UserRoleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ===== LEGACY COMPATIBILITY SCHEMAS =====
-
-class PerwadagSummary(UserSummary):
-    """Legacy schema for perwadag summary."""
-    inspektorat: Optional[str] = None
-    
-    @classmethod
-    def from_user_model(cls, user) -> "PerwadagSummary":
-        """Create PerwadagSummary from User model."""
-        base = super().from_user_model(user)
-        return cls(
-            **base.model_dump(),
-            inspektorat=user.get_profile_field('inspektorat') if hasattr(user, 'get_profile_field') else None
-        )
-
-
-class PerwadagListResponse(BaseListResponse[PerwadagSummary]):
-    """Legacy response for perwadag list."""
-    pass

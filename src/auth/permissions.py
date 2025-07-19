@@ -1,6 +1,6 @@
-"""Fixed authorization and permission checking - SINGLE ROLE SYSTEM."""
+"""PKG (Penilaian Kinerja Guru) Authorization and Permission System."""
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
@@ -11,7 +11,7 @@ from src.core.database import get_db
 
 
 class JWTBearer(HTTPBearer):
-    """Custom JWT Bearer handler."""
+    """Custom JWT Bearer handler for PKG system."""
     
     def __init__(self, auto_error: bool = True):
         super(JWTBearer, self).__init__(auto_error=auto_error)
@@ -42,7 +42,7 @@ async def get_current_user(
     token: str = Depends(jwt_bearer), 
     session: AsyncSession = Depends(get_db)
 ) -> Dict:
-    """Get the current authenticated user from JWT token - SINGLE ROLE SYSTEM."""
+    """Get the current authenticated user from JWT token - PKG Multi-Role System."""
     # Import here to avoid circular import
     from src.repositories.user import UserRepository
     
@@ -61,13 +61,13 @@ async def get_current_user(
         if not user_id:
             raise credentials_exception
 
-        # Convert user_id to integer since the User model uses int primary key
+        # Convert user_id to integer
         try:
             user_id = int(user_id)
         except (ValueError, TypeError):
             raise credentials_exception
 
-        # Get user from database to ensure they still exist and are active
+        # Get user from database
         user_repo = UserRepository(session)
         user = await user_repo.get_by_id(user_id)
 
@@ -89,7 +89,8 @@ async def get_current_user(
             "email": user.email,
             "role": primary_role,           # Primary role string
             "roles": active_roles,          # Array of all active roles
-            "is_active": user.is_active(),
+            "organization_id": user.organization_id,
+            "is_active": user.is_active,
             "profile": user.profile or {}
         }
 
@@ -121,7 +122,7 @@ async def get_current_active_user(
 
 def require_roles(required_roles: List[str]):
     """
-    Dependency factory to require specific roles - SINGLE ROLE SYSTEM.
+    Dependency factory to require specific roles - PKG Multi-Role System.
     
     Args:
         required_roles: List of role names that are allowed access
@@ -132,14 +133,13 @@ def require_roles(required_roles: List[str]):
     async def _check_roles(
         current_user: Dict = Depends(get_current_active_user),
     ) -> Dict:
-        # ✅ FIXED: Check single role instead of array
-        user_role = current_user.get("role")
+        user_roles = current_user.get("roles", [])
         
         # Check if user has any of the required roles
-        if user_role not in required_roles:
+        if not any(role in required_roles for role in user_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required roles: {', '.join(required_roles)}. Your role: {user_role}",
+                detail=f"Access denied. Required roles: {', '.join(required_roles)}. Your roles: {', '.join(user_roles)}",
             )
         
         return current_user
@@ -147,60 +147,253 @@ def require_roles(required_roles: List[str]):
     return _check_roles
 
 
-# Common role dependencies for easy reuse - UPDATED FOR YOUR ENUMS
-admin_required = require_roles(["ADMIN"])
-inspektorat_required = require_roles(["INSPEKTORAT"]) 
-perwadag_required = require_roles(["PERWADAG"])
-admin_or_inspektorat_required = require_roles(["ADMIN", "INSPEKTORAT"])
+# ===== PKG ROLE-BASED DEPENDENCIES =====
+
+# Super Admin - Full system access
+super_admin_required = require_roles(["super_admin"])
+
+# Admin - Administrative functions
+admin_required = require_roles(["admin"])
+
+# Kepala Sekolah - School principal, primary evaluator and RPP reviewer
+kepala_sekolah_required = require_roles(["kepala_sekolah"])
+
+# Guru - Teachers who submit RPPs and receive evaluations
+guru_required = require_roles(["guru"])
+
+# Content Manager - Website content and media management
+content_manager_required = require_roles(["content_manager"])
+
+# Combined role dependencies for common access patterns
+admin_or_super_admin_required = require_roles(["super_admin", "admin"])
+management_roles_required = require_roles(["super_admin", "admin", "kepala_sekolah"])
+evaluator_roles_required = require_roles(["super_admin", "admin", "kepala_sekolah"])
+media_manager_roles_required = require_roles(["super_admin", "admin", "content_manager"])
 
 
-# Utility functions for role checking - FIXED FOR SINGLE ROLE
+# ===== PKG BUSINESS PROCESS PERMISSIONS =====
+
+def require_rpp_submission_access():
+    """Require access to submit RPP (only Guru)."""
+    return require_roles(["guru"])
+
+
+def require_rpp_review_access():
+    """Require access to review RPP (Kepala Sekolah, Admin, Super Admin)."""
+    return require_roles(["super_admin", "admin", "kepala_sekolah"])
+
+
+def require_evaluation_create_access():
+    """Require access to create teacher evaluations (evaluators)."""
+    return require_roles(["super_admin", "admin", "kepala_sekolah"])
+
+
+def require_evaluation_view_access():
+    """Require access to view evaluation results."""
+    return require_roles(["super_admin", "admin", "kepala_sekolah", "guru"])
+
+
+def require_evaluation_aspect_management():
+    """Require access to manage evaluation aspects."""
+    return require_roles(["super_admin", "admin", "kepala_sekolah"])
+
+
+def require_user_management_access():
+    """Require access to manage users."""
+    return require_roles(["super_admin", "admin"])
+
+
+def require_organization_management_access():
+    """Require access to manage organizations."""
+    return require_roles(["super_admin", "admin"])
+
+
+def require_media_management_access():
+    """Require access to manage media files."""
+    return require_roles(["super_admin", "admin", "content_manager"])
+
+
+def require_analytics_access():
+    """Require access to view analytics and reports."""
+    return require_roles(["super_admin", "admin", "kepala_sekolah"])
+
+
+# ===== PKG UTILITY FUNCTIONS =====
+
 def has_role(user: Dict, role: str) -> bool:
-    """Check if user has specific role - SINGLE ROLE SYSTEM."""
-    user_role = user.get("role")
-    return user_role == role
+    """Check if user has specific role."""
+    user_roles = user.get("roles", [])
+    return role in user_roles
 
 
 def has_any_role(user: Dict, roles: List[str]) -> bool:
-    """Check if user has any of the specified roles - SINGLE ROLE SYSTEM."""
-    user_role = user.get("role")
-    return user_role in roles
+    """Check if user has any of the specified roles."""
+    user_roles = user.get("roles", [])
+    return any(role in user_roles for role in roles)
+
+
+def is_super_admin(user: Dict) -> bool:
+    """Check if user is super admin."""
+    return has_role(user, "super_admin")
 
 
 def is_admin(user: Dict) -> bool:
     """Check if user is admin."""
-    return has_role(user, "ADMIN")
+    return has_role(user, "admin")
 
 
-def is_inspektorat(user: Dict) -> bool:
-    """Check if user is inspektorat."""
-    return has_role(user, "INSPEKTORAT")
+def is_kepala_sekolah(user: Dict) -> bool:
+    """Check if user is kepala sekolah (school principal)."""
+    return has_role(user, "kepala_sekolah")
 
 
-def is_perwadag(user: Dict) -> bool:
-    """Check if user is perwadag."""
-    return has_role(user, "PERWADAG")
+def is_guru(user: Dict) -> bool:
+    """Check if user is guru (teacher)."""
+    return has_role(user, "guru")
 
 
-# Rate limiting by role - FIXED FOR SINGLE ROLE
+def is_content_manager(user: Dict) -> bool:
+    """Check if user is content manager."""
+    return has_role(user, "content_manager")
+
+
+def is_evaluator(user: Dict) -> bool:
+    """Check if user can perform evaluations."""
+    return has_any_role(user, ["super_admin", "admin", "kepala_sekolah"])
+
+
+def is_rpp_reviewer(user: Dict) -> bool:
+    """Check if user can review RPP submissions."""
+    return has_any_role(user, ["super_admin", "admin", "kepala_sekolah"])
+
+
+def can_manage_users(user: Dict) -> bool:
+    """Check if user can manage other users."""
+    return has_any_role(user, ["super_admin", "admin"])
+
+
+def can_manage_organization(user: Dict) -> bool:
+    """Check if user can manage organization settings."""
+    return has_any_role(user, ["super_admin", "admin"])
+
+
+def can_access_analytics(user: Dict) -> bool:
+    """Check if user can access analytics and reports."""
+    return has_any_role(user, ["super_admin", "admin", "kepala_sekolah"])
+
+
+# ===== ORGANIZATIONAL BOUNDARY CHECKS =====
+
+def check_organization_access(current_user: Dict, target_organization_id: Optional[int]) -> bool:
+    """
+    Check if user has access to specific organization data.
+    
+    Rules:
+    - Super admin: Access to all organizations
+    - Admin: Access to all organizations 
+    - Others: Access only to their own organization
+    """
+    if is_super_admin(current_user) or is_admin(current_user):
+        return True
+    
+    user_org_id = current_user.get("organization_id")
+    return user_org_id == target_organization_id
+
+
+def check_user_data_access(current_user: Dict, target_user_id: int, target_org_id: Optional[int] = None) -> bool:
+    """
+    Check if user has access to specific user data.
+    
+    Rules:
+    - Super admin/Admin: Access to all users
+    - Kepala Sekolah: Access to users in same organization
+    - Guru: Access only to own data
+    """
+    if is_super_admin(current_user) or is_admin(current_user):
+        return True
+    
+    # Users can always access their own data
+    if current_user.get("id") == target_user_id:
+        return True
+    
+    # Kepala sekolah can access users in same organization
+    if is_kepala_sekolah(current_user):
+        return check_organization_access(current_user, target_org_id)
+    
+    return False
+
+
+def check_rpp_access(current_user: Dict, rpp_teacher_id: int, rpp_org_id: Optional[int] = None) -> bool:
+    """
+    Check if user has access to specific RPP submission.
+    
+    Rules:
+    - Super admin/Admin: Access to all RPPs
+    - Kepala Sekolah: Access to RPPs in same organization
+    - Guru: Access only to own RPPs
+    """
+    if is_super_admin(current_user) or is_admin(current_user):
+        return True
+    
+    # Teachers can access their own RPPs
+    if is_guru(current_user) and current_user.get("id") == rpp_teacher_id:
+        return True
+    
+    # Kepala sekolah can access RPPs in same organization
+    if is_kepala_sekolah(current_user):
+        return check_organization_access(current_user, rpp_org_id)
+    
+    return False
+
+
+def check_evaluation_access(current_user: Dict, teacher_id: int, teacher_org_id: Optional[int] = None) -> bool:
+    """
+    Check if user has access to specific teacher evaluation.
+    
+    Rules:
+    - Super admin/Admin: Access to all evaluations
+    - Kepala Sekolah: Access to evaluations in same organization
+    - Guru: Access only to own evaluations
+    """
+    if is_super_admin(current_user) or is_admin(current_user):
+        return True
+    
+    # Teachers can access their own evaluations
+    if is_guru(current_user) and current_user.get("id") == teacher_id:
+        return True
+    
+    # Kepala sekolah can access evaluations in same organization
+    if is_kepala_sekolah(current_user):
+        return check_organization_access(current_user, teacher_org_id)
+    
+    return False
+
+
+# ===== RATE LIMITING BY ROLE =====
+
 def get_rate_limit_by_role(user: Dict) -> int:
     """
-    Get rate limit based on user role - SINGLE ROLE SYSTEM.
+    Get rate limit based on user role.
     """
-    user_role = user.get("role")
+    user_roles = user.get("roles", [])
     
-    if user_role == "ADMIN":
-        return 1000  # Higher limit for admins
-    elif user_role == "INSPEKTORAT":
-        return 500   # Medium limit for inspektorat
-    elif user_role == "PERWADAG":
-        return 300   # Medium limit for perwadag
+    if "super_admin" in user_roles:
+        return 2000  # Highest limit for super admins
+    elif "admin" in user_roles:
+        return 1000  # High limit for admins
+    elif "kepala_sekolah" in user_roles:
+        return 500   # Medium limit for school principals
+    elif "content_manager" in user_roles:
+        return 300   # Medium limit for content managers
+    elif "guru" in user_roles:
+        return 200   # Standard limit for teachers
     else:
-        return 100   # Standard limit for other roles
+        return 100   # Basic limit for other roles
 
 
-# Security utilities
-async def log_access_attempt(user: Dict, resource: str, success: bool = True):
+# ===== SECURITY UTILITIES =====
+
+async def log_access_attempt(user: Dict, resource: str, action: str = "access", success: bool = True):
     """
     Log access attempts for security monitoring.
     """
@@ -211,21 +404,37 @@ async def log_access_attempt(user: Dict, resource: str, success: bool = True):
     log_data = {
         "user_id": user.get("id"),
         "email": user.get("email"),
-        "role": user.get("role"),        # Single role
+        "roles": user.get("roles", []),
+        "organization_id": user.get("organization_id"),
         "resource": resource,
-        "success": success,
-        # "pangkat": user.get("pangkat"),
-        "jabatan": user.get("jabatan")
+        "action": action,
+        "success": success
     }
     
     if success:
-        logger.info(f"Access granted: {log_data}")
+        logger.info(f"PKG Access granted: {log_data}")
     else:
-        logger.warning(f"Access denied: {log_data}")
+        logger.warning(f"PKG Access denied: {log_data}")
 
 
-# Government-specific role checks - UPDATED FOR YOUR SYSTEM
-def require_government_roles():
-    """Require any government role."""
-    government_roles = ["ADMIN", "INSPEKTORAT", "PERWADAG"]
-    return require_roles(government_roles)
+def get_user_permissions_summary(user: Dict) -> Dict[str, Any]:
+    """
+    Get a summary of user permissions for debugging/admin purposes.
+    """
+    roles = user.get("roles", [])
+    
+    return {
+        "user_id": user.get("id"),
+        "roles": roles,
+        "organization_id": user.get("organization_id"),
+        "can_submit_rpp": is_guru(user),
+        "can_review_rpp": is_rpp_reviewer(user),
+        "can_create_evaluations": is_evaluator(user),
+        "can_manage_users": can_manage_users(user),
+        "can_manage_organization": can_manage_organization(user),
+        "can_manage_media": has_any_role(user, ["super_admin", "admin", "content_manager"]),
+        "can_access_analytics": can_access_analytics(user),
+        "rate_limit": get_rate_limit_by_role(user)
+    }
+
+

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
-from src.auth.permissions import get_current_active_user, admin_required, admin_or_inspektorat_required
+from src.auth.permissions import get_current_active_user, admin_required, evaluator_roles_required
 from src.repositories.teacher_evaluation import TeacherEvaluationRepository
 from src.repositories.evaluation_aspect import EvaluationAspectRepository
 from src.repositories.user import UserRepository
@@ -47,13 +47,13 @@ def get_evaluation_service(db: AsyncSession = Depends(get_db)) -> TeacherEvaluat
 )
 async def create_evaluation(
     evaluation_data: TeacherEvaluationCreate,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(evaluator_roles_required),
     evaluation_service: TeacherEvaluationService = Depends(get_evaluation_service)
 ):
     """
     Create a new teacher evaluation.
     
-    Requires admin or inspektorat role.
+    Requires evaluator role (super_admin, admin, or kepala_sekolah).
     """
     return await evaluation_service.create_evaluation(evaluation_data)
 
@@ -80,13 +80,13 @@ async def get_evaluation(
 async def update_evaluation(
     evaluation_id: int,
     evaluation_data: TeacherEvaluationUpdate,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(evaluator_roles_required),
     evaluation_service: TeacherEvaluationService = Depends(get_evaluation_service)
 ):
     """
     Update teacher evaluation.
     
-    Requires admin or inspektorat role.
+    Requires evaluator role (super_admin, admin, or kepala_sekolah).
     """
     return await evaluation_service.update_evaluation(evaluation_id, evaluation_data)
 
@@ -183,13 +183,13 @@ async def get_evaluations_by_aspect(
 )
 async def bulk_create_evaluations(
     bulk_data: TeacherEvaluationBulkCreate,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(evaluator_roles_required),
     evaluation_service: TeacherEvaluationService = Depends(get_evaluation_service)
 ):
     """
     Bulk create teacher evaluations for a specific teacher and period.
     
-    Requires admin or inspektorat role.
+    Requires evaluator role (super_admin, admin, or kepala_sekolah).
     """
     return await evaluation_service.bulk_create_evaluations(bulk_data)
 
@@ -206,13 +206,13 @@ async def create_evaluation_set(
     academic_year: str = Query(..., description="Academic year"),
     semester: str = Query(..., description="Semester"),
     aspect_scores: Dict[int, Dict[str, Any]] = ...,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(evaluator_roles_required),
     evaluation_service: TeacherEvaluationService = Depends(get_evaluation_service)
 ):
     """
     Create a complete set of evaluations for a teacher.
     
-    Requires admin or inspektorat role.
+    Requires evaluator role (super_admin, admin, or kepala_sekolah).
     """
     return await evaluation_service.create_evaluation_set(
         evaluator_id, teacher_id, academic_year, semester, aspect_scores
@@ -226,13 +226,13 @@ async def create_evaluation_set(
 )
 async def bulk_update_evaluations(
     bulk_data: TeacherEvaluationBulkUpdate,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(evaluator_roles_required),
     evaluation_service: TeacherEvaluationService = Depends(get_evaluation_service)
 ):
     """
     Bulk update teacher evaluations.
     
-    Requires admin or inspektorat role.
+    Requires evaluator role (super_admin, admin, or kepala_sekolah).
     """
     return await evaluation_service.bulk_update_evaluations(bulk_data)
 

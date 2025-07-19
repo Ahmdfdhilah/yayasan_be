@@ -65,9 +65,11 @@ class MediaFileService:
             # Create media file record
             media_file_data = MediaFileCreate(
                 file_name=file.filename,
+                file_path=str(file_path),
                 file_type=file_type,
                 mime_type=mime_type,
                 file_size=file_size,
+                uploader_id=uploader_id,
                 organization_id=organization_id,
                 is_public=is_public,
                 file_metadata={
@@ -77,11 +79,7 @@ class MediaFileService:
             )
             
             # Save to database
-            media_file = await self.media_file_repo.create(
-                media_file_data.model_dump(),
-                uploader_id=uploader_id,
-                file_path=str(file_path)
-            )
+            media_file = await self.media_file_repo.create(media_file_data)
             
             return MediaFileUploadResponse(
                 id=media_file.id,

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
-from src.auth.permissions import get_current_active_user, admin_required, admin_or_inspektorat_required
+from src.auth.permissions import get_current_active_user, admin_required, evaluator_roles_required
 from src.repositories.evaluation_result import EvaluationResultRepository
 from src.repositories.teacher_evaluation import TeacherEvaluationRepository
 from src.repositories.user import UserRepository
@@ -46,13 +46,13 @@ def get_result_service(db: AsyncSession = Depends(get_db)) -> EvaluationResultSe
 )
 async def create_result(
     result_data: EvaluationResultCreate,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(evaluator_roles_required),
     result_service: EvaluationResultService = Depends(get_result_service)
 ):
     """
     Create a new evaluation result.
     
-    Requires admin or inspektorat role.
+    Requires evaluator role (super_admin, admin, or kepala_sekolah).
     """
     return await result_service.create_result(result_data)
 
@@ -65,13 +65,13 @@ async def create_result(
 )
 async def create_result_from_evaluations(
     calculation_data: EvaluationResultCalculateFromEvaluations,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(evaluator_roles_required),
     result_service: EvaluationResultService = Depends(get_result_service)
 ):
     """
     Create evaluation result calculated from individual evaluations.
     
-    Requires admin or inspektorat role.
+    Requires evaluator role (super_admin, admin, or kepala_sekolah).
     """
     return await result_service.create_result_from_evaluations(calculation_data)
 
@@ -98,13 +98,13 @@ async def get_result(
 async def update_result(
     result_id: int,
     result_data: EvaluationResultUpdate,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(evaluator_roles_required),
     result_service: EvaluationResultService = Depends(get_result_service)
 ):
     """
     Update evaluation result.
     
-    Requires admin or inspektorat role.
+    Requires evaluator role (super_admin, admin, or kepala_sekolah).
     """
     return await result_service.update_result(result_id, result_data)
 
@@ -228,13 +228,13 @@ async def get_improvement_needed(
 )
 async def bulk_update_recommendations(
     bulk_data: EvaluationResultBulkUpdate,
-    current_user: dict = Depends(admin_or_inspektorat_required),
+    current_user: dict = Depends(evaluator_roles_required),
     result_service: EvaluationResultService = Depends(get_result_service)
 ):
     """
     Bulk update recommendations for multiple results.
     
-    Requires admin or inspektorat role.
+    Requires evaluator role (super_admin, admin, or kepala_sekolah).
     """
     return await result_service.bulk_update_recommendations(bulk_data)
 

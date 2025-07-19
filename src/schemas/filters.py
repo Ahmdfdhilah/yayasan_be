@@ -38,14 +38,14 @@ class UsernameGenerationPreview(BaseModel):
     
     nama: str = Field(..., min_length=1, max_length=200)
     role: UserRole = Field(...)
-    inspektorat: Optional[str] = Field(default=None, max_length=100)
+    organization_name: Optional[str] = Field(default=None, max_length=100)
 
 
 class UsernameGenerationResponse(BaseModel):
     """Response for username generation preview."""
     
     original_nama: str
-    inspektorat: Optional[str]
+    organization_name: Optional[str]
     role: UserRole
     generated_username: str
     is_available: bool

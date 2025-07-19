@@ -28,8 +28,6 @@ from .user import (
     UserRoleCreate,
     UserRoleUpdate,
     UserRoleResponse,
-    PerwadagSummary,
-    PerwadagListResponse,
 )
 
 # Filter schemas
@@ -71,8 +69,6 @@ __all__ = [
     "UserRoleCreate",
     "UserRoleUpdate",
     "UserRoleResponse",
-    "PerwadagSummary",
-    "PerwadagListResponse",
     
     # Filters
     "UserFilterParams",

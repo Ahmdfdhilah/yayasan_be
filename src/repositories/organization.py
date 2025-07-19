@@ -148,7 +148,7 @@ class OrganizationRepository:
             search_filter = or_(
                 Organization.name.ilike(f"%{filters.q}%"),
                 Organization.description.ilike(f"%{filters.q}%"),
-                func.json_unquote(func.json_extract(Organization.contact_info, "$.email")).ilike(f"%{filters.q}%")
+                func.json_extract_path_text(Organization.contact_info, 'email').ilike(f"%{filters.q}%")
             )
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)

@@ -151,7 +151,7 @@ class EvaluationResultRepository:
             
             search_filter = or_(
                 User.email.ilike(f"%{filters.q}%"),
-                func.json_unquote(func.json_extract(User.profile, "$.name")).ilike(f"%{filters.q}%"),
+                func.json_extract_path_text(User.profile, 'name').ilike(f"%{filters.q}%"),
                 EvaluationResult.recommendations.ilike(f"%{filters.q}%")
             )
             query = query.where(search_filter)
@@ -231,7 +231,7 @@ class EvaluationResultRepository:
         # Apply sorting
         if filters.sort_by == "teacher_name":
             query = query.join(User, EvaluationResult.teacher_id == User.id)
-            sort_column = func.json_unquote(func.json_extract(User.profile, "$.name"))
+            sort_column = func.json_extract_path_text(User.profile, 'name')
         elif filters.sort_by == "academic_year":
             sort_column = EvaluationResult.academic_year
         elif filters.sort_by == "semester":

@@ -153,7 +153,7 @@ class UserRepository:
         if filters.search:
             search_filter = or_(
                 User.email.ilike(f"%{filters.search}%"),
-                func.json_unquote(func.json_extract(User.profile, "$.name")).ilike(f"%{filters.search}%")
+                func.json_extract_path_text(User.profile, 'name').ilike(f"%{filters.search}%")
             )
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)

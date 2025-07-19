@@ -169,7 +169,7 @@ class RPPSubmissionRepository:
             search_filter = or_(
                 RPPSubmission.rpp_type.ilike(f"%{filters.q}%"),
                 User.email.ilike(f"%{filters.q}%"),
-                func.json_unquote(func.json_extract(User.profile, "$.name")).ilike(f"%{filters.q}%"),
+                func.json_extract_path_text(User.profile, 'name').ilike(f"%{filters.q}%"),
                 RPPSubmission.review_notes.ilike(f"%{filters.q}%")
             )
             query = query.where(search_filter)
@@ -244,7 +244,7 @@ class RPPSubmissionRepository:
         # Apply sorting
         if filters.sort_by == "teacher_name":
             query = query.join(User, RPPSubmission.teacher_id == User.id)
-            sort_column = func.json_unquote(func.json_extract(User.profile, "$.name"))
+            sort_column = func.json_extract_path_text(User.profile, 'name')
         elif filters.sort_by == "academic_year":
             sort_column = RPPSubmission.academic_year
         elif filters.sort_by == "semester":

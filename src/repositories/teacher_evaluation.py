@@ -103,7 +103,7 @@ class TeacherEvaluationRepository:
             
             search_filter = or_(
                 User.email.ilike(f"%{filters.q}%"),
-                func.json_unquote(func.json_extract(User.profile, "$.name")).ilike(f"%{filters.q}%"),
+                func.json_extract_path_text(User.profile, 'name').ilike(f"%{filters.q}%"),
                 EvaluationAspect.aspect_name.ilike(f"%{filters.q}%"),
                 TeacherEvaluation.notes.ilike(f"%{filters.q}%")
             )
@@ -166,7 +166,7 @@ class TeacherEvaluationRepository:
         # Apply sorting
         if filters.sort_by == "teacher_name":
             query = query.join(User, TeacherEvaluation.teacher_id == User.id)
-            sort_column = func.json_unquote(func.json_extract(User.profile, "$.name"))
+            sort_column = func.json_extract_path_text(User.profile, 'name')
         elif filters.sort_by == "aspect_name":
             query = query.join(EvaluationAspect, TeacherEvaluation.aspect_id == EvaluationAspect.id)
             sort_column = EvaluationAspect.aspect_name
@@ -505,7 +505,7 @@ class TeacherEvaluationRepository:
             .order_by(TeacherEvaluation.score)
         )
         score_dist_result = await self.session.execute(score_dist_query)
-        score_distribution = dict(score_dist_result.fetchall())
+        score_distribution = {str(score): count for score, count in score_dist_result.fetchall()}
         
         # Evaluations by period
         period_query = (
@@ -535,19 +535,27 @@ class TeacherEvaluationRepository:
         aspect_result = await self.session.execute(aspect_query)
         evaluations_by_aspect = dict(aspect_result.fetchall())
         
-        # Evaluator activity
-        evaluator_query = (
+        # Evaluator activity - using subquery approach
+        evaluator_counts_query = (
             select(
-                func.json_unquote(func.json_extract(User.profile, "$.name")).label("evaluator_name"),
-                func.count(TeacherEvaluation.id)
+                TeacherEvaluation.evaluator_id,
+                func.count(TeacherEvaluation.id).label("evaluation_count")
             )
-            .join(User, TeacherEvaluation.evaluator_id == User.id)
             .where(base_filter)
             .group_by(TeacherEvaluation.evaluator_id)
             .order_by(func.count(TeacherEvaluation.id).desc())
         )
-        evaluator_result = await self.session.execute(evaluator_query)
-        evaluator_activity = dict(evaluator_result.fetchall())
+        evaluator_counts_result = await self.session.execute(evaluator_counts_query)
+        evaluator_counts = evaluator_counts_result.fetchall()
+        
+        # Get evaluator names separately
+        evaluator_activity = {}
+        for evaluator_id, count in evaluator_counts:
+            user_query = select(User.profile).where(User.id == evaluator_id)
+            user_result = await self.session.execute(user_query)
+            user_profile = user_result.scalar_one_or_none()
+            evaluator_name = user_profile.get('name', 'Unknown') if user_profile else 'Unknown'
+            evaluator_activity[evaluator_name] = count
         
         return {
             "total_evaluations": total_evaluations,

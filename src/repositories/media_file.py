@@ -119,7 +119,7 @@ class MediaFileRepository:
         if filters.q:
             search_filter = or_(
                 MediaFile.file_name.ilike(f"%{filters.q}%"),
-                func.json_unquote(func.json_extract(MediaFile.file_metadata, "$.description")).ilike(f"%{filters.q}%")
+                func.json_extract_path_text(MediaFile.file_metadata, 'description').ilike(f"%{filters.q}%")
             )
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)

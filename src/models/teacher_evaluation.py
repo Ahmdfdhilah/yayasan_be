@@ -32,9 +32,15 @@ class TeacherEvaluation(BaseModel, SQLModel, table=True):
     # Evaluation timestamp
     evaluation_date: datetime = Field(default_factory=datetime.utcnow)
     
-    # Relationships
-    evaluator: "User" = Relationship(back_populates="conducted_evaluations")
-    teacher: "User" = Relationship(back_populates="received_evaluations")
+    # Relationships - with explicit foreign_keys for SQLAlchemy
+    evaluator: "User" = Relationship(
+        back_populates="conducted_evaluations",
+        sa_relationship_kwargs={"foreign_keys": "TeacherEvaluation.evaluator_id"}
+    )
+    teacher: "User" = Relationship(
+        back_populates="received_evaluations",
+        sa_relationship_kwargs={"foreign_keys": "TeacherEvaluation.teacher_id"}
+    )
     aspect: "EvaluationAspect" = Relationship(back_populates="teacher_evaluations")
     
     # Unique constraint defined at table level

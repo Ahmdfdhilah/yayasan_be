@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import date
 
-from src.models.enums import UserRole, UserStatus
+from src.models.enums import UserRole, UserStatus, OrganizationType, RPPStatus
 
 
 class UserFilterParams(BaseModel):
@@ -71,3 +71,95 @@ class DateRangeFilter(BaseModel):
     
     start_date: Optional[date] = Field(default=None, description="Start date")
     end_date: Optional[date] = Field(default=None, description="End date")
+
+
+# ===== ORGANIZATION FILTERS =====
+
+class OrganizationFilterParams(PaginationParams, SearchParams, DateRangeFilter):
+    """Filter parameters for organization listing."""
+    
+    # Organization-specific filters
+    type: Optional[OrganizationType] = Field(None, description="Filter by organization type")
+    has_users: Optional[bool] = Field(None, description="Filter organizations with/without users")
+
+
+# ===== USER ROLE FILTERS =====
+
+class UserRoleFilterParams(PaginationParams, SearchParams, DateRangeFilter):
+    """Filter parameters for user role listing."""
+    
+    # Role-specific filters
+    user_id: Optional[int] = Field(None, description="Filter by user ID")
+    role_name: Optional[str] = Field(None, description="Filter by role name")
+    organization_id: Optional[int] = Field(None, description="Filter by organization ID")
+    is_active: Optional[bool] = Field(None, description="Filter by active status")
+    has_permissions: Optional[bool] = Field(None, description="Filter roles with/without permissions")
+    expires_soon: Optional[int] = Field(None, ge=1, le=365, description="Filter roles expiring within N days")
+
+
+# ===== MEDIA FILE FILTERS =====
+
+class MediaFileFilterParams(PaginationParams, SearchParams, DateRangeFilter):
+    """Filter parameters for media file listing."""
+    
+    # File-specific filters
+    file_type: Optional[str] = Field(None, description="Filter by file type/extension")
+    file_category: Optional[str] = Field(None, description="Filter by file category (image, document, etc.)")
+    uploader_id: Optional[int] = Field(None, description="Filter by uploader user ID")
+    organization_id: Optional[int] = Field(None, description="Filter by organization ID")
+    is_public: Optional[bool] = Field(None, description="Filter by public/private status")
+    min_size: Optional[int] = Field(None, ge=0, description="Minimum file size in bytes")
+    max_size: Optional[int] = Field(None, ge=0, description="Maximum file size in bytes")
+
+
+# ===== RPP SUBMISSION FILTERS =====
+
+class RPPSubmissionFilterParams(PaginationParams, SearchParams, DateRangeFilter):
+    """Filter parameters for RPP submission listing."""
+    
+    # Submission-specific filters
+    teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
+    reviewer_id: Optional[int] = Field(None, description="Filter by reviewer ID")
+    academic_year: Optional[str] = Field(None, description="Filter by academic year")
+    semester: Optional[str] = Field(None, description="Filter by semester")
+    rpp_type: Optional[str] = Field(None, description="Filter by RPP type")
+    status: Optional[RPPStatus] = Field(None, description="Filter by submission status")
+    has_reviewer: Optional[bool] = Field(None, description="Filter submissions with/without reviewer")
+    needs_review: Optional[bool] = Field(None, description="Filter submissions needing review")
+
+
+# ===== EVALUATION FILTERS =====
+
+class EvaluationAspectFilterParams(PaginationParams, SearchParams, DateRangeFilter):
+    """Filter parameters for evaluation aspect listing."""
+    
+    # Aspect-specific filters
+    organization_id: Optional[int] = Field(None, description="Filter by organization ID")
+    is_active: Optional[bool] = Field(None, description="Filter by active status")
+    has_evaluations: Optional[bool] = Field(None, description="Filter aspects with/without evaluations")
+
+
+class TeacherEvaluationFilterParams(PaginationParams, SearchParams, DateRangeFilter):
+    """Filter parameters for teacher evaluation listing."""
+    
+    # Evaluation-specific filters
+    evaluator_id: Optional[int] = Field(None, description="Filter by evaluator ID")
+    teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
+    aspect_id: Optional[int] = Field(None, description="Filter by evaluation aspect ID")
+    academic_year: Optional[str] = Field(None, description="Filter by academic year")
+    semester: Optional[str] = Field(None, description="Filter by semester")
+    min_score: Optional[int] = Field(None, ge=0, description="Minimum score")
+    max_score: Optional[int] = Field(None, description="Maximum score")
+    has_notes: Optional[bool] = Field(None, description="Filter evaluations with/without notes")
+
+
+class EvaluationResultFilterParams(PaginationParams, SearchParams, DateRangeFilter):
+    """Filter parameters for evaluation result listing."""
+    
+    # Result-specific filters
+    teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
+    evaluator_id: Optional[int] = Field(None, description="Filter by evaluator ID")
+    academic_year: Optional[str] = Field(None, description="Filter by academic year")
+    semester: Optional[str] = Field(None, description="Filter by semester")
+    grade_category: Optional[str] = Field(None, description="Filter by grade category")
+    has_recommendations: Optional[bool] = Field(None, description="Filter results with/without recommendations")

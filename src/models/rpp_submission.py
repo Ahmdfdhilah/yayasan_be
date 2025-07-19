@@ -42,9 +42,15 @@ class RPPSubmission(BaseModel, SQLModel, table=True):
     submitted_at: datetime = Field(default_factory=datetime.utcnow)
     reviewed_at: Optional[datetime] = Field(default=None)
     
-    # Relationships
-    teacher: "User" = Relationship(back_populates="submitted_rpps")
-    reviewer: Optional["User"] = Relationship(back_populates="reviewed_rpps")
+    # Relationships - with explicit foreign_keys for SQLAlchemy
+    teacher: "User" = Relationship(
+        back_populates="submitted_rpps",
+        sa_relationship_kwargs={"foreign_keys": "RPPSubmission.teacher_id"}
+    )
+    reviewer: Optional["User"] = Relationship(
+        back_populates="reviewed_rpps",
+        sa_relationship_kwargs={"foreign_keys": "RPPSubmission.reviewer_id"}
+    )
     file: "MediaFile" = Relationship(back_populates="rpp_submissions")
     
     def __repr__(self) -> str:

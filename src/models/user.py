@@ -54,13 +54,31 @@ class User(BaseModel, SQLModel, table=True):
     user_roles: List["UserRole"] = Relationship(back_populates="user")
     uploaded_files: List["MediaFile"] = Relationship(back_populates="uploader")
     
-    # PKG System relationships
-    submitted_rpps: List["RPPSubmission"] = Relationship(back_populates="teacher")
-    reviewed_rpps: List["RPPSubmission"] = Relationship(back_populates="reviewer")
-    conducted_evaluations: List["TeacherEvaluation"] = Relationship(back_populates="evaluator")
-    received_evaluations: List["TeacherEvaluation"] = Relationship(back_populates="teacher")
-    evaluation_results_given: List["EvaluationResult"] = Relationship(back_populates="evaluator")
-    evaluation_results_received: List["EvaluationResult"] = Relationship(back_populates="teacher")
+    # PKG System relationships - with explicit foreign_keys for SQLAlchemy
+    submitted_rpps: List["RPPSubmission"] = Relationship(
+        back_populates="teacher",
+        sa_relationship_kwargs={"foreign_keys": "RPPSubmission.teacher_id"}
+    )
+    reviewed_rpps: List["RPPSubmission"] = Relationship(
+        back_populates="reviewer",
+        sa_relationship_kwargs={"foreign_keys": "RPPSubmission.reviewer_id"}
+    )
+    conducted_evaluations: List["TeacherEvaluation"] = Relationship(
+        back_populates="evaluator",
+        sa_relationship_kwargs={"foreign_keys": "TeacherEvaluation.evaluator_id"}
+    )
+    received_evaluations: List["TeacherEvaluation"] = Relationship(
+        back_populates="teacher",
+        sa_relationship_kwargs={"foreign_keys": "TeacherEvaluation.teacher_id"}
+    )
+    evaluation_results_given: List["EvaluationResult"] = Relationship(
+        back_populates="evaluator",
+        sa_relationship_kwargs={"foreign_keys": "EvaluationResult.evaluator_id"}
+    )
+    evaluation_results_received: List["EvaluationResult"] = Relationship(
+        back_populates="teacher",
+        sa_relationship_kwargs={"foreign_keys": "EvaluationResult.teacher_id"}
+    )
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, status={self.status.value})>"

@@ -35,9 +35,15 @@ class EvaluationResult(BaseModel, SQLModel, table=True):
     recommendations: Optional[str] = Field(default=None)
     evaluation_date: datetime = Field(default_factory=datetime.utcnow)
     
-    # Relationships
-    teacher: "User" = Relationship(back_populates="evaluation_results_received")
-    evaluator: "User" = Relationship(back_populates="evaluation_results_given")
+    # Relationships - with explicit foreign_keys for SQLAlchemy
+    teacher: "User" = Relationship(
+        back_populates="evaluation_results_received",
+        sa_relationship_kwargs={"foreign_keys": "EvaluationResult.teacher_id"}
+    )
+    evaluator: "User" = Relationship(
+        back_populates="evaluation_results_given",
+        sa_relationship_kwargs={"foreign_keys": "EvaluationResult.evaluator_id"}
+    )
     
     # Unique constraint defined at table level
     __table_args__ = (

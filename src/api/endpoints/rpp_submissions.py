@@ -73,7 +73,7 @@ async def get_pending_reviews(
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """Get all pending review submissions."""
-    return await submission_service.get_pending_reviews(reviewer_id)
+    return await submission_service.get_pending_reviews(reviewer_id, current_user)
 
 
 @router.get(
@@ -91,7 +91,7 @@ async def get_overdue_reviews(
     
     Requires management role (super_admin, admin, or kepala_sekolah).
     """
-    return await submission_service.get_overdue_reviews(days_threshold)
+    return await submission_service.get_overdue_reviews(days_threshold, current_user)
 
 
 @router.get(
@@ -105,7 +105,7 @@ async def get_submissions_by_period(
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """Get all RPP submissions for a specific academic period."""
-    return await submission_service.get_submissions_by_period(period_id)
+    return await submission_service.get_submissions_by_period(period_id, current_user)
 
 
 @router.get(
@@ -120,7 +120,7 @@ async def get_teacher_submissions(
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """Get all RPP submissions for a specific teacher."""
-    return await submission_service.get_teacher_submissions(teacher_id, academic_year)
+    return await submission_service.get_teacher_submissions(teacher_id, academic_year, current_user)
 
 
 @router.get(
@@ -134,7 +134,7 @@ async def get_submission(
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """Get RPP submission by ID."""
-    return await submission_service.get_submission_by_id(submission_id)
+    return await submission_service.get_submission_by_id(submission_id, current_user)
 
 
 @router.put(
@@ -236,7 +236,7 @@ async def list_submissions(
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """List RPP submissions with filtering and pagination."""
-    return await submission_service.get_submissions(filters)
+    return await submission_service.get_submissions(filters, current_user)
 
 
 # Duplicate routes removed - moved to above to fix routing conflicts
@@ -259,7 +259,7 @@ async def bulk_review_submissions(
     
     Only school principals (kepala_sekolah) can approve RPPs for their organization.
     """
-    return await submission_service.bulk_review_submissions(bulk_data)
+    return await submission_service.bulk_review_submissions(bulk_data, current_user["id"])
 
 
 @router.post(
@@ -293,7 +293,7 @@ async def get_submissions_analytics(
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """Get comprehensive RPP submissions analytics."""
-    return await submission_service.get_submissions_analytics(organization_id)
+    return await submission_service.get_submissions_analytics(organization_id, current_user)
 
 
 @router.get(
@@ -307,7 +307,7 @@ async def get_teacher_progress(
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """Get progress statistics for a specific teacher."""
-    return await submission_service.get_teacher_progress(teacher_id)
+    return await submission_service.get_teacher_progress(teacher_id, current_user)
 
 
 @router.get(
@@ -325,7 +325,7 @@ async def get_reviewer_workload(
     
     Requires management role (super_admin, admin, or kepala_sekolah).
     """
-    return await submission_service.get_reviewer_workload(reviewer_id)
+    return await submission_service.get_reviewer_workload(reviewer_id, current_user)
 
 
 @router.get(
@@ -343,4 +343,4 @@ async def get_comprehensive_stats(
     
     Requires management role (super_admin, admin, or kepala_sekolah).
     """
-    return await submission_service.get_comprehensive_stats(organization_id)
+    return await submission_service.get_comprehensive_stats(organization_id, current_user)

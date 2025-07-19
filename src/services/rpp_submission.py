@@ -65,7 +65,7 @@ class RPPSubmissionService:
             submission, include_relations=True
         )
     
-    async def get_submission_by_id(self, submission_id: int) -> RPPSubmissionResponse:
+    async def get_submission_by_id(self, submission_id: int, current_user: dict = None) -> RPPSubmissionResponse:
         """Get RPP submission by ID."""
         submission = await self.submission_repo.get_by_id(submission_id)
         if not submission:
@@ -268,7 +268,7 @@ class RPPSubmissionService:
     
     # ===== LISTING AND FILTERING =====
     
-    async def get_submissions(self, filters: RPPSubmissionFilterParams) -> RPPSubmissionListResponse:
+    async def get_submissions(self, filters: RPPSubmissionFilterParams, current_user: dict = None) -> RPPSubmissionListResponse:
         """Get RPP submissions with filters and pagination."""
         submissions, total = await self.submission_repo.get_all_submissions_filtered(filters)
         
@@ -290,7 +290,8 @@ class RPPSubmissionService:
     async def get_teacher_submissions(
         self, 
         teacher_id: int, 
-        academic_year: Optional[str] = None
+        academic_year: Optional[str] = None,
+        current_user: dict = None
     ) -> List[RPPSubmissionResponse]:
         """Get all submissions for a specific teacher."""
         # Validate teacher exists
@@ -310,7 +311,7 @@ class RPPSubmissionService:
             for submission in submissions
         ]
     
-    async def get_pending_reviews(self, reviewer_id: Optional[int] = None) -> List[RPPSubmissionResponse]:
+    async def get_pending_reviews(self, reviewer_id: Optional[int] = None, current_user: dict = None) -> List[RPPSubmissionResponse]:
         """Get all pending review submissions."""
         if reviewer_id:
             # Validate reviewer exists
@@ -330,7 +331,7 @@ class RPPSubmissionService:
             for submission in submissions
         ]
     
-    async def get_submissions_by_period(self, period_id: int) -> List[RPPSubmissionResponse]:
+    async def get_submissions_by_period(self, period_id: int, current_user: dict = None) -> List[RPPSubmissionResponse]:
         """Get all submissions for a specific period."""
         submissions = await self.submission_repo.get_submissions_by_period(period_id)
         
@@ -341,7 +342,7 @@ class RPPSubmissionService:
             for submission in submissions
         ]
     
-    async def get_overdue_reviews(self, days_threshold: int = 7) -> List[RPPSubmissionResponse]:
+    async def get_overdue_reviews(self, days_threshold: int = 7, current_user: dict = None) -> List[RPPSubmissionResponse]:
         """Get submissions that are overdue for review."""
         submissions = await self.submission_repo.get_overdue_reviews(days_threshold)
         
@@ -354,7 +355,7 @@ class RPPSubmissionService:
     
     # ===== BULK OPERATIONS =====
     
-    async def bulk_review_submissions(self, bulk_data: RPPSubmissionBulkReview) -> Dict[str, Any]:
+    async def bulk_review_submissions(self, bulk_data: RPPSubmissionBulkReview, current_user_id: int) -> Dict[str, Any]:
         """Bulk review submissions."""
         # Validate all submission IDs exist and are pending
         for submission_id in bulk_data.submission_ids:
@@ -376,7 +377,7 @@ class RPPSubmissionService:
         if bulk_data.action == "approve":
             reviewed_count = await self.submission_repo.bulk_approve(
                 bulk_data.submission_ids,
-                1,  # This should be the current user's ID
+                current_user_id,
                 bulk_data.review_notes
             )
         elif bulk_data.action == "reject":
@@ -387,7 +388,7 @@ class RPPSubmissionService:
                 )
             reviewed_count = await self.submission_repo.bulk_reject(
                 bulk_data.submission_ids,
-                1,  # This should be the current user's ID
+                current_user_id,
                 bulk_data.review_notes
             )
         else:
@@ -432,7 +433,7 @@ class RPPSubmissionService:
     
     # ===== ANALYTICS AND STATISTICS =====
     
-    async def get_submissions_analytics(self, organization_id: Optional[int] = None) -> RPPSubmissionAnalytics:
+    async def get_submissions_analytics(self, organization_id: Optional[int] = None, current_user: dict = None) -> RPPSubmissionAnalytics:
         """Get comprehensive submissions analytics."""
         analytics_data = await self.submission_repo.get_submissions_analytics(organization_id)
         
@@ -448,7 +449,7 @@ class RPPSubmissionService:
             overdue_reviews=analytics_data["overdue_reviews"]
         )
     
-    async def get_teacher_progress(self, teacher_id: int) -> TeacherRPPProgress:
+    async def get_teacher_progress(self, teacher_id: int, current_user: dict = None) -> TeacherRPPProgress:
         """Get progress statistics for a specific teacher."""
         # Validate teacher exists
         teacher = await self.user_repo.get_by_id(teacher_id)
@@ -474,7 +475,7 @@ class RPPSubmissionService:
             last_submission=progress_data["last_submission"]
         )
     
-    async def get_reviewer_workload(self, reviewer_id: int) -> Dict[str, Any]:
+    async def get_reviewer_workload(self, reviewer_id: int, current_user: dict = None) -> Dict[str, Any]:
         """Get workload statistics for a reviewer."""
         # Validate reviewer exists
         reviewer = await self.user_repo.get_by_id(reviewer_id)
@@ -495,7 +496,7 @@ class RPPSubmissionService:
             "avg_review_time_hours": workload_data["avg_review_time_hours"]
         }
     
-    async def get_comprehensive_stats(self, organization_id: Optional[int] = None) -> RPPSubmissionStats:
+    async def get_comprehensive_stats(self, organization_id: Optional[int] = None, current_user: dict = None) -> RPPSubmissionStats:
         """Get comprehensive RPP submission statistics."""
         # Get main analytics
         analytics = await self.get_submissions_analytics(organization_id)

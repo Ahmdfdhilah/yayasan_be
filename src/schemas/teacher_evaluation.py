@@ -133,13 +133,25 @@ class TeacherEvaluationResponse(BaseModel):
         
         if include_relations:
             # These would be populated by joins in the repository/service layer
+            # Use SQLAlchemy inspection to check if attributes are loaded without triggering lazy loading
+            from sqlalchemy.inspection import inspect
+            from sqlalchemy.orm.attributes import PASSIVE_NO_RESULT
+            
+            state = inspect(evaluation)
+            
+            # Safely check if relationships are loaded
+            evaluator = state.attrs.evaluator.loaded_value if state.attrs.evaluator.loaded_value is not PASSIVE_NO_RESULT else None
+            teacher = state.attrs.teacher.loaded_value if state.attrs.teacher.loaded_value is not PASSIVE_NO_RESULT else None
+            aspect = state.attrs.aspect.loaded_value if state.attrs.aspect.loaded_value is not PASSIVE_NO_RESULT else None
+            period = state.attrs.period.loaded_value if state.attrs.period.loaded_value is not PASSIVE_NO_RESULT else None
+            
             data.update({
-                "evaluator_name": getattr(evaluation.evaluator, 'profile', {}).get('full_name') if hasattr(evaluation, 'evaluator') and evaluation.evaluator else None,
-                "teacher_name": getattr(evaluation.teacher, 'profile', {}).get('full_name') if hasattr(evaluation, 'teacher') and evaluation.teacher else None,
-                "teacher_email": getattr(evaluation.teacher, 'email') if hasattr(evaluation, 'teacher') and evaluation.teacher else None,
-                "aspect_name": getattr(evaluation.aspect, 'aspect_name') if hasattr(evaluation, 'aspect') and evaluation.aspect else None,
-                "aspect_category": getattr(evaluation.aspect, 'category') if hasattr(evaluation, 'aspect') and evaluation.aspect else None,
-                "period_name": getattr(evaluation.period, 'period_name') if hasattr(evaluation, 'period') and evaluation.period else None,
+                "evaluator_name": getattr(evaluator, 'profile', {}).get('full_name') if evaluator else None,
+                "teacher_name": getattr(teacher, 'profile', {}).get('full_name') if teacher else None,
+                "teacher_email": getattr(teacher, 'email') if teacher else None,
+                "aspect_name": getattr(aspect, 'aspect_name') if aspect else None,
+                "aspect_category": getattr(aspect, 'category') if aspect else None,
+                "period_name": getattr(period, 'period_name') if period else None,
             })
         
         return cls(**data)

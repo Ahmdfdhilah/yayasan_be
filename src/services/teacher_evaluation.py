@@ -35,7 +35,7 @@ class TeacherEvaluationService:
         evaluation = await self.evaluation_repo.create(evaluation_data, created_by)
         return TeacherEvaluationResponse.from_teacher_evaluation_model(evaluation, include_relations=True)
     
-    async def get_evaluation(self, evaluation_id: int) -> TeacherEvaluationResponse:
+    async def get_evaluation(self, evaluation_id: int, current_user: dict = None) -> TeacherEvaluationResponse:
         """Get teacher evaluation by ID."""
         evaluation = await self.evaluation_repo.get_by_id(evaluation_id)
         if not evaluation:
@@ -94,7 +94,7 @@ class TeacherEvaluationService:
             "message": f"Successfully assigned {created_count} evaluations"
         }
     
-    async def get_evaluations_by_period(self, period_id: int) -> List[TeacherEvaluationResponse]:
+    async def get_evaluations_by_period(self, period_id: int, current_user) -> List[TeacherEvaluationResponse]:
         """Get all evaluations for a specific period."""
         evaluations = await self.evaluation_repo.get_evaluations_by_period(period_id)
         return [
@@ -105,7 +105,8 @@ class TeacherEvaluationService:
     async def get_teacher_evaluations_in_period(
         self,
         teacher_id: int,
-        period_id: int
+        period_id: int,
+        current_user
     ) -> List[TeacherEvaluationResponse]:
         """Get all evaluations for a teacher in a specific period."""
         evaluations = await self.evaluation_repo.get_teacher_evaluations_in_period(teacher_id, period_id)

@@ -162,7 +162,8 @@ class RPPSubmissionRepository:
         query = select(RPPSubmission).options(
             selectinload(RPPSubmission.teacher),
             selectinload(RPPSubmission.reviewer),
-            selectinload(RPPSubmission.file)
+            selectinload(RPPSubmission.file),
+            selectinload(RPPSubmission.period)
         ).where(RPPSubmission.deleted_at.is_(None))
         count_query = select(func.count(RPPSubmission.id)).where(RPPSubmission.deleted_at.is_(None))
         

@@ -121,8 +121,7 @@ class RPPSubmissionFilterParams(PaginationParams, SearchParams, DateRangeFilter)
     # Submission-specific filters
     teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
     reviewer_id: Optional[int] = Field(None, description="Filter by reviewer ID")
-    academic_year: Optional[str] = Field(None, description="Filter by academic year")
-    semester: Optional[str] = Field(None, description="Filter by semester")
+    period_id: Optional[int] = Field(None, description="Filter by period ID")
     rpp_type: Optional[str] = Field(None, description="Filter by RPP type")
     status: Optional[RPPStatus] = Field(None, description="Filter by submission status")
     has_reviewer: Optional[bool] = Field(None, description="Filter submissions with/without reviewer")
@@ -136,6 +135,12 @@ class RPPSubmissionFilterParams(PaginationParams, SearchParams, DateRangeFilter)
     # Date filtering for creation date
     created_after: Optional[date] = Field(None, description="Filter submissions created after this date")
     created_before: Optional[date] = Field(None, description="Filter submissions created before this date")
+    
+    # Override search field description
+    q: Optional[str] = Field(None, description="Search in RPP type, teacher name, or review notes")
+    
+    # Override default sort
+    sort_by: str = Field(default="created_at", description="Sort field (teacher_name, period_id, rpp_type, status, revision_count, submitted_at, reviewed_at, created_at, updated_at)")
 
 
 # ===== EVALUATION FILTERS =====
@@ -151,48 +156,3 @@ class EvaluationAspectFilterParams(PaginationParams, SearchParams, DateRangeFilt
     # Date filtering for creation date
     created_after: Optional[date] = Field(None, description="Filter aspects created after this date")
     created_before: Optional[date] = Field(None, description="Filter aspects created before this date")
-
-
-class TeacherEvaluationFilterParams(PaginationParams, SearchParams, DateRangeFilter):
-    """Filter parameters for teacher evaluation listing."""
-    
-    # Evaluation-specific filters
-    evaluator_id: Optional[int] = Field(None, description="Filter by evaluator ID")
-    teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
-    aspect_id: Optional[int] = Field(None, description="Filter by evaluation aspect ID")
-    academic_year: Optional[str] = Field(None, description="Filter by academic year")
-    semester: Optional[str] = Field(None, description="Filter by semester")
-    min_score: Optional[int] = Field(None, ge=0, description="Minimum score")
-    max_score: Optional[int] = Field(None, description="Maximum score")
-    has_notes: Optional[bool] = Field(None, description="Filter evaluations with/without notes")
-    evaluated_after: Optional[datetime] = Field(None, description="Filter evaluations after this date")
-    evaluated_before: Optional[datetime] = Field(None, description="Filter evaluations before this date")
-    
-    # Date filtering for creation date
-    created_after: Optional[date] = Field(None, description="Filter evaluations created after this date")
-    created_before: Optional[date] = Field(None, description="Filter evaluations created before this date")
-
-
-class EvaluationResultFilterParams(PaginationParams, SearchParams, DateRangeFilter):
-    """Filter parameters for evaluation result listing."""
-    
-    # Result-specific filters
-    teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
-    evaluator_id: Optional[int] = Field(None, description="Filter by evaluator ID")
-    academic_year: Optional[str] = Field(None, description="Filter by academic year")
-    semester: Optional[str] = Field(None, description="Filter by semester")
-    grade_category: Optional[str] = Field(None, description="Filter by grade category")
-    has_recommendations: Optional[bool] = Field(None, description="Filter results with/without recommendations")
-    min_performance: Optional[Decimal] = Field(None, ge=0, le=100, description="Minimum performance score")
-    max_performance: Optional[Decimal] = Field(None, ge=0, le=100, description="Maximum performance score")
-    min_score_percentage: Optional[Decimal] = Field(None, ge=0, le=100, description="Minimum score percentage")
-    evaluated_after: Optional[datetime] = Field(None, description="Filter results evaluated after this date")
-    evaluated_before: Optional[datetime] = Field(None, description="Filter results evaluated before this date")
-    
-    # Date filtering for creation date
-    created_after: Optional[date] = Field(None, description="Filter results created after this date")
-    created_before: Optional[date] = Field(None, description="Filter results created before this date")
-    
-    # Grade filters
-    excellent_only: Optional[bool] = Field(None, description="Filter only excellent grades (performance >= 90)")
-    needs_improvement_only: Optional[bool] = Field(None, description="Filter only grades needing improvement (performance < 70)")

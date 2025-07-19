@@ -339,7 +339,18 @@ class TeacherEvaluationRepository:
         for evaluation in evaluations:
             await self.session.refresh(evaluation)
         
-        return evaluations
+        # Eagerly load relationships for all evaluations
+        evaluation_ids = [eval.id for eval in evaluations]
+        query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.evaluator),
+            selectinload(TeacherEvaluation.teacher),
+            selectinload(TeacherEvaluation.aspect)
+        ).where(TeacherEvaluation.id.in_(evaluation_ids))
+        
+        result = await self.session.execute(query)
+        evaluations_with_relations = result.scalars().all()
+        
+        return evaluations_with_relations
     
     async def bulk_update_scores(self, evaluation_ids: List[int], score: int, notes: Optional[str] = None) -> int:
         """Bulk update evaluation scores."""

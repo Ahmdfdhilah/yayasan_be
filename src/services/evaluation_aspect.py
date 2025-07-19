@@ -34,19 +34,14 @@ class EvaluationAspectService:
     async def create_aspect(self, aspect_data: EvaluationAspectCreate) -> EvaluationAspectResponse:
         """Create new evaluation aspect."""
         # Check if aspect name already exists
-        if await self.aspect_repo.aspect_exists(
-            aspect_data.aspect_name, 
-            aspect_data.organization_id
-        ):
+        if await self.aspect_repo.aspect_exists(aspect_data.aspect_name):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Evaluation aspect '{aspect_data.aspect_name}' already exists"
             )
         
         aspect = await self.aspect_repo.create(aspect_data)
-        return EvaluationAspectResponse.from_evaluation_aspect_model(
-            aspect, include_relations=True
-        )
+        return EvaluationAspectResponse.from_evaluation_aspect_model(aspect, include_stats=True)
     
     async def get_aspect_by_id(self, aspect_id: int) -> EvaluationAspectResponse:
         """Get evaluation aspect by ID."""
@@ -61,7 +56,7 @@ class EvaluationAspectService:
         stats = await self.aspect_repo.get_aspect_statistics(aspect_id)
         
         response = EvaluationAspectResponse.from_evaluation_aspect_model(
-            aspect, include_stats=True, include_relations=True
+            aspect, include_stats=True
         )
         
         # Add statistics
@@ -88,7 +83,6 @@ class EvaluationAspectService:
         if aspect_data.aspect_name and aspect_data.aspect_name != existing_aspect.aspect_name:
             if await self.aspect_repo.aspect_exists(
                 aspect_data.aspect_name,
-                existing_aspect.organization_id,
                 exclude_id=aspect_id
             ):
                 raise HTTPException(
@@ -97,9 +91,7 @@ class EvaluationAspectService:
                 )
         
         updated_aspect = await self.aspect_repo.update(aspect_id, aspect_data)
-        return EvaluationAspectResponse.from_evaluation_aspect_model(
-            updated_aspect, include_relations=True
-        )
+        return EvaluationAspectResponse.from_evaluation_aspect_model(updated_aspect, include_stats=True)
     
     async def delete_aspect(self, aspect_id: int, force: bool = False) -> Dict[str, str]:
         """Delete evaluation aspect."""
@@ -145,7 +137,7 @@ class EvaluationAspectService:
         
         updated_aspect = await self.aspect_repo.get_by_id(aspect_id)
         return EvaluationAspectResponse.from_evaluation_aspect_model(
-            updated_aspect, include_relations=True
+            updated_aspect
         )
     
     async def deactivate_aspect(self, aspect_id: int) -> EvaluationAspectResponse:
@@ -166,7 +158,7 @@ class EvaluationAspectService:
         
         updated_aspect = await self.aspect_repo.get_by_id(aspect_id)
         return EvaluationAspectResponse.from_evaluation_aspect_model(
-            updated_aspect, include_relations=True
+            updated_aspect
         )
     
     # ===== LISTING AND FILTERING =====
@@ -184,7 +176,7 @@ class EvaluationAspectService:
                 stats = await self.aspect_repo.get_aspect_statistics(aspect.id)
             
             response = EvaluationAspectResponse.from_evaluation_aspect_model(
-                aspect, include_stats=bool(stats), include_relations=True
+                aspect, include_stats=bool(stats)
             )
             
             if stats:
@@ -201,9 +193,9 @@ class EvaluationAspectService:
             pages=(total + filters.size - 1) // filters.size
         )
     
-    async def get_active_aspects(self, organization_id: Optional[int] = None) -> List[EvaluationAspectSummary]:
+    async def get_active_aspects(self) -> List[EvaluationAspectSummary]:
         """Get all active evaluation aspects."""
-        aspects = await self.aspect_repo.get_active_aspects(organization_id)
+        aspects = await self.aspect_repo.get_active_aspects()
         
         return [
             EvaluationAspectSummary.from_evaluation_aspect_model(aspect)
@@ -212,11 +204,10 @@ class EvaluationAspectService:
     
     async def get_aspects_by_category(
         self, 
-        category: str, 
-        organization_id: Optional[int] = None
+        category: str
     ) -> List[EvaluationAspectSummary]:
         """Get aspects by category."""
-        aspects = await self.aspect_repo.get_aspects_by_category(category, organization_id)
+        aspects = await self.aspect_repo.get_aspects_by_category(category)
         
         return [
             EvaluationAspectSummary.from_evaluation_aspect_model(aspect)
@@ -237,13 +228,7 @@ class EvaluationAspectService:
         
         # Check for existing names
         for aspect_data in bulk_data.aspects:
-            if bulk_data.organization_id:
-                aspect_data.organization_id = bulk_data.organization_id
-            
-            if await self.aspect_repo.aspect_exists(
-                aspect_data.aspect_name,
-                aspect_data.organization_id
-            ):
+            if await self.aspect_repo.aspect_exists(aspect_data.aspect_name):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Evaluation aspect '{aspect_data.aspect_name}' already exists"
@@ -252,9 +237,7 @@ class EvaluationAspectService:
         aspects = await self.aspect_repo.bulk_create(bulk_data.aspects)
         
         return [
-            EvaluationAspectResponse.from_evaluation_aspect_model(
-                aspect, include_relations=True
-            )
+            EvaluationAspectResponse.from_evaluation_aspect_model(aspect, include_stats=True)
             for aspect in aspects
         ]
     
@@ -329,8 +312,7 @@ class EvaluationAspectService:
                 errors.append(f"Aspect with ID {aspect_id} not found")
                 continue
             
-            if validation_data.organization_id and aspect.organization_id != validation_data.organization_id:
-                warnings.append(f"Aspect {aspect_id} belongs to different organization")
+            # Note: All aspects are now universal across organizations
             
             if weight < 0 or weight > 100:
                 errors.append(f"Weight for aspect {aspect_id} must be between 0 and 100")
@@ -354,9 +336,9 @@ class EvaluationAspectService:
             warnings=warnings
         )
     
-    async def validate_organization_weights(self, organization_id: Optional[int] = None) -> WeightValidationResponse:
-        """Validate weights for organization's active aspects."""
-        validation_result = await self.aspect_repo.validate_aspect_weights(organization_id)
+    async def validate_all_weights(self) -> WeightValidationResponse:
+        """Validate weights for all active aspects."""
+        validation_result = await self.aspect_repo.validate_aspect_weights()
         
         return WeightValidationResponse(
             is_valid=validation_result["is_valid"],
@@ -367,12 +349,12 @@ class EvaluationAspectService:
     
     # ===== ANALYTICS =====
     
-    async def get_aspects_analytics(self, organization_id: Optional[int] = None) -> EvaluationAspectAnalytics:
+    async def get_aspects_analytics(self) -> EvaluationAspectAnalytics:
         """Get comprehensive aspects analytics."""
-        analytics_data = await self.aspect_repo.get_aspects_analytics(organization_id)
+        analytics_data = await self.aspect_repo.get_aspects_analytics()
         
         # Get most/least used aspects
-        aspects = await self.aspect_repo.get_active_aspects(organization_id)
+        aspects = await self.aspect_repo.get_active_aspects()
         most_used = []
         least_used = []
         avg_scores = {}
@@ -432,16 +414,16 @@ class EvaluationAspectService:
             improvement_needed=analysis_data["improvement_needed"]
         )
     
-    async def get_comprehensive_stats(self, organization_id: Optional[int] = None) -> EvaluationAspectStats:
+    async def get_comprehensive_stats(self) -> EvaluationAspectStats:
         """Get comprehensive evaluation aspect statistics."""
         # Get main analytics
-        analytics = await self.get_aspects_analytics(organization_id)
+        analytics = await self.get_aspects_analytics()
         
         # Get weight validation
-        weight_validation = await self.validate_organization_weights(organization_id)
+        weight_validation = await self.validate_all_weights()
         
         # Get performance analysis for active aspects
-        active_aspects = await self.aspect_repo.get_active_aspects(organization_id)
+        active_aspects = await self.aspect_repo.get_active_aspects()
         aspect_performance = []
         
         for aspect in active_aspects[:10]:  # Limit to prevent overload

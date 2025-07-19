@@ -312,9 +312,8 @@ async def get_teacher_performance_report(
     summary="Get teacher evaluations analytics"
 )
 async def get_evaluations_analytics(
-    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
     current_user: dict = Depends(get_current_active_user),
     evaluation_service: TeacherEvaluationService = Depends(get_evaluation_service)
 ):
     """Get comprehensive teacher evaluations analytics."""
-    return await evaluation_service.get_evaluations_analytics(organization_id)
+    return await evaluation_service.get_evaluations_analytics()

@@ -619,9 +619,9 @@ class TeacherEvaluationService:
     
     # ===== ANALYTICS =====
     
-    async def get_evaluations_analytics(self, organization_id: Optional[int] = None) -> TeacherEvaluationAnalytics:
+    async def get_evaluations_analytics(self) -> TeacherEvaluationAnalytics:
         """Get comprehensive evaluations analytics."""
-        analytics_data = await self.evaluation_repo.get_evaluations_analytics(organization_id)
+        analytics_data = await self.evaluation_repo.get_evaluations_analytics()
         
         return TeacherEvaluationAnalytics(
             total_evaluations=analytics_data["total_evaluations"],

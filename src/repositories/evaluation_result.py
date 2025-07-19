@@ -386,15 +386,9 @@ class EvaluationResultRepository:
     
     # ===== ANALYTICS AND STATISTICS =====
     
-    async def get_results_analytics(self, organization_id: Optional[int] = None) -> Dict[str, Any]:
+    async def get_results_analytics(self) -> Dict[str, Any]:
         """Get comprehensive results analytics."""
         base_filter = EvaluationResult.deleted_at.is_(None)
-        
-        # If organization filter is needed, join with users
-        if organization_id:
-            # Note: This would need to be adjusted based on your User model structure
-            # For now, we'll skip organization filtering
-            pass
         
         # Total results
         total_query = select(func.count(EvaluationResult.id)).where(base_filter)

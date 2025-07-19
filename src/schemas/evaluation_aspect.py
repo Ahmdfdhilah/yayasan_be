@@ -12,12 +12,12 @@ from src.schemas.filters import PaginationParams, SearchParams, DateRangeFilter
 # ===== BASE SCHEMAS =====
 
 class EvaluationAspectBase(BaseModel):
-    """Base evaluation aspect schema."""
+    """Base evaluation aspect schema (Universal across all organizations)."""
     aspect_name: str = Field(..., min_length=1, max_length=200, description="Name of evaluation aspect")
+    category: str = Field(..., min_length=1, max_length=100, description="Category of evaluation aspect")
     description: Optional[str] = Field(None, description="Detailed description of the aspect")
     max_score: int = Field(..., ge=1, le=100, description="Maximum possible score")
     weight: Decimal = Field(..., ge=0, le=100, description="Weight percentage for this aspect")
-    organization_id: Optional[int] = Field(None, description="Organization ID (if organization-specific)")
     is_active: bool = Field(default=True, description="Whether aspect is active")
     
     @field_validator('aspect_name')
@@ -45,6 +45,7 @@ class EvaluationAspectCreate(EvaluationAspectBase):
 class EvaluationAspectUpdate(BaseModel):
     """Schema for updating an evaluation aspect."""
     aspect_name: Optional[str] = Field(None, min_length=1, max_length=200)
+    category: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
     max_score: Optional[int] = Field(None, ge=1, le=100)
     weight: Optional[Decimal] = Field(None, ge=0, le=100)
@@ -68,7 +69,6 @@ class EvaluationAspectUpdate(BaseModel):
 class EvaluationAspectBulkCreate(BaseModel):
     """Schema for bulk creating evaluation aspects."""
     aspects: List[EvaluationAspectCreate] = Field(..., min_items=1, description="List of aspects to create")
-    organization_id: Optional[int] = Field(None, description="Organization ID for all aspects")
 
 
 # ===== RESPONSE SCHEMAS =====
@@ -77,10 +77,10 @@ class EvaluationAspectResponse(BaseModel):
     """Schema for evaluation aspect response."""
     id: int
     aspect_name: str
+    category: str
     description: Optional[str] = None
     max_score: int
     weight: Decimal
-    organization_id: Optional[int] = None
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -92,19 +92,16 @@ class EvaluationAspectResponse(BaseModel):
     evaluation_count: int = Field(default=0, description="Number of evaluations using this aspect")
     avg_score: Optional[Decimal] = Field(None, description="Average score across all evaluations")
     
-    # Related data
-    organization_name: Optional[str] = Field(None, description="Organization name")
-    
     @classmethod
-    def from_evaluation_aspect_model(cls, aspect, include_stats: bool = False, include_relations: bool = False) -> "EvaluationAspectResponse":
+    def from_evaluation_aspect_model(cls, aspect, include_stats: bool = False) -> "EvaluationAspectResponse":
         """Create EvaluationAspectResponse from EvaluationAspect model."""
         data = {
             "id": aspect.id,
             "aspect_name": aspect.aspect_name,
+            "category": aspect.category,
             "description": aspect.description,
             "max_score": aspect.max_score,
             "weight": aspect.weight,
-            "organization_id": aspect.organization_id,
             "is_active": aspect.is_active,
             "created_at": aspect.created_at,
             "updated_at": aspect.updated_at,
@@ -116,11 +113,6 @@ class EvaluationAspectResponse(BaseModel):
             data.update({
                 "evaluation_count": getattr(aspect, 'evaluation_count', 0),
                 "avg_score": getattr(aspect, 'avg_score', None)
-            })
-        
-        if include_relations:
-            data.update({
-                "organization_name": aspect.organization.name if hasattr(aspect, 'organization') and aspect.organization else None
             })
         
         return cls(**data)
@@ -137,6 +129,7 @@ class EvaluationAspectSummary(BaseModel):
     """Schema for evaluation aspect summary (lighter response)."""
     id: int
     aspect_name: str
+    category: str
     max_score: int
     weight: Decimal
     is_active: bool
@@ -151,6 +144,7 @@ class EvaluationAspectSummary(BaseModel):
         return cls(
             id=aspect.id,
             aspect_name=aspect.aspect_name,
+            category=aspect.category,
             max_score=aspect.max_score,
             weight=aspect.weight,
             is_active=aspect.is_active,
@@ -167,7 +161,7 @@ class EvaluationAspectFilterParams(PaginationParams, SearchParams, DateRangeFilt
     """Filter parameters for evaluation aspect listing."""
     
     # Aspect-specific filters
-    organization_id: Optional[int] = Field(None, description="Filter by organization ID")
+    category: Optional[str] = Field(None, description="Filter by category")
     is_active: Optional[bool] = Field(None, description="Filter by active status")
     min_weight: Optional[Decimal] = Field(None, ge=0, description="Minimum weight percentage")
     max_weight: Optional[Decimal] = Field(None, le=100, description="Maximum weight percentage")
@@ -188,7 +182,6 @@ class EvaluationAspectBulkUpdate(BaseModel):
     """Schema for bulk evaluation aspect updates."""
     aspect_ids: List[int] = Field(..., min_items=1, description="List of aspect IDs to update")
     is_active: Optional[bool] = None
-    organization_id: Optional[int] = None
 
 
 class EvaluationAspectBulkDelete(BaseModel):
@@ -200,7 +193,6 @@ class EvaluationAspectBulkDelete(BaseModel):
 class WeightValidation(BaseModel):
     """Schema for validating aspect weights."""
     aspect_weights: Dict[int, Decimal] = Field(..., description="Aspect ID to weight mapping")
-    organization_id: Optional[int] = Field(None, description="Organization context")
 
 
 class WeightValidationResponse(BaseModel):

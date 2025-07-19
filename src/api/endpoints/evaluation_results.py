@@ -278,20 +278,19 @@ async def get_teacher_performance_comparison(
 
 
 @router.get(
-    "/organization/performance-overview",
+    "/system/performance-overview",
     response_model=OrganizationPerformanceOverview,
-    summary="Get organization performance overview"
+    summary="Get system performance overview"
 )
-async def get_organization_performance_overview(
+async def get_system_performance_overview(
     academic_year: str = Query(..., description="Academic year"),
     semester: str = Query(..., description="Semester"),
-    organization_id: Optional[int] = Query(None, description="Organization ID"),
     current_user: dict = Depends(get_current_active_user),
     result_service: EvaluationResultService = Depends(get_result_service)
 ):
-    """Get organization-wide performance overview for a specific period."""
+    """Get system-wide performance overview for a specific period."""
     return await result_service.get_organization_performance_overview(
-        academic_year, semester, organization_id
+        academic_year, semester
     )
 
 
@@ -303,12 +302,11 @@ async def get_organization_performance_overview(
     summary="Get evaluation results analytics"
 )
 async def get_results_analytics(
-    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
     current_user: dict = Depends(get_current_active_user),
     result_service: EvaluationResultService = Depends(get_result_service)
 ):
     """Get comprehensive evaluation results analytics."""
-    return await result_service.get_results_analytics(organization_id)
+    return await result_service.get_results_analytics()
 
 
 @router.get(

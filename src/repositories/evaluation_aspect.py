@@ -30,8 +30,7 @@ class EvaluationAspectRepository:
             weight=aspect_data.weight,
             min_score=getattr(aspect_data, 'min_score', 1),
             max_score=aspect_data.max_score,
-            is_active=aspect_data.is_active,
-            organization_id=aspect_data.organization_id
+            is_active=aspect_data.is_active
         )
         
         self.session.add(aspect)
@@ -42,7 +41,6 @@ class EvaluationAspectRepository:
     async def get_by_id(self, aspect_id: int) -> Optional[EvaluationAspect]:
         """Get evaluation aspect by ID with relationships."""
         query = select(EvaluationAspect).options(
-            selectinload(EvaluationAspect.organization),
             selectinload(EvaluationAspect.teacher_evaluations)
         ).where(
             and_(EvaluationAspect.id == aspect_id, EvaluationAspect.deleted_at.is_(None))
@@ -113,9 +111,7 @@ class EvaluationAspectRepository:
     async def get_all_aspects_filtered(self, filters: EvaluationAspectFilterParams) -> Tuple[List[EvaluationAspect], int]:
         """Get evaluation aspects with filters and pagination."""
         # Base query with eager loading
-        query = select(EvaluationAspect).options(
-            selectinload(EvaluationAspect.organization)
-        ).where(EvaluationAspect.deleted_at.is_(None))
+        query = select(EvaluationAspect).where(EvaluationAspect.deleted_at.is_(None))
         count_query = select(func.count(EvaluationAspect.id)).where(EvaluationAspect.deleted_at.is_(None))
         
         # Apply filters
@@ -128,9 +124,7 @@ class EvaluationAspectRepository:
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)
         
-        if filters.organization_id:
-            query = query.where(EvaluationAspect.organization_id == filters.organization_id)
-            count_query = count_query.where(EvaluationAspect.organization_id == filters.organization_id)
+        # Note: organization_id filter removed - aspects are now universal
         
         if filters.is_active is not None:
             query = query.where(EvaluationAspect.is_active == filters.is_active)
@@ -194,25 +188,19 @@ class EvaluationAspectRepository:
         
         return list(aspects), total
     
-    async def get_active_aspects(self, organization_id: Optional[int] = None) -> List[EvaluationAspect]:
+    async def get_active_aspects(self) -> List[EvaluationAspect]:
         """Get all active evaluation aspects."""
-        query = select(EvaluationAspect).options(
-            selectinload(EvaluationAspect.organization)
-        ).where(
+        query = select(EvaluationAspect).where(
             and_(
                 EvaluationAspect.is_active == True,
                 EvaluationAspect.deleted_at.is_(None)
             )
-        )
+        ).order_by(EvaluationAspect.aspect_name)
         
-        if organization_id:
-            query = query.where(EvaluationAspect.organization_id == organization_id)
-        
-        query = query.order_by(EvaluationAspect.aspect_name)
         result = await self.session.execute(query)
         return list(result.scalars().all())
     
-    async def get_aspects_by_category(self, category: str, organization_id: Optional[int] = None) -> List[EvaluationAspect]:
+    async def get_aspects_by_category(self, category: str) -> List[EvaluationAspect]:
         """Get aspects by category."""
         query = select(EvaluationAspect).where(
             and_(
@@ -220,12 +208,8 @@ class EvaluationAspectRepository:
                 EvaluationAspect.is_active == True,
                 EvaluationAspect.deleted_at.is_(None)
             )
-        )
+        ).order_by(EvaluationAspect.aspect_name)
         
-        if organization_id:
-            query = query.where(EvaluationAspect.organization_id == organization_id)
-        
-        query = query.order_by(EvaluationAspect.aspect_name)
         result = await self.session.execute(query)
         return list(result.scalars().all())
     
@@ -242,8 +226,7 @@ class EvaluationAspectRepository:
                 weight=aspect_data.weight,
                 min_score=getattr(aspect_data, 'min_score', 1),
                 max_score=aspect_data.max_score,
-                is_active=aspect_data.is_active,
-                organization_id=aspect_data.organization_id
+                is_active=aspect_data.is_active
             )
             aspects.append(aspect)
             self.session.add(aspect)
@@ -315,11 +298,9 @@ class EvaluationAspectRepository:
             "score_distribution": score_distribution
         }
     
-    async def get_aspects_analytics(self, organization_id: Optional[int] = None) -> Dict[str, Any]:
+    async def get_aspects_analytics(self) -> Dict[str, Any]:
         """Get comprehensive aspects analytics."""
         base_filter = EvaluationAspect.deleted_at.is_(None)
-        if organization_id:
-            base_filter = and_(base_filter, EvaluationAspect.organization_id == organization_id)
         
         # Total counts
         total_query = select(func.count(EvaluationAspect.id)).where(base_filter)
@@ -353,9 +334,9 @@ class EvaluationAspectRepository:
             "weight_distribution": weight_distribution
         }
     
-    async def validate_aspect_weights(self, organization_id: Optional[int] = None) -> Dict[str, Any]:
+    async def validate_aspect_weights(self) -> Dict[str, Any]:
         """Validate that aspect weights are properly balanced."""
-        active_aspects = await self.get_active_aspects(organization_id)
+        active_aspects = await self.get_active_aspects()
         
         total_weight = sum(aspect.weight for aspect in active_aspects)
         expected_weight = Decimal("100.00")
@@ -383,12 +364,11 @@ class EvaluationAspectRepository:
     
     # ===== HELPER METHODS =====
     
-    async def aspect_exists(self, aspect_name: str, organization_id: Optional[int] = None, exclude_id: Optional[int] = None) -> bool:
+    async def aspect_exists(self, aspect_name: str, exclude_id: Optional[int] = None) -> bool:
         """Check if aspect name already exists."""
         query = select(EvaluationAspect).where(
             and_(
                 EvaluationAspect.aspect_name.ilike(aspect_name),
-                EvaluationAspect.organization_id == organization_id,
                 EvaluationAspect.deleted_at.is_(None)
             )
         )

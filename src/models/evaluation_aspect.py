@@ -1,18 +1,17 @@
 """Evaluation Aspect model for PKG System."""
 
-from typing import Optional, List, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 from decimal import Decimal
 from sqlmodel import Field, SQLModel, Relationship
 
 from .base import BaseModel
 
 if TYPE_CHECKING:
-    from .organization import Organization
     from .teacher_evaluation import TeacherEvaluation
 
 
 class EvaluationAspect(BaseModel, SQLModel, table=True):
-    """Evaluation aspect model for teacher performance assessments."""
+    """Evaluation aspect model for teacher performance assessments (Universal across all organizations)."""
     
     __tablename__ = "evaluation_aspects"
     
@@ -22,20 +21,14 @@ class EvaluationAspect(BaseModel, SQLModel, table=True):
     description: Optional[str] = Field(default=None)
     
     # Scoring configuration
-    weight: Decimal = Field(default=Decimal("1.00"), max_digits=3, decimal_places=2)
+    weight: Decimal = Field(default=Decimal("1.00"), max_digits=5, decimal_places=2)
     min_score: int = Field(default=1)
     max_score: int = Field(default=4)
     
-    # Status and organization
+    # Status (Universal - no organization filtering)
     is_active: bool = Field(default=True, index=True)
-    organization_id: Optional[int] = Field(
-        default=None,
-        foreign_key="organizations.id",
-        index=True
-    )
     
     # Relationships
-    organization: Optional["Organization"] = Relationship(back_populates="evaluation_aspects")
     teacher_evaluations: List["TeacherEvaluation"] = Relationship(back_populates="aspect")
     
     def __repr__(self) -> str:

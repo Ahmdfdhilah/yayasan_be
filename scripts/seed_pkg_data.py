@@ -118,56 +118,47 @@ class PKGSeeder:
             }
         ]
         
-        # Get all school organizations
-        schools = await self.org_repo.get_by_type("school")
-        
+        # Create universal evaluation aspects (no longer organization-specific)
         created_count = 0
-        for school in schools:
-            for aspect_data in aspects_data:
-                try:
-                    # Add organization_id to aspect data
-                    aspect_data_with_org = aspect_data.copy()
-                    aspect_data_with_org["organization_id"] = school.id
-                    
-                    # Check if aspect already exists for this organization
-                    existing_query = """
-                    SELECT COUNT(*) FROM evaluation_aspects 
-                    WHERE aspect_name = :aspect_name 
-                    AND organization_id = :org_id 
-                    AND deleted_at IS NULL
-                    """
-                    result = await self.session.execute(
-                        existing_query, 
-                        {"aspect_name": aspect_data["aspect_name"], "org_id": school.id}
-                    )
-                    if result.scalar() > 0:
-                        continue
-                    
-                    # Create evaluation aspect
-                    aspect_create = EvaluationAspectCreate(**aspect_data_with_org)
-                    
-                    # Insert directly since we don't have the service layer complete
-                    insert_query = """
-                    INSERT INTO evaluation_aspects 
-                    (aspect_name, description, max_score, weight, organization_id, is_active, created_at, updated_at)
-                    VALUES (:aspect_name, :description, :max_score, :weight, :organization_id, :is_active, :created_at, :updated_at)
-                    """
-                    
-                    await self.session.execute(insert_query, {
-                        "aspect_name": aspect_data["aspect_name"],
-                        "description": aspect_data["description"],
-                        "max_score": aspect_data["max_score"],
-                        "weight": float(aspect_data["weight"]),
-                        "organization_id": school.id,
-                        "is_active": aspect_data["is_active"],
-                        "created_at": datetime.utcnow(),
-                        "updated_at": datetime.utcnow()
-                    })
-                    
-                    created_count += 1
-                    
-                except Exception as e:
-                    print(f"Error creating aspect {aspect_data['aspect_name']} for {school.name}: {e}")
+        for aspect_data in aspects_data:
+            try:
+                # Check if aspect already exists (universal)
+                existing_query = """
+                SELECT COUNT(*) FROM evaluation_aspects 
+                WHERE aspect_name = :aspect_name 
+                AND deleted_at IS NULL
+                """
+                result = await self.session.execute(
+                    existing_query, 
+                    {"aspect_name": aspect_data["aspect_name"]}
+                )
+                if result.scalar() > 0:
+                    continue
+                
+                # Create universal evaluation aspect
+                aspect_create = EvaluationAspectCreate(**aspect_data)
+                
+                # Insert directly since we don't have the service layer complete
+                insert_query = """
+                INSERT INTO evaluation_aspects 
+                (aspect_name, description, max_score, weight, is_active, created_at, updated_at)
+                VALUES (:aspect_name, :description, :max_score, :weight, :is_active, :created_at, :updated_at)
+                """
+                
+                await self.session.execute(insert_query, {
+                    "aspect_name": aspect_data["aspect_name"],
+                    "description": aspect_data["description"],
+                    "max_score": aspect_data["max_score"],
+                    "weight": float(aspect_data["weight"]),
+                    "is_active": aspect_data["is_active"],
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow()
+                })
+                
+                created_count += 1
+                
+            except Exception as e:
+                print(f"Error creating aspect {aspect_data['aspect_name']}: {e}")
         
         await self.session.commit()
         print(f"Created {created_count} evaluation aspects")
@@ -207,35 +198,24 @@ class PKGSeeder:
         aspect_total = aspect_count.scalar()
         print(f"Total evaluation aspects: {aspect_total}")
         
-        # Count by organization
-        org_aspects = await self.session.execute("""
-            SELECT o.name, COUNT(ea.id) as aspect_count
-            FROM organizations o
-            LEFT JOIN evaluation_aspects ea ON o.id = ea.organization_id 
-            WHERE o.deleted_at IS NULL AND (ea.deleted_at IS NULL OR ea.deleted_at IS NULL)
-            GROUP BY o.id, o.name
-            ORDER BY o.name
+        # Check active aspects
+        active_aspects = await self.session.execute("""
+            SELECT COUNT(*) FROM evaluation_aspects 
+            WHERE deleted_at IS NULL AND is_active = true
         """)
+        active_total = active_aspects.scalar()
+        print(f"Active evaluation aspects: {active_total}")
         
-        for org_name, count in org_aspects.all():
-            print(f"  {org_name}: {count} aspects")
-        
-        # Verify weight totals
+        # Verify weight totals (universal aspects)
         weight_check = await self.session.execute("""
-            SELECT organization_id, SUM(weight) as total_weight
+            SELECT SUM(weight) as total_weight
             FROM evaluation_aspects 
             WHERE deleted_at IS NULL AND is_active = true
-            GROUP BY organization_id
         """)
         
         print("\nWeight verification:")
-        for org_id, total_weight in weight_check.all():
-            org_result = await self.session.execute(
-                "SELECT name FROM organizations WHERE id = :org_id",
-                {"org_id": org_id}
-            )
-            org_name = org_result.scalar()
-            print(f"  {org_name}: {total_weight}% (should be 100%)")
+        total_weight = weight_check.scalar()
+        print(f"  Universal aspects total weight: {total_weight}% (should be 100%)")
     
     async def run_pkg_seeding(self):
         """Run the PKG data seeding process."""

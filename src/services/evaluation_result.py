@@ -389,8 +389,7 @@ class EvaluationResultService:
     async def get_organization_performance_overview(
         self, 
         academic_year: str, 
-        semester: str,
-        organization_id: Optional[int] = None
+        semester: str
     ) -> OrganizationPerformanceOverview:
         """Get organization-wide performance overview."""
         results = await self.result_repo.get_results_by_period(academic_year, semester)
@@ -401,11 +400,7 @@ class EvaluationResultService:
                 detail=f"No evaluation results found for {academic_year} - {semester}"
             )
         
-        # Filter by organization if specified
-        if organization_id:
-            # This would need to join with user organization data
-            # For now, we'll work with all results
-            pass
+        # Note: Results are now universal across organizations
         
         total_teachers = len(set(result.teacher_id for result in results))
         evaluated_teachers = len(results)
@@ -458,9 +453,9 @@ class EvaluationResultService:
     
     # ===== ANALYTICS =====
     
-    async def get_results_analytics(self, organization_id: Optional[int] = None) -> EvaluationResultAnalytics:
+    async def get_results_analytics(self) -> EvaluationResultAnalytics:
         """Get comprehensive results analytics."""
-        analytics_data = await self.result_repo.get_results_analytics(organization_id)
+        analytics_data = await self.result_repo.get_results_analytics()
         
         return EvaluationResultAnalytics(
             total_results=analytics_data["total_results"],

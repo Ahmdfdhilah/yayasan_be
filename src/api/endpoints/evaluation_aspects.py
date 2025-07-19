@@ -166,12 +166,11 @@ async def list_aspects(
     summary="Get active evaluation aspects"
 )
 async def get_active_aspects(
-    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
     current_user: dict = Depends(get_current_active_user),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
-    """Get all active evaluation aspects."""
-    return await aspect_service.get_active_aspects(organization_id)
+    """Get all active evaluation aspects (universal across all organizations)."""
+    return await aspect_service.get_active_aspects()
 
 
 @router.get(
@@ -181,12 +180,11 @@ async def get_active_aspects(
 )
 async def get_aspects_by_category(
     category: str,
-    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
     current_user: dict = Depends(get_current_active_user),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
     """Get evaluation aspects by category."""
-    return await aspect_service.get_aspects_by_category(category, organization_id)
+    return await aspect_service.get_aspects_by_category(category)
 
 
 # ===== BULK OPERATIONS =====
@@ -263,17 +261,16 @@ async def validate_weights(
 
 
 @router.get(
-    "/weights/validate-organization",
+    "/weights/validate-all",
     response_model=WeightValidationResponse,
-    summary="Validate organization aspect weights"
+    summary="Validate all aspect weights"
 )
-async def validate_organization_weights(
-    organization_id: Optional[int] = Query(None, description="Organization ID"),
+async def validate_all_weights(
     current_user: dict = Depends(get_current_active_user),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
-    """Validate weights for organization's active aspects."""
-    return await aspect_service.validate_organization_weights(organization_id)
+    """Validate weights for all active aspects."""
+    return await aspect_service.validate_all_weights()
 
 
 # ===== ANALYTICS =====
@@ -284,12 +281,11 @@ async def validate_organization_weights(
     summary="Get evaluation aspects analytics"
 )
 async def get_aspects_analytics(
-    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
     current_user: dict = Depends(get_current_active_user),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
     """Get comprehensive evaluation aspects analytics."""
-    return await aspect_service.get_aspects_analytics(organization_id)
+    return await aspect_service.get_aspects_analytics()
 
 
 @router.get(
@@ -312,9 +308,8 @@ async def get_aspect_performance_analysis(
     summary="Get comprehensive aspect statistics"
 )
 async def get_comprehensive_stats(
-    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
     current_user: dict = Depends(get_current_active_user),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
     """Get comprehensive evaluation aspect statistics and recommendations."""
-    return await aspect_service.get_comprehensive_stats(organization_id)
+    return await aspect_service.get_comprehensive_stats()

@@ -463,7 +463,7 @@ class TeacherEvaluationRepository:
             "aspect_scores": aspect_scores
         }
     
-    async def get_evaluations_analytics(self, organization_id: Optional[int] = None) -> Dict[str, Any]:
+    async def get_evaluations_analytics(self) -> Dict[str, Any]:
         """Get comprehensive evaluations analytics."""
         base_filter = TeacherEvaluation.deleted_at.is_(None)
         

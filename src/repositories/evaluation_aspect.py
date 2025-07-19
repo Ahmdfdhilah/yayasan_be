@@ -21,16 +21,14 @@ class EvaluationAspectRepository:
     
     # ===== BASIC CRUD OPERATIONS =====
     
-    async def create(self, aspect_data: EvaluationAspectCreate) -> EvaluationAspect:
-        """Create new evaluation aspect."""
+    async def create(self, aspect_data: EvaluationAspectCreate, created_by: Optional[int] = None) -> EvaluationAspect:
+        """Create new evaluation aspect - simplified."""
         aspect = EvaluationAspect(
             aspect_name=aspect_data.aspect_name,
-            category=getattr(aspect_data, 'category', 'General'),
+            category=aspect_data.category,
             description=aspect_data.description,
-            weight=aspect_data.weight,
-            min_score=getattr(aspect_data, 'min_score', 1),
-            max_score=aspect_data.max_score,
-            is_active=aspect_data.is_active
+            is_active=aspect_data.is_active,
+            created_by=created_by
         )
         
         self.session.add(aspect)
@@ -48,7 +46,7 @@ class EvaluationAspectRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    async def update(self, aspect_id: int, aspect_data: EvaluationAspectUpdate) -> Optional[EvaluationAspect]:
+    async def update(self, aspect_id: int, aspect_data: EvaluationAspectUpdate, updated_by: Optional[int] = None) -> Optional[EvaluationAspect]:
         """Update evaluation aspect."""
         aspect = await self.get_by_id(aspect_id)
         if not aspect:
@@ -59,7 +57,9 @@ class EvaluationAspectRepository:
         for key, value in update_data.items():
             setattr(aspect, key, value)
         
-        aspect.updated_at = datetime.utcnow()
+        if updated_by:
+            aspect.updated_by = updated_by
+        
         await self.session.commit()
         await self.session.refresh(aspect)
         return aspect

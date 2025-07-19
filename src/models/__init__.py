@@ -10,10 +10,10 @@ from .user_role import UserRole
 from .media_file import MediaFile
 
 # PKG System models
+from .period import Period
 from .rpp_submission import RPPSubmission
 from .evaluation_aspect import EvaluationAspect
 from .teacher_evaluation import TeacherEvaluation
-from .evaluation_result import EvaluationResult
 
 # Enums
 from .enums import (
@@ -22,6 +22,7 @@ from .enums import (
     OrganizationType,
     RPPStatus,
     EvaluationGrade,
+    PeriodType,
     ContentStatus,
     MessageStatus,
     MessagePriority,
@@ -44,10 +45,10 @@ __all__ = [
     "MediaFile",
     
     # PKG System models
+    "Period",
     "RPPSubmission",
     "EvaluationAspect",
     "TeacherEvaluation",
-    "EvaluationResult",
     
     # Enums
     "UserRoleEnum",
@@ -55,6 +56,7 @@ __all__ = [
     "OrganizationType",
     "RPPStatus",
     "EvaluationGrade",
+    "PeriodType",
     "ContentStatus",
     "MessageStatus",
     "MessagePriority",

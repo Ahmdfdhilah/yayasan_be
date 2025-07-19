@@ -7,12 +7,11 @@ from src.api.endpoints import auth, users, organizations, user_roles
 
 # Evaluation system imports
 from src.api.endpoints import (
+    periods,
     evaluation_aspects,
-    evaluation_results,
     rpp_submissions,
     teacher_evaluations,
     media_files,
-    dashboard
 )
 
 # Create main API router
@@ -67,6 +66,19 @@ api_router.include_router(
 
 # ===== EVALUATION SYSTEM ENDPOINTS =====
 
+# Periods - untuk mengelola periode evaluasi
+api_router.include_router(
+    periods.router,
+    prefix="/periods",
+    tags=["Period Management"],
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Resource not found"},
+        422: {"description": "Validation Error"},
+    }
+)
+
 # Evaluation Aspects - untuk mengelola aspek evaluasi
 api_router.include_router(
     evaluation_aspects.router,
@@ -89,16 +101,6 @@ api_router.include_router(
     }
 )
 
-# Evaluation Results - untuk hasil evaluasi yang sudah di-aggregate
-api_router.include_router(
-    evaluation_results.router,
-    responses={
-        401: {"description": "Unauthorized"},
-        403: {"description": "Forbidden"},
-        404: {"description": "Resource not found"},
-        422: {"description": "Validation Error"},
-    }
-)
 
 # RPP Submissions - untuk pengumpulan dan review RPP
 api_router.include_router(
@@ -114,17 +116,6 @@ api_router.include_router(
 # Media Files - untuk manajemen file upload dan download
 api_router.include_router(
     media_files.router,
-    responses={
-        401: {"description": "Unauthorized"},
-        403: {"description": "Forbidden"},
-        404: {"description": "Resource not found"},
-        422: {"description": "Validation Error"},
-    }
-)
-
-# Dashboard - untuk overview analytics dan monitoring
-api_router.include_router(
-    dashboard.router,
     responses={
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},

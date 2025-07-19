@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from src.models.rpp_submission import RPPSubmission
 from src.models.user import User
 from src.models.media_file import MediaFile
+from src.models.period import Period
 from src.models.enums import RPPStatus
 from src.schemas.rpp_submission import RPPSubmissionCreate, RPPSubmissionUpdate
 from src.schemas.filters import RPPSubmissionFilterParams
@@ -22,16 +23,16 @@ class RPPSubmissionRepository:
     
     # ===== BASIC CRUD OPERATIONS =====
     
-    async def create(self, submission_data: RPPSubmissionCreate) -> RPPSubmission:
-        """Create new RPP submission."""
+    async def create(self, submission_data: RPPSubmissionCreate, created_by: Optional[int] = None) -> RPPSubmission:
+        """Create new RPP submission - updated for periods."""
         submission = RPPSubmission(
             teacher_id=submission_data.teacher_id,
-            academic_year=submission_data.academic_year,
-            semester=submission_data.semester,
+            period_id=submission_data.period_id,
             rpp_type=submission_data.rpp_type,
             file_id=submission_data.file_id,
             status=RPPStatus.PENDING,
-            revision_count=0
+            revision_count=0,
+            created_by=created_by
         )
         
         self.session.add(submission)
@@ -40,14 +41,13 @@ class RPPSubmissionRepository:
         return submission
     
     async def get_by_id(self, submission_id: int) -> Optional[RPPSubmission]:
-        """Get RPP submission by ID with relationships."""
+        """Get RPP submission by ID with relationships - updated for periods."""
         query = select(RPPSubmission).options(
             selectinload(RPPSubmission.teacher),
             selectinload(RPPSubmission.reviewer),
-            selectinload(RPPSubmission.file)
-        ).where(
-            and_(RPPSubmission.id == submission_id, RPPSubmission.deleted_at.is_(None))
-        )
+            selectinload(RPPSubmission.file),
+            selectinload(RPPSubmission.period)
+        ).where(RPPSubmission.id == submission_id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
@@ -184,13 +184,9 @@ class RPPSubmissionRepository:
             query = query.where(RPPSubmission.reviewer_id == filters.reviewer_id)
             count_query = count_query.where(RPPSubmission.reviewer_id == filters.reviewer_id)
         
-        if filters.academic_year:
-            query = query.where(RPPSubmission.academic_year == filters.academic_year)
-            count_query = count_query.where(RPPSubmission.academic_year == filters.academic_year)
-        
-        if filters.semester:
-            query = query.where(RPPSubmission.semester == filters.semester)
-            count_query = count_query.where(RPPSubmission.semester == filters.semester)
+        if filters.period_id:
+            query = query.where(RPPSubmission.period_id == filters.period_id)
+            count_query = count_query.where(RPPSubmission.period_id == filters.period_id)
         
         if filters.rpp_type:
             query = query.where(RPPSubmission.rpp_type.ilike(f"%{filters.rpp_type}%"))
@@ -245,10 +241,8 @@ class RPPSubmissionRepository:
         if filters.sort_by == "teacher_name":
             query = query.join(User, RPPSubmission.teacher_id == User.id)
             sort_column = func.json_extract_path_text(User.profile, 'name')
-        elif filters.sort_by == "academic_year":
-            sort_column = RPPSubmission.academic_year
-        elif filters.sort_by == "semester":
-            sort_column = RPPSubmission.semester
+        elif filters.sort_by == "period_id":
+            sort_column = RPPSubmission.period_id
         elif filters.sort_by == "rpp_type":
             sort_column = RPPSubmission.rpp_type
         elif filters.sort_by == "status":
@@ -284,7 +278,7 @@ class RPPSubmissionRepository:
         
         return list(submissions), total
     
-    async def get_teacher_submissions(self, teacher_id: int, academic_year: Optional[str] = None) -> List[RPPSubmission]:
+    async def get_teacher_submissions(self, teacher_id: int, period_id: Optional[int] = None) -> List[RPPSubmission]:
         """Get all submissions for a specific teacher."""
         query = select(RPPSubmission).options(
             selectinload(RPPSubmission.reviewer),
@@ -296,8 +290,8 @@ class RPPSubmissionRepository:
             )
         )
         
-        if academic_year:
-            query = query.where(RPPSubmission.academic_year == academic_year)
+        if period_id:
+            query = query.where(RPPSubmission.period_id == period_id)
         
         query = query.order_by(desc(RPPSubmission.submitted_at))
         result = await self.session.execute(query)
@@ -322,19 +316,13 @@ class RPPSubmissionRepository:
         result = await self.session.execute(query)
         return list(result.scalars().all())
     
-    async def get_submissions_by_period(self, academic_year: str, semester: str) -> List[RPPSubmission]:
+    async def get_submissions_by_period(self, period_id: int) -> List[RPPSubmission]:
         """Get all submissions for a specific academic period."""
         query = select(RPPSubmission).options(
             selectinload(RPPSubmission.teacher),
             selectinload(RPPSubmission.reviewer),
             selectinload(RPPSubmission.file)
-        ).where(
-            and_(
-                RPPSubmission.academic_year == academic_year,
-                RPPSubmission.semester == semester,
-                RPPSubmission.deleted_at.is_(None)
-            )
-        ).order_by(desc(RPPSubmission.submitted_at))
+        ).where(RPPSubmission.period_id == period_id).order_by(desc(RPPSubmission.submitted_at))
         
         result = await self.session.execute(query)
         return list(result.scalars().all())

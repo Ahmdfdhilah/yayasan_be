@@ -17,8 +17,6 @@ from src.schemas.evaluation_aspect import (
     EvaluationAspectBulkCreate,
     EvaluationAspectBulkUpdate,
     EvaluationAspectBulkDelete,
-    WeightValidation,
-    WeightValidationResponse,
     EvaluationAspectAnalytics,
     AspectPerformanceAnalysis,
     EvaluationAspectStats
@@ -53,7 +51,7 @@ async def create_aspect(
     
     Requires admin role.
     """
-    return await aspect_service.create_aspect(aspect_data)
+    return await aspect_service.create_aspect(aspect_data, current_user.get("user_id"))
 
 
 @router.get(
@@ -243,34 +241,6 @@ async def bulk_delete_aspects(
     """
     return await aspect_service.bulk_delete_aspects(bulk_data)
 
-
-# ===== WEIGHT VALIDATION =====
-
-@router.post(
-    "/weights/validate",
-    response_model=WeightValidationResponse,
-    summary="Validate aspect weights"
-)
-async def validate_weights(
-    validation_data: WeightValidation,
-    current_user: dict = Depends(get_current_active_user),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """Validate that aspect weights are properly balanced."""
-    return await aspect_service.validate_weights(validation_data)
-
-
-@router.get(
-    "/weights/validate-all",
-    response_model=WeightValidationResponse,
-    summary="Validate all aspect weights"
-)
-async def validate_all_weights(
-    current_user: dict = Depends(get_current_active_user),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """Validate weights for all active aspects."""
-    return await aspect_service.validate_all_weights()
 
 
 # ===== ANALYTICS =====

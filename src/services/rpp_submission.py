@@ -41,7 +41,7 @@ class RPPSubmissionService:
     
     # ===== BASIC CRUD OPERATIONS =====
     
-    async def create_submission(self, submission_data: RPPSubmissionCreate) -> RPPSubmissionResponse:
+    async def create_submission(self, submission_data: RPPSubmissionCreate, created_by: Optional[int] = None) -> RPPSubmissionResponse:
         """Create new RPP submission."""
         # Validate teacher exists
         teacher = await self.user_repo.get_by_id(submission_data.teacher_id)
@@ -59,21 +59,8 @@ class RPPSubmissionService:
                 detail="File not found"
             )
         
-        # Check if submission already exists for this combination
-        existing_submission = await self.submission_repo.find_existing_submission(
-            submission_data.teacher_id,
-            submission_data.academic_year,
-            submission_data.semester,
-            submission_data.rpp_type
-        )
-        
-        if existing_submission:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"RPP submission already exists for {submission_data.rpp_type} in {submission_data.academic_year} - {submission_data.semester}"
-            )
-        
-        submission = await self.submission_repo.create(submission_data)
+        # Create submission (period-based, no need to check academic_year/semester)
+        submission = await self.submission_repo.create(submission_data, created_by)
         return RPPSubmissionResponse.from_rpp_submission_model(
             submission, include_relations=True
         )
@@ -343,13 +330,9 @@ class RPPSubmissionService:
             for submission in submissions
         ]
     
-    async def get_submissions_by_period(
-        self, 
-        academic_year: str, 
-        semester: str
-    ) -> List[RPPSubmissionResponse]:
-        """Get all submissions for a specific academic period."""
-        submissions = await self.submission_repo.get_submissions_by_period(academic_year, semester)
+    async def get_submissions_by_period(self, period_id: int) -> List[RPPSubmissionResponse]:
+        """Get all submissions for a specific period."""
+        submissions = await self.submission_repo.get_submissions_by_period(period_id)
         
         return [
             RPPSubmissionResponse.from_rpp_submission_model(

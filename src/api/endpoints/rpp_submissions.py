@@ -51,7 +51,7 @@ async def create_submission(
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """Create a new RPP submission."""
-    return await submission_service.create_submission(submission_data)
+    return await submission_service.create_submission(submission_data, current_user["id"])
 
 
 # Move specific routes before parameterized routes to avoid conflicts
@@ -89,18 +89,17 @@ async def get_overdue_reviews(
 
 
 @router.get(
-    "/period/{academic_year}/{semester}",
+    "/period/{period_id}",
     response_model=List[RPPSubmissionResponse],
     summary="Get submissions by period"
 )
 async def get_submissions_by_period(
-    academic_year: str,
-    semester: str,
+    period_id: int,
     current_user: dict = Depends(get_current_active_user),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """Get all RPP submissions for a specific academic period."""
-    return await submission_service.get_submissions_by_period(academic_year, semester)
+    return await submission_service.get_submissions_by_period(period_id)
 
 
 @router.get(

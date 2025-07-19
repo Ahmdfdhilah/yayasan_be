@@ -14,8 +14,6 @@ from src.schemas.evaluation_aspect import (
     EvaluationAspectBulkCreate,
     EvaluationAspectBulkUpdate,
     EvaluationAspectBulkDelete,
-    WeightValidation,
-    WeightValidationResponse,
     EvaluationAspectAnalytics,
     AspectPerformanceAnalysis,
     EvaluationAspectStats
@@ -31,16 +29,9 @@ class EvaluationAspectService:
     
     # ===== BASIC CRUD OPERATIONS =====
     
-    async def create_aspect(self, aspect_data: EvaluationAspectCreate) -> EvaluationAspectResponse:
-        """Create new evaluation aspect."""
-        # Check if aspect name already exists
-        if await self.aspect_repo.aspect_exists(aspect_data.aspect_name):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Evaluation aspect '{aspect_data.aspect_name}' already exists"
-            )
-        
-        aspect = await self.aspect_repo.create(aspect_data)
+    async def create_aspect(self, aspect_data: EvaluationAspectCreate, created_by: Optional[int] = None) -> EvaluationAspectResponse:
+        """Create new evaluation aspect - simplified."""
+        aspect = await self.aspect_repo.create(aspect_data, created_by)
         return EvaluationAspectResponse.from_evaluation_aspect_model(aspect, include_stats=True)
     
     async def get_aspect_by_id(self, aspect_id: int) -> EvaluationAspectResponse:
@@ -61,7 +52,6 @@ class EvaluationAspectService:
         
         # Add statistics
         response.evaluation_count = stats["evaluation_count"]
-        response.avg_score = stats["avg_score"]
         
         return response
     
@@ -297,55 +287,6 @@ class EvaluationAspectService:
             "errors": errors
         }
     
-    # ===== WEIGHT VALIDATION =====
-    
-    async def validate_weights(self, validation_data: WeightValidation) -> WeightValidationResponse:
-        """Validate aspect weights."""
-        # Get aspects
-        errors = []
-        warnings = []
-        total_weight = 0
-        
-        for aspect_id, weight in validation_data.aspect_weights.items():
-            aspect = await self.aspect_repo.get_by_id(aspect_id)
-            if not aspect:
-                errors.append(f"Aspect with ID {aspect_id} not found")
-                continue
-            
-            # Note: All aspects are now universal across organizations
-            
-            if weight < 0 or weight > 100:
-                errors.append(f"Weight for aspect {aspect_id} must be between 0 and 100")
-                continue
-            
-            total_weight += weight
-        
-        # Check total weight
-        expected_weight = 100
-        is_valid = len(errors) == 0 and total_weight == expected_weight
-        
-        if total_weight > expected_weight:
-            errors.append(f"Total weight ({total_weight}%) exceeds 100%")
-        elif total_weight < expected_weight:
-            warnings.append(f"Total weight ({total_weight}%) is less than 100%")
-        
-        return WeightValidationResponse(
-            is_valid=is_valid,
-            total_weight=total_weight,
-            errors=errors,
-            warnings=warnings
-        )
-    
-    async def validate_all_weights(self) -> WeightValidationResponse:
-        """Validate weights for all active aspects."""
-        validation_result = await self.aspect_repo.validate_aspect_weights()
-        
-        return WeightValidationResponse(
-            is_valid=validation_result["is_valid"],
-            total_weight=validation_result["total_weight"],
-            errors=validation_result["errors"],
-            warnings=validation_result["warnings"]
-        )
     
     # ===== ANALYTICS =====
     
@@ -357,7 +298,7 @@ class EvaluationAspectService:
         aspects = await self.aspect_repo.get_active_aspects()
         most_used = []
         least_used = []
-        avg_scores = {}
+        avg_grades = {}
         
         for aspect in aspects[:10]:  # Limit to top 10
             stats = await self.aspect_repo.get_aspect_statistics(aspect.id)
@@ -366,12 +307,12 @@ class EvaluationAspectService:
                 "aspect_id": aspect.id,
                 "aspect_name": aspect.aspect_name,
                 "evaluation_count": stats["evaluation_count"],
-                "avg_score": stats["avg_score"]
+                "avg_score": stats.get("avg_score", 0)
             }
             
             if stats["evaluation_count"] > 0:
                 most_used.append(aspect_info)
-                avg_scores[aspect.aspect_name] = stats["avg_score"]
+                avg_grades[aspect.aspect_name] = stats.get("avg_grade", "C")
             else:
                 least_used.append(aspect_info)
         
@@ -383,11 +324,9 @@ class EvaluationAspectService:
             total_aspects=analytics_data["total_aspects"],
             active_aspects=analytics_data["active_aspects"],
             inactive_aspects=analytics_data["inactive_aspects"],
-            total_weight=analytics_data["total_weight"],
-            weight_distribution=analytics_data["weight_distribution"],
             most_used_aspects=most_used[:5],
             least_used_aspects=least_used[:5],
-            avg_score_by_aspect=avg_scores
+            avg_grade_by_aspect=avg_grades
         )
     
     async def get_aspect_performance_analysis(self, aspect_id: int) -> AspectPerformanceAnalysis:
@@ -405,22 +344,17 @@ class EvaluationAspectService:
             aspect_id=aspect_id,
             aspect_name=aspect.aspect_name,
             total_evaluations=analysis_data["total_evaluations"],
-            avg_score=analysis_data["avg_score"],
-            min_score=analysis_data["min_score"],
-            max_score=analysis_data["max_score"],
-            score_distribution=analysis_data["score_distribution"],
+            avg_grade=analysis_data.get("avg_grade", "C"),
+            grade_distribution=analysis_data.get("grade_distribution", {}),
             trend_data=[],  # Would need time-series data
-            top_performers=analysis_data["top_performers"],
-            improvement_needed=analysis_data["improvement_needed"]
+            top_performers=analysis_data.get("top_performers", []),
+            improvement_needed=analysis_data.get("improvement_needed", [])
         )
     
     async def get_comprehensive_stats(self) -> EvaluationAspectStats:
         """Get comprehensive evaluation aspect statistics."""
         # Get main analytics
         analytics = await self.get_aspects_analytics()
-        
-        # Get weight validation
-        weight_validation = await self.validate_all_weights()
         
         # Get performance analysis for active aspects
         active_aspects = await self.aspect_repo.get_active_aspects()
@@ -435,8 +369,6 @@ class EvaluationAspectService:
         
         # Generate recommendations
         recommendations = []
-        if weight_validation.total_weight != 100:
-            recommendations.append("Adjust aspect weights to total exactly 100%")
         
         if analytics.inactive_aspects > 0:
             recommendations.append(f"Review {analytics.inactive_aspects} inactive aspects")
@@ -447,7 +379,6 @@ class EvaluationAspectService:
         return EvaluationAspectStats(
             summary=analytics,
             aspect_performance=aspect_performance,
-            weight_balance_check=weight_validation,
             usage_trends={},  # Would need historical data
             recommendations=recommendations
         )

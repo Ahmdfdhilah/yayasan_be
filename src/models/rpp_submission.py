@@ -1,4 +1,4 @@
-"""RPP Submission model for PKG System."""
+"""RPP Submission model for PKG System - Updated to use periods."""
 
 from typing import Optional, TYPE_CHECKING
 from datetime import datetime
@@ -11,17 +11,17 @@ from .enums import RPPStatus
 if TYPE_CHECKING:
     from .user import User
     from .media_file import MediaFile
+    from .period import Period
 
 
 class RPPSubmission(BaseModel, SQLModel, table=True):
-    """RPP Submission model for teacher evaluations."""
+    """RPP Submission model for teacher evaluations - using universal periods."""
     
     __tablename__ = "rpp_submissions"
     
     id: int = Field(primary_key=True)
     teacher_id: int = Field(foreign_key="users.id", nullable=False, index=True)
-    academic_year: str = Field(max_length=20, nullable=False, index=True)
-    semester: str = Field(max_length=20, nullable=False, index=True)
+    period_id: int = Field(foreign_key="periods.id", nullable=False, index=True)
     rpp_type: str = Field(max_length=100, nullable=False)
     file_id: int = Field(foreign_key="media_files.id", nullable=False)
     
@@ -52,6 +52,7 @@ class RPPSubmission(BaseModel, SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "RPPSubmission.reviewer_id"}
     )
     file: "MediaFile" = Relationship(back_populates="rpp_submissions")
+    period: "Period" = Relationship(back_populates="rpp_submissions")
     
     def __repr__(self) -> str:
         return f"<RPPSubmission(id={self.id}, teacher_id={self.teacher_id}, status={self.status.value})>"

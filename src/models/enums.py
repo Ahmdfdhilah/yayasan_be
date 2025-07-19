@@ -45,11 +45,40 @@ class RPPStatus(str, Enum):
 
 
 class EvaluationGrade(str, Enum):
-    """Evaluation grade category enum."""
-    EXCELLENT = "excellent"
-    GOOD = "good"
-    SATISFACTORY = "satisfactory"
-    NEEDS_IMPROVEMENT = "needs_improvement"
+    """Evaluation grade enum for simplified scoring system."""
+    A = "A"  # Excellent - 4 points
+    B = "B"  # Good - 3 points  
+    C = "C"  # Satisfactory - 2 points
+    D = "D"  # Needs Improvement - 1 point
+    
+    @classmethod
+    def get_score(cls, grade: str) -> int:
+        """Get numeric score for grade."""
+        score_map = {
+            cls.A.value: 4,
+            cls.B.value: 3,
+            cls.C.value: 2,
+            cls.D.value: 1
+        }
+        return score_map.get(grade, 0)
+    
+    @classmethod
+    def get_description(cls, grade: str) -> str:
+        """Get description for grade."""
+        desc_map = {
+            cls.A.value: "Excellent",
+            cls.B.value: "Good", 
+            cls.C.value: "Satisfactory",
+            cls.D.value: "Needs Improvement"
+        }
+        return desc_map.get(grade, "Unknown")
+
+
+class PeriodType(str, Enum):
+    """Period type enum for universal period management."""
+    EVALUATION = "evaluation"
+    RPP_SUBMISSION = "rpp_submission"
+    ACADEMIC = "academic"
 
 
 class ContentStatus(str, Enum):

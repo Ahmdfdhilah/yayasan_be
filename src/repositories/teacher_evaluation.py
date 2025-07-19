@@ -1,17 +1,19 @@
-"""TeacherEvaluation repository for PKG system."""
+"""TeacherEvaluation repository for PKG system - Refactored for grade-based system."""
 
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
-from decimal import Decimal
 from sqlalchemy import select, and_, or_, func, update, delete, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.models.teacher_evaluation import TeacherEvaluation
 from src.models.evaluation_aspect import EvaluationAspect
+from src.models.period import Period
 from src.models.user import User
-from src.schemas.teacher_evaluation import TeacherEvaluationCreate, TeacherEvaluationUpdate
-from src.schemas.filters import TeacherEvaluationFilterParams
+from src.models.enums import EvaluationGrade
+from src.schemas.teacher_evaluation import (
+    TeacherEvaluationCreate, TeacherEvaluationUpdate, TeacherEvaluationFilterParams
+)
 
 
 class TeacherEvaluationRepository:
@@ -22,16 +24,16 @@ class TeacherEvaluationRepository:
     
     # ===== BASIC CRUD OPERATIONS =====
     
-    async def create(self, evaluation_data: TeacherEvaluationCreate) -> TeacherEvaluation:
-        """Create new teacher evaluation."""
+    async def create(self, evaluation_data: TeacherEvaluationCreate, created_by: Optional[int] = None) -> TeacherEvaluation:
+        """Create new teacher evaluation - grade-based."""
         evaluation = TeacherEvaluation(
             evaluator_id=evaluation_data.evaluator_id,
             teacher_id=evaluation_data.teacher_id,
             aspect_id=evaluation_data.aspect_id,
-            academic_year=evaluation_data.academic_year,
-            semester=evaluation_data.semester,
-            score=evaluation_data.score,
-            notes=evaluation_data.notes
+            period_id=evaluation_data.period_id,
+            grade=evaluation_data.grade,
+            notes=evaluation_data.notes,
+            created_by=created_by
         )
         
         self.session.add(evaluation)
@@ -44,43 +46,40 @@ class TeacherEvaluationRepository:
         query = select(TeacherEvaluation).options(
             selectinload(TeacherEvaluation.evaluator),
             selectinload(TeacherEvaluation.teacher),
-            selectinload(TeacherEvaluation.aspect)
-        ).where(
-            and_(TeacherEvaluation.id == evaluation_id, TeacherEvaluation.deleted_at.is_(None))
-        )
+            selectinload(TeacherEvaluation.aspect),
+            selectinload(TeacherEvaluation.period)
+        ).where(TeacherEvaluation.id == evaluation_id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    async def update(self, evaluation_id: int, evaluation_data: TeacherEvaluationUpdate) -> Optional[TeacherEvaluation]:
-        """Update teacher evaluation."""
+    async def update(self, evaluation_id: int, evaluation_data: TeacherEvaluationUpdate, updated_by: Optional[int] = None) -> Optional[TeacherEvaluation]:
+        """Update teacher evaluation - grade-based."""
         evaluation = await self.get_by_id(evaluation_id)
         if not evaluation:
             return None
         
-        # Update score if provided
-        if evaluation_data.score is not None:
-            evaluation.update_score(evaluation_data.score, evaluation_data.notes)
+        # Update grade if provided
+        if evaluation_data.grade is not None:
+            evaluation.update_grade(evaluation_data.grade, evaluation_data.notes)
         elif evaluation_data.notes is not None:
             evaluation.add_notes(evaluation_data.notes)
         
-        evaluation.updated_at = datetime.utcnow()
+        if updated_by:
+            evaluation.updated_by = updated_by
+        
         await self.session.commit()
         await self.session.refresh(evaluation)
         return evaluation
     
-    async def soft_delete(self, evaluation_id: int) -> bool:
-        """Soft delete teacher evaluation."""
-        query = (
-            update(TeacherEvaluation)
-            .where(TeacherEvaluation.id == evaluation_id)
-            .values(
-                deleted_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
-            )
-        )
-        result = await self.session.execute(query)
+    async def delete(self, evaluation_id: int) -> bool:
+        """Delete teacher evaluation."""
+        evaluation = await self.get_by_id(evaluation_id)
+        if not evaluation:
+            return False
+        
+        await self.session.delete(evaluation)
         await self.session.commit()
-        return result.rowcount > 0
+        return True
     
     # ===== LISTING AND FILTERING =====
     
@@ -664,3 +663,181 @@ class TeacherEvaluationRepository:
             })
         
         return trend_data
+    
+    # ===== BULK ASSIGNMENT METHODS =====
+    
+    async def assign_teachers_to_period(
+        self,
+        period_id: int,
+        teacher_ids: Optional[List[int]] = None,
+        aspect_ids: Optional[List[int]] = None,
+        created_by: Optional[int] = None
+    ) -> Tuple[int, List[str]]:
+        """Bulk assign teachers to evaluation period with all aspects."""
+        from src.models.user_role import UserRole
+        from src.models.enums import UserRole as UserRoleEnum
+        
+        errors = []
+        created_count = 0
+        
+        # Get teachers if not specified
+        if teacher_ids is None:
+            # Get all active teachers (users with teacher role)
+            teacher_query = select(User.id).join(
+                UserRole, User.id == UserRole.user_id
+            ).where(
+                and_(
+                    UserRole.role_name == UserRoleEnum.GURU,
+                    UserRole.is_active == True,
+                    User.status == "active"
+                )
+            )
+            result = await self.session.execute(teacher_query)
+            teacher_ids = [row[0] for row in result.fetchall()]
+        
+        # Get aspects if not specified
+        if aspect_ids is None:
+            # Get all active aspects
+            aspect_query = select(EvaluationAspect.id).where(
+                EvaluationAspect.is_active == True
+            )
+            result = await self.session.execute(aspect_query)
+            aspect_ids = [row[0] for row in result.fetchall()]
+        
+        # Create evaluations for each teacher-aspect combination
+        for teacher_id in teacher_ids:
+            for aspect_id in aspect_ids:
+                # Check if evaluation already exists
+                existing_query = select(TeacherEvaluation).where(
+                    and_(
+                        TeacherEvaluation.teacher_id == teacher_id,
+                        TeacherEvaluation.aspect_id == aspect_id,
+                        TeacherEvaluation.period_id == period_id
+                    )
+                )
+                existing = await self.session.execute(existing_query)
+                
+                if existing.scalar_one_or_none() is None:
+                    # Create new evaluation record without grade (to be filled later)
+                    evaluation = TeacherEvaluation(
+                        teacher_id=teacher_id,
+                        evaluator_id=created_by,  # Will be updated when actually evaluated
+                        aspect_id=aspect_id,
+                        period_id=period_id,
+                        grade=EvaluationGrade.D,  # Default grade, to be updated
+                        notes="Auto-created - pending evaluation",
+                        created_by=created_by
+                    )
+                    self.session.add(evaluation)
+                    created_count += 1
+                else:
+                    errors.append(f"Evaluation already exists for teacher {teacher_id}, aspect {aspect_id}")
+        
+        await self.session.commit()
+        return created_count, errors
+    
+    async def get_evaluations_by_period(self, period_id: int) -> List[TeacherEvaluation]:
+        """Get all evaluations for a specific period."""
+        query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.teacher),
+            selectinload(TeacherEvaluation.aspect),
+            selectinload(TeacherEvaluation.period)
+        ).where(TeacherEvaluation.period_id == period_id)
+        
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+    
+    async def get_teacher_evaluations_in_period(
+        self, 
+        teacher_id: int, 
+        period_id: int
+    ) -> List[TeacherEvaluation]:
+        """Get all evaluations for a teacher in a specific period."""
+        query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.aspect),
+            selectinload(TeacherEvaluation.period)
+        ).where(
+            and_(
+                TeacherEvaluation.teacher_id == teacher_id,
+                TeacherEvaluation.period_id == period_id
+            )
+        )
+        
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+    
+    async def bulk_update_grades(
+        self,
+        evaluation_updates: List[Dict[str, Any]],
+        updated_by: Optional[int] = None
+    ) -> Tuple[int, List[str]]:
+        """Bulk update evaluation grades."""
+        updated_count = 0
+        errors = []
+        
+        for update_data in evaluation_updates:
+            evaluation_id = update_data.get('evaluation_id')
+            grade = update_data.get('grade')
+            notes = update_data.get('notes')
+            
+            evaluation = await self.get_by_id(evaluation_id)
+            if not evaluation:
+                errors.append(f"Evaluation {evaluation_id} not found")
+                continue
+            
+            try:
+                evaluation.update_grade(EvaluationGrade(grade), notes)
+                if updated_by:
+                    evaluation.updated_by = updated_by
+                updated_count += 1
+            except Exception as e:
+                errors.append(f"Failed to update evaluation {evaluation_id}: {str(e)}")
+        
+        await self.session.commit()
+        return updated_count, errors
+    
+    async def get_period_statistics(self, period_id: int) -> Dict[str, Any]:
+        """Get comprehensive statistics for a period."""
+        # Get total teachers and aspects for the period
+        teacher_count_query = select(func.count(func.distinct(TeacherEvaluation.teacher_id))).where(
+            TeacherEvaluation.period_id == period_id
+        )
+        aspect_count_query = select(func.count(func.distinct(TeacherEvaluation.aspect_id))).where(
+            TeacherEvaluation.period_id == period_id
+        )
+        
+        teacher_count_result = await self.session.execute(teacher_count_query)
+        aspect_count_result = await self.session.execute(aspect_count_query)
+        
+        total_teachers = teacher_count_result.scalar() or 0
+        total_aspects = aspect_count_result.scalar() or 0
+        
+        # Get grade distribution
+        grade_dist_query = select(
+            TeacherEvaluation.grade,
+            func.count(TeacherEvaluation.id)
+        ).where(
+            TeacherEvaluation.period_id == period_id
+        ).group_by(TeacherEvaluation.grade)
+        
+        grade_dist_result = await self.session.execute(grade_dist_query)
+        grade_distribution = {grade.value: count for grade, count in grade_dist_result.fetchall()}
+        
+        # Calculate completion percentage
+        total_possible = total_teachers * total_aspects
+        completed_evaluations = sum(grade_distribution.values())
+        completion_percentage = (completed_evaluations / total_possible * 100) if total_possible > 0 else 0
+        
+        # Calculate average score
+        total_score = sum(EvaluationGrade.get_score(grade) * count for grade, count in grade_distribution.items())
+        average_score = total_score / completed_evaluations if completed_evaluations > 0 else 0
+        
+        return {
+            "total_teachers": total_teachers,
+            "total_aspects": total_aspects,
+            "total_possible_evaluations": total_possible,
+            "completed_evaluations": completed_evaluations,
+            "completion_percentage": completion_percentage,
+            "average_score": average_score,
+            "grade_distribution": grade_distribution
+        }

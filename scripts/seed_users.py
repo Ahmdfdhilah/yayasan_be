@@ -23,7 +23,7 @@ from src.services.user_role import UserRoleService
 from src.schemas.user import UserCreate
 from src.schemas.organization import OrganizationCreate
 from src.schemas.user_role import UserRoleCreate
-from src.models.enums import UserStatus, OrganizationType, UserRole as UserRoleEnum
+from src.models.enums import UserStatus, UserRole as UserRoleEnum
 import hashlib
 
 
@@ -46,66 +46,34 @@ class UserSeeder:
         organizations = [
             {
                 "name": "SMA Negeri 1 Jakarta",
-                "slug": "sman1-jakarta",
-                "type": OrganizationType.SCHOOL,
                 "description": "Sekolah Menengah Atas Negeri 1 Jakarta",
-                "contact_info": {
-                    "phone": "021-12345678",
-                    "email": "info@sman1jakarta.sch.id",
-                    "address": "Jl. Budi Kemuliaan No.1, Jakarta Pusat"
-                },
-                "settings": {
-                    "academic_year_start": "07-01",
-                    "evaluation_period_months": 6,
-                    "auto_approve_rpps": False
-                }
+                "head_id": None  # Will be set after creating users
             },
             {
-                "name": "SMP Negeri 5 Bandung",
-                "slug": "smpn5-bandung",
-                "type": OrganizationType.SCHOOL,
+                "name": "SMP Negeri 5 Bandung", 
                 "description": "Sekolah Menengah Pertama Negeri 5 Bandung",
-                "contact_info": {
-                    "phone": "022-87654321",
-                    "email": "info@smpn5bandung.sch.id",
-                    "address": "Jl. Asia Afrika No.5, Bandung"
-                },
-                "settings": {
-                    "academic_year_start": "07-01",
-                    "evaluation_period_months": 6,
-                    "auto_approve_rpps": True
-                }
+                "head_id": None  # Will be set after creating users
             },
             {
-                "name": "Yayasan Pendidikan Nusantara",
-                "slug": "yayasan-nusantara",
-                "type": OrganizationType.FOUNDATION,
-                "description": "Yayasan yang mengelola beberapa sekolah di Indonesia",
-                "contact_info": {
-                    "phone": "021-98765432",
-                    "email": "info@nusantara.org",
-                    "address": "Jl. Sudirman No.100, Jakarta Selatan"
-                },
-                "settings": {
-                    "manages_multiple_schools": True,
-                    "central_evaluation": True
-                }
+                "name": "SDN Cendekia Bogor",
+                "description": "Sekolah Dasar Negeri Cendekia Bogor",
+                "head_id": None  # Will be set after creating users
             }
         ]
         
         created_orgs = {}
-        for org_data in organizations:
+        for i, org_data in enumerate(organizations):
             try:
-                # Check if organization already exists
-                existing = await self.org_repo.get_by_slug(org_data["slug"])
+                # Check if organization already exists by name
+                existing = await self.org_repo.get_by_name(org_data["name"])
                 if existing:
                     print(f"Organization {org_data['name']} already exists")
-                    created_orgs[org_data["slug"]] = existing
+                    created_orgs[f"org_{i+1}"] = existing
                     continue
                 
                 org_create = OrganizationCreate(**org_data)
                 organization = await self.org_service.create_organization(org_create)
-                created_orgs[org_data["slug"]] = organization.model_dump()
+                created_orgs[f"org_{i+1}"] = organization
                 print(f"Created organization: {organization.name}")
             except Exception as e:
                 print(f"Error creating organization {org_data['name']}: {e}")
@@ -117,26 +85,9 @@ class UserSeeder:
         print("Creating users by role...")
         
         # Get organization IDs
-        sman1_id = None
-        smpn5_id = None
-        yayasan_id = None
-        
-        for org_data in organizations.values():
-            if isinstance(org_data, dict):
-                if org_data.get("slug") == "sman1-jakarta":
-                    sman1_id = org_data.get("id")
-                elif org_data.get("slug") == "smpn5-bandung":
-                    smpn5_id = org_data.get("id")
-                elif org_data.get("slug") == "yayasan-nusantara":
-                    yayasan_id = org_data.get("id")
-            else:
-                # Handle SQLModel object
-                if org_data.slug == "sman1-jakarta":
-                    sman1_id = org_data.id
-                elif org_data.slug == "smpn5-bandung":
-                    smpn5_id = org_data.id
-                elif org_data.slug == "yayasan-nusantara":
-                    yayasan_id = org_data.id
+        org1_id = organizations.get("org_1").id if organizations.get("org_1") else None
+        org2_id = organizations.get("org_2").id if organizations.get("org_2") else None  
+        org3_id = organizations.get("org_3").id if organizations.get("org_3") else None
         
         users_data = [
             # Super Admin
@@ -169,7 +120,7 @@ class UserSeeder:
                 "roles": ["admin"]
             },
             
-            # Kepala Sekolah SMAN 1
+            # Kepala Sekolah SMA Negeri 1 Jakarta
             {
                 "email": "kepsek@sman1jakarta.sch.id",
                 "password": "@KepSek123",
@@ -180,12 +131,13 @@ class UserSeeder:
                     "position": "Kepala Sekolah",
                     "nip": "197001011990031001"
                 },
-                "organization_id": sman1_id,
+                "organization_id": org1_id,
                 "status": UserStatus.ACTIVE,
-                "roles": ["kepala_sekolah"]
+                "roles": ["kepala_sekolah"],
+                "is_head": True
             },
             
-            # Guru SMAN 1
+            # Guru SMA Negeri 1 Jakarta
             {
                 "email": "guru1@sman1jakarta.sch.id",
                 "password": "@Guru123",
@@ -198,7 +150,7 @@ class UserSeeder:
                     "subject": "Matematika",
                     "class": "X IPA 1"
                 },
-                "organization_id": sman1_id,
+                "organization_id": org1_id,
                 "status": UserStatus.ACTIVE,
                 "roles": ["guru"]
             },
@@ -215,12 +167,12 @@ class UserSeeder:
                     "subject": "Bahasa Indonesia",
                     "class": "XI IPS 2"
                 },
-                "organization_id": sman1_id,
+                "organization_id": org1_id,
                 "status": UserStatus.ACTIVE,
                 "roles": ["guru"]
             },
             
-            # Kepala Sekolah SMPN 5
+            # Kepala Sekolah SMP Negeri 5 Bandung
             {
                 "email": "kepsek@smpn5bandung.sch.id",
                 "password": "@KepSek123",
@@ -231,12 +183,13 @@ class UserSeeder:
                     "position": "Kepala Sekolah",
                     "nip": "196812121992032001"
                 },
-                "organization_id": smpn5_id,
+                "organization_id": org2_id,
                 "status": UserStatus.ACTIVE,
-                "roles": ["kepala_sekolah"]
+                "roles": ["kepala_sekolah"],
+                "is_head": True
             },
             
-            # Guru SMPN 5
+            # Guru SMP Negeri 5 Bandung
             {
                 "email": "guru1@smpn5bandung.sch.id",
                 "password": "@Guru123",
@@ -249,25 +202,43 @@ class UserSeeder:
                     "subject": "IPA Terpadu",
                     "class": "VIII A"
                 },
-                "organization_id": smpn5_id,
+                "organization_id": org2_id,
                 "status": UserStatus.ACTIVE,
                 "roles": ["guru"]
             },
             
-            # Content Manager Yayasan
+            # Kepala Sekolah SDN Cendekia Bogor
             {
-                "email": "content@nusantara.org",
-                "password": "@Content123",
+                "email": "kepsek@sdncendekia.sch.id",
+                "password": "@KepSek123",
                 "profile": {
-                    "name": "Maya Sari, S.Kom",
+                    "name": "Ir. Bambang Wijayanto, M.Pd",
                     "phone": "081234567897",
-                    "address": "Jakarta Selatan",
-                    "position": "Content Manager",
-                    "employee_id": "YPN001"
+                    "address": "Bogor",
+                    "position": "Kepala Sekolah",
+                    "nip": "197505101998021001"
                 },
-                "organization_id": yayasan_id,
+                "organization_id": org3_id,
                 "status": UserStatus.ACTIVE,
-                "roles": ["content_manager"]
+                "roles": ["kepala_sekolah"],
+                "is_head": True
+            },
+            
+            # Guru SDN Cendekia Bogor
+            {
+                "email": "guru1@sdncendekia.sch.id",
+                "password": "@Guru123",
+                "profile": {
+                    "name": "Lestari Indah, S.Pd",
+                    "phone": "081234567898",
+                    "address": "Bogor",
+                    "position": "Guru Kelas 5",
+                    "nip": "199205152015022001",
+                    "class": "V-A"
+                },
+                "organization_id": org3_id,
+                "status": UserStatus.ACTIVE,
+                "roles": ["guru"]
             }
         ]
         
@@ -312,7 +283,34 @@ class UserSeeder:
             except Exception as e:
                 print(f"Error creating user {user_data['email']}: {e}")
         
+        # After creating users, assign heads to organizations
+        await self.assign_heads_to_organizations(created_users, organizations)
+        
         return created_users
+    
+    async def assign_heads_to_organizations(self, users, organizations):
+        """Assign heads to organizations after users are created."""
+        print("Assigning heads to organizations...")
+        
+        # Find head users and assign them to organizations
+        head_assignments = []
+        for user in users:
+            if hasattr(user, 'email'):
+                if user.email == "kepsek@sman1jakarta.sch.id":
+                    head_assignments.append((organizations.get("org_1"), user.id))
+                elif user.email == "kepsek@smpn5bandung.sch.id":
+                    head_assignments.append((organizations.get("org_2"), user.id))
+                elif user.email == "kepsek@sdncendekia.sch.id":
+                    head_assignments.append((organizations.get("org_3"), user.id))
+        
+        # Update organizations with head_id
+        for org, head_id in head_assignments:
+            if org and head_id:
+                try:
+                    await self.org_repo.update(org.id, {"head_id": head_id})
+                    print(f"  -> Assigned head {head_id} to organization {org.name}")
+                except Exception as e:
+                    print(f"  -> Error assigning head to {org.name}: {e}")
     
     async def create_sample_permissions(self):
         """Create sample permission templates for roles."""
@@ -432,6 +430,10 @@ class UserSeeder:
         
         try:
             # Clear in reverse order due to foreign key constraints
+            # First, remove head references from organizations
+            await self.session.execute(text("UPDATE organizations SET head_id = NULL WHERE head_id IS NOT NULL"))
+            
+            # Then clear the rest
             await self.session.execute(text("DELETE FROM user_roles"))
             await self.session.execute(text("DELETE FROM users"))
             await self.session.execute(text("DELETE FROM organizations"))
@@ -456,9 +458,11 @@ class UserSeeder:
             # Create organizations
             organizations = await self.create_organizations()
             
-            # Create users (skip for now due to async issues)
-            print("Skipping user creation due to async context issues")
-            print("Please create users manually or use sync approach")
+            # Create users and assign roles
+            users = await self.create_users_by_role(organizations)
+            
+            # Create sample permissions
+            await self.create_sample_permissions()
             
             # Verify data
             await self.verify_seeded_data()
@@ -466,13 +470,16 @@ class UserSeeder:
             print("\n" + "=" * 50)
             print("Seeding completed successfully!")
             print("\nOrganizations created:")
-            for org_slug, org_data in organizations.items():
-                org_name = org_data.get('name') if isinstance(org_data, dict) else org_data.name
+            for org_key, org_data in organizations.items():
+                org_name = org_data.name if hasattr(org_data, 'name') else str(org_data)
                 print(f"  - {org_name}")
             
-            print("\nNext steps:")
-            print("1. Create users manually via API endpoints")
-            print("2. Or fix async context issues in seeding script")
+            print(f"\nUsers created: {len(users)}")
+            print("\nLogin credentials:")
+            print("Super Admin: superadmin@tafatur.id / @SuperAdmin123")
+            print("Admin: admin@tafatur.id / @Admin123")
+            print("Kepala Sekolah: kepsek@[school-domain] / @KepSek123")
+            print("Guru: guru1@[school-domain] / @Guru123")
             
         except Exception as e:
             print(f"Error during seeding: {e}")

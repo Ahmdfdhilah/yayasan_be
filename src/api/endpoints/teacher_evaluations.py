@@ -17,7 +17,12 @@ from src.schemas.teacher_evaluation import (
     PeriodEvaluationStats
 )
 from src.schemas.shared import MessageResponse
-from src.auth.permissions import get_current_active_user, require_roles
+from src.auth.permissions import (
+    get_current_active_user, 
+    require_roles,
+    require_teacher_evaluation_view_permission,
+    require_teacher_evaluation_update_permission
+)
 from src.models.enums import EvaluationGrade
 
 router = APIRouter()
@@ -54,43 +59,43 @@ async def assign_teachers_to_period(
 @router.get("/period/{period_id}", response_model=List[TeacherEvaluationResponse], summary="Get evaluations by period")
 async def get_evaluations_by_period(
     period_id: int,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = Depends(require_teacher_evaluation_view_permission()),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service)
 ):
     """
     Get all evaluations for a specific period.
     
-    Returns all teacher evaluations within the specified period.
+    Teachers can only view their own evaluations. Principals can view evaluations for their organization.
     """
-    return await service.get_evaluations_by_period(period_id)
+    return await service.get_evaluations_by_period(period_id, current_user)
 
 
 @router.get("/teacher/{teacher_id}/period/{period_id}", response_model=List[TeacherEvaluationResponse], summary="Get teacher evaluations in period")
 async def get_teacher_evaluations_in_period(
     teacher_id: int,
     period_id: int,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = Depends(require_teacher_evaluation_view_permission()),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service)
 ):
     """
     Get all evaluations for a teacher in a specific period.
     
-    Returns all aspect evaluations for the specified teacher within the period.
+    Teachers can only view their own evaluations. Principals can view evaluations for teachers in their organization.
     """
-    return await service.get_teacher_evaluations_in_period(teacher_id, period_id)
+    return await service.get_teacher_evaluations_in_period(teacher_id, period_id, current_user)
 
 
 @router.put("/{evaluation_id}/grade", response_model=TeacherEvaluationResponse, summary="Update evaluation grade")
 async def update_evaluation_grade(
     evaluation_id: int,
     evaluation_data: TeacherEvaluationUpdate,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(require_teacher_evaluation_update_permission()),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service)
 ):
     """
     Update single evaluation grade.
     
-    Updates the grade (A, B, C, D) for a specific evaluation.
+    Only principals (kepala_sekolah) can update evaluations for teachers in their organization.
     """
     return await service.update_evaluation(evaluation_id, evaluation_data, current_user["id"])
 
@@ -98,14 +103,13 @@ async def update_evaluation_grade(
 @router.patch("/bulk-grade", summary="Bulk update evaluation grades")
 async def bulk_update_grades(
     bulk_update_data: TeacherEvaluationBulkUpdate,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(require_teacher_evaluation_update_permission()),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service)
 ):
     """
     Bulk update evaluation grades.
     
-    Updates multiple evaluation grades in a single operation.
-    Useful for batch grading operations.
+    Only principals (kepala_sekolah) can update evaluations for teachers in their organization.
     """
     return await service.bulk_update_grades(bulk_update_data, current_user["id"])
 
@@ -113,14 +117,13 @@ async def bulk_update_grades(
 @router.post("/complete-teacher-evaluation", summary="Complete all evaluations for a teacher")
 async def complete_teacher_evaluation(
     completion_data: CompleteTeacherEvaluation,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(require_teacher_evaluation_update_permission()),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service)
 ):
     """
     Complete all evaluations for a teacher in a period.
     
-    Sets grades for all aspects of a teacher in one operation.
-    Automatically updates all related evaluation records.
+    Only principals (kepala_sekolah) can complete evaluations for teachers in their organization.
     """
     return await service.complete_teacher_evaluation(completion_data, current_user["id"])
 
@@ -162,28 +165,28 @@ async def create_teacher_evaluation(
 @router.get("/{evaluation_id}", response_model=TeacherEvaluationResponse, summary="Get evaluation by ID")
 async def get_teacher_evaluation(
     evaluation_id: int,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = Depends(require_teacher_evaluation_view_permission()),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service)
 ):
     """
     Get teacher evaluation by ID.
     
-    Returns detailed information about a specific evaluation.
+    Teachers can only view their own evaluations. Principals can view evaluations for their organization.
     """
-    return await service.get_evaluation(evaluation_id)
+    return await service.get_evaluation(evaluation_id, current_user)
 
 
 @router.put("/{evaluation_id}", response_model=TeacherEvaluationResponse, summary="Update teacher evaluation")
 async def update_teacher_evaluation(
     evaluation_id: int,
     evaluation_data: TeacherEvaluationUpdate,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(require_teacher_evaluation_update_permission()),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service)
 ):
     """
     Update teacher evaluation.
     
-    Updates grade and/or notes for an existing evaluation.
+    Only principals (kepala_sekolah) can update evaluations for teachers in their organization.
     """
     return await service.update_evaluation(evaluation_id, evaluation_data, current_user["id"])
 

@@ -19,7 +19,6 @@ from .teacher_evaluation import TeacherEvaluation
 from .enums import (
     UserRole as UserRoleEnum,
     UserStatus,
-    OrganizationType,
     RPPStatus,
     EvaluationGrade,
     PeriodType,
@@ -53,7 +52,6 @@ __all__ = [
     # Enums
     "UserRoleEnum",
     "UserStatus",
-    "OrganizationType",
     "RPPStatus",
     "EvaluationGrade",
     "PeriodType",

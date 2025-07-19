@@ -5,7 +5,13 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
-from src.auth.permissions import get_current_active_user, admin_required, management_roles_required
+from src.auth.permissions import (
+    get_current_active_user, 
+    admin_required, 
+    management_roles_required,
+    require_rpp_submission_permission,
+    require_rpp_approval_permission
+)
 from src.repositories.rpp_submission import RPPSubmissionRepository
 from src.repositories.user import UserRepository
 from src.repositories.media_file import MediaFileRepository
@@ -47,10 +53,10 @@ def get_submission_service(db: AsyncSession = Depends(get_db)) -> RPPSubmissionS
 )
 async def create_submission(
     submission_data: RPPSubmissionCreate,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = Depends(require_rpp_submission_permission()),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
-    """Create a new RPP submission."""
+    """Create a new RPP submission. Only teachers (guru) can submit RPPs."""
     return await submission_service.create_submission(submission_data, current_user["id"])
 
 
@@ -139,10 +145,10 @@ async def get_submission(
 async def update_submission(
     submission_id: int,
     submission_data: RPPSubmissionUpdate,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = Depends(require_rpp_submission_permission()),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
-    """Update RPP submission (only pending submissions can be updated)."""
+    """Update RPP submission (only pending submissions can be updated). Only teachers can update their own RPPs."""
     return await submission_service.update_submission(submission_id, submission_data)
 
 
@@ -153,10 +159,10 @@ async def update_submission(
 )
 async def delete_submission(
     submission_id: int,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = Depends(require_rpp_submission_permission()),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
-    """Delete RPP submission (only pending or rejected submissions can be deleted)."""
+    """Delete RPP submission (only pending or rejected submissions can be deleted). Only teachers can delete their own RPPs."""
     return await submission_service.delete_submission(submission_id)
 
 
@@ -170,13 +176,13 @@ async def delete_submission(
 async def review_submission(
     submission_id: int,
     review_data: RPPSubmissionReview,
-    current_user: dict = Depends(management_roles_required),
+    current_user: dict = Depends(require_rpp_approval_permission()),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """
     Review RPP submission (approve, reject, or request revision).
     
-    Requires management role (super_admin, admin, or kepala_sekolah).
+    Only school principals (kepala_sekolah) can approve RPPs for their organization.
     """
     return await submission_service.review_submission(
         submission_id, current_user["id"], review_data
@@ -191,10 +197,10 @@ async def review_submission(
 async def resubmit_submission(
     submission_id: int,
     resubmit_data: RPPSubmissionResubmit,
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = Depends(require_rpp_submission_permission()),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
-    """Resubmit RPP submission with new file (for rejected or revision-needed submissions)."""
+    """Resubmit RPP submission with new file (for rejected or revision-needed submissions). Only teachers can resubmit their own RPPs."""
     return await submission_service.resubmit_submission(submission_id, resubmit_data)
 
 
@@ -245,13 +251,13 @@ async def list_submissions(
 )
 async def bulk_review_submissions(
     bulk_data: RPPSubmissionBulkReview,
-    current_user: dict = Depends(management_roles_required),
+    current_user: dict = Depends(require_rpp_approval_permission()),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """
     Bulk review RPP submissions (approve or reject multiple submissions).
     
-    Requires management role (super_admin, admin, or kepala_sekolah).
+    Only school principals (kepala_sekolah) can approve RPPs for their organization.
     """
     return await submission_service.bulk_review_submissions(bulk_data)
 

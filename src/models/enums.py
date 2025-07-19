@@ -29,13 +29,6 @@ class UserStatus(str, Enum):
     SUSPENDED = "suspended"
 
 
-class OrganizationType(str, Enum):
-    """Organization type enum."""
-    SCHOOL = "school"
-    FOUNDATION = "foundation"
-    DEPARTMENT = "department"
-
-
 class RPPStatus(str, Enum):
     """RPP submission status enum."""
     PENDING = "pending"

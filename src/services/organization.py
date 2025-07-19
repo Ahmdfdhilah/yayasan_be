@@ -6,12 +6,12 @@ from fastapi import HTTPException, status
 from src.repositories.organization import OrganizationRepository
 from src.schemas.organization import (
     OrganizationCreate, OrganizationUpdate, OrganizationResponse, 
-    OrganizationListResponse, OrganizationSummary, ContactInfoUpdate, SettingsUpdate
+    OrganizationListResponse, OrganizationSummary, AssignHeadRequest, RemoveHeadRequest
 )
 from src.schemas.shared import MessageResponse
 from src.schemas.organization import OrganizationFilterParams
 from src.models.organization import Organization
-from src.models.enums import OrganizationType
+# Remove OrganizationType import as it's no longer used
 
 
 class OrganizationService:
@@ -29,21 +29,27 @@ class OrganizationService:
                 detail="Organization name already exists"
             )
         
-        # Validate slug uniqueness if provided
-        if org_data.slug and await self.org_repo.slug_exists(org_data.slug):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Organization slug already exists"
-            )
+        # Validate head_id if provided
+        if org_data.head_id:
+            head_user = await self.org_repo.get_user_by_id(org_data.head_id)
+            if not head_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Head user not found"
+                )
         
         # Create organization in database
         organization = await self.org_repo.create(org_data)
         
-        # Get user count
+        # Get user count and head name
         user_count = await self.org_repo.get_user_count(organization.id)
+        head_name = None
+        if organization.head_id:
+            head_user = await self.org_repo.get_user_by_id(organization.head_id)
+            head_name = head_user.display_name if head_user else None
         
         # Convert to response
-        return OrganizationResponse.from_organization_model(organization, user_count)
+        return OrganizationResponse.from_organization_model(organization, user_count, head_name)
     
     async def get_organization(self, org_id: int) -> OrganizationResponse:
         """Get organization by ID."""
@@ -54,24 +60,15 @@ class OrganizationService:
                 detail="Organization not found"
             )
         
-        # Get user count
+        # Get user count and head name
         user_count = await self.org_repo.get_user_count(org_id)
+        head_name = None
+        if organization.head_id:
+            head_user = await self.org_repo.get_user_by_id(organization.head_id)
+            head_name = head_user.display_name if head_user else None
         
-        return OrganizationResponse.from_organization_model(organization, user_count)
+        return OrganizationResponse.from_organization_model(organization, user_count, head_name)
     
-    async def get_organization_by_slug(self, slug: str) -> OrganizationResponse:
-        """Get organization by slug."""
-        organization = await self.org_repo.get_by_slug(slug)
-        if not organization:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found"
-            )
-        
-        # Get user count
-        user_count = await self.org_repo.get_user_count(organization.id)
-        
-        return OrganizationResponse.from_organization_model(organization, user_count)
     
     async def update_organization(self, org_id: int, org_data: OrganizationUpdate) -> OrganizationResponse:
         """Update organization information."""
@@ -90,12 +87,20 @@ class OrganizationService:
                 detail="Organization name already exists"
             )
         
-        # Validate slug uniqueness if being updated
-        if org_data.slug and await self.org_repo.slug_exists(org_data.slug, exclude_org_id=org_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Organization slug already exists"
-            )
+        # Validate head_id if being updated
+        if org_data.head_id:
+            head_user = await self.org_repo.get_user_by_id(org_data.head_id)
+            if not head_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Head user not found"
+                )
+            # Ensure head user belongs to this organization
+            if head_user.organization_id != org_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Head user must belong to this organization"
+                )
         
         # Update organization in database
         updated_org = await self.org_repo.update(org_id, org_data)
@@ -105,10 +110,14 @@ class OrganizationService:
                 detail="Failed to update organization"
             )
         
-        # Get user count
+        # Get user count and head name
         user_count = await self.org_repo.get_user_count(org_id)
+        head_name = None
+        if updated_org.head_id:
+            head_user = await self.org_repo.get_user_by_id(updated_org.head_id)
+            head_name = head_user.display_name if head_user else None
         
-        return OrganizationResponse.from_organization_model(updated_org, user_count)
+        return OrganizationResponse.from_organization_model(updated_org, user_count, head_name)
     
     async def delete_organization(self, org_id: int) -> MessageResponse:
         """Delete organization (soft delete)."""
@@ -147,13 +156,17 @@ class OrganizationService:
         user_counts = await self.org_repo.get_organizations_with_user_counts(org_ids)
         
         # Convert to response objects
-        org_responses = [
-            OrganizationResponse.from_organization_model(
-                org, 
-                user_counts.get(org.id, 0)
-            ) 
-            for org in organizations
-        ]
+        org_responses = []
+        for org in organizations:
+            user_count = user_counts.get(org.id, 0)
+            head_name = None
+            if org.head_id:
+                head_user = await self.org_repo.get_user_by_id(org.head_id)
+                head_name = head_user.display_name if head_user else None
+            
+            org_responses.append(
+                OrganizationResponse.from_organization_model(org, user_count, head_name)
+            )
         
         # Calculate pagination metadata
         total_pages = (total_count + filters.size - 1) // filters.size
@@ -166,21 +179,6 @@ class OrganizationService:
             pages=total_pages
         )
     
-    async def get_organizations_by_type(self, org_type: OrganizationType) -> List[OrganizationSummary]:
-        """Get organizations by type."""
-        organizations = await self.org_repo.get_by_type(org_type)
-        
-        # Get user counts
-        org_ids = [org.id for org in organizations]
-        user_counts = await self.org_repo.get_organizations_with_user_counts(org_ids)
-        
-        return [
-            OrganizationSummary.from_organization_model(
-                org, 
-                user_counts.get(org.id, 0)
-            ) 
-            for org in organizations
-        ]
     
     async def search_organizations(self, search_term: str, limit: int = 10) -> List[OrganizationSummary]:
         """Search organizations."""
@@ -214,10 +212,10 @@ class OrganizationService:
             for org in organizations
         ]
     
-    # ===== CONTACT INFO MANAGEMENT =====
+    # ===== HEAD MANAGEMENT =====
     
-    async def update_contact_info(self, org_id: int, contact_data: ContactInfoUpdate) -> OrganizationResponse:
-        """Update organization contact information."""
+    async def assign_head(self, org_id: int, assign_data: AssignHeadRequest) -> OrganizationResponse:
+        """Assign a head to an organization."""
         # Check if organization exists
         organization = await self.org_repo.get_by_id(org_id)
         if not organization:
@@ -226,22 +224,49 @@ class OrganizationService:
                 detail="Organization not found"
             )
         
-        # Convert to dict and filter out None values
-        contact_dict = {k: v for k, v in contact_data.model_dump().items() if v is not None}
+        # Validate user exists
+        head_user = await self.org_repo.get_user_by_id(assign_data.user_id)
+        if not head_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
         
-        # Update contact info
-        success = await self.org_repo.update_contact_info(org_id, contact_dict)
-        if not success:
+        # Ensure user belongs to this organization
+        if head_user.organization_id != org_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User must belong to this organization"
+            )
+        
+        # Check if user has kepala_sekolah role
+        user_roles = [role.role_name for role in head_user.user_roles if role.is_active]
+        if "kepala_sekolah" not in user_roles:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User must have 'kepala_sekolah' role to be assigned as head"
+            )
+        
+        # Update organization head
+        update_data = OrganizationUpdate(head_id=assign_data.user_id)
+        updated_org = await self.org_repo.update(org_id, update_data)
+        if not updated_org:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update contact information"
+                detail="Failed to assign head"
             )
         
         # Return updated organization
         return await self.get_organization(org_id)
     
-    async def update_settings(self, org_id: int, settings_data: SettingsUpdate) -> OrganizationResponse:
-        """Update organization settings."""
+    async def remove_head(self, org_id: int, remove_data: RemoveHeadRequest) -> OrganizationResponse:
+        """Remove head from an organization."""
+        if not remove_data.confirm:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Confirmation required to remove head"
+            )
+        
         # Check if organization exists
         organization = await self.org_repo.get_by_id(org_id)
         if not organization:
@@ -250,59 +275,25 @@ class OrganizationService:
                 detail="Organization not found"
             )
         
-        # Convert to dict and filter out None values
-        settings_dict = {k: v for k, v in settings_data.model_dump().items() if v is not None}
+        if not organization.head_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Organization has no head assigned"
+            )
         
-        # Update settings
-        success = await self.org_repo.update_settings(org_id, settings_dict)
-        if not success:
+        # Remove head
+        update_data = OrganizationUpdate(head_id=None)
+        updated_org = await self.org_repo.update(org_id, update_data)
+        if not updated_org:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update settings"
+                detail="Failed to remove head"
             )
         
         # Return updated organization
         return await self.get_organization(org_id)
-    
-    async def get_contact_info(self, org_id: int, key: str) -> str:
-        """Get specific contact information."""
-        value = await self.org_repo.get_contact_info(org_id, key)
-        if value is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Contact info '{key}' not found"
-            )
-        return value
-    
-    async def get_setting(self, org_id: int, key: str) -> str:
-        """Get specific organization setting."""
-        value = await self.org_repo.get_setting(org_id, key)
-        if value is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Setting '{key}' not found"
-            )
-        return value
     
     # ===== BULK OPERATIONS =====
-    
-    async def bulk_update_type(self, org_ids: List[int], new_type: OrganizationType) -> MessageResponse:
-        """Bulk update organization type."""
-        # Validate all organizations exist
-        for org_id in org_ids:
-            organization = await self.org_repo.get_by_id(org_id)
-            if not organization:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Organization {org_id} not found"
-                )
-        
-        # Perform bulk update
-        updated_count = await self.org_repo.bulk_update_type(org_ids, new_type)
-        
-        return MessageResponse(
-            message=f"Successfully updated {updated_count} organizations to type {new_type.value}"
-        )
     
     async def bulk_delete_organizations(self, org_ids: List[int], force: bool = False) -> MessageResponse:
         """Bulk delete organizations."""
@@ -360,12 +351,3 @@ class OrganizationService:
             )
         return True
     
-    async def validate_organization_slug_available(self, slug: str, exclude_org_id: Optional[int] = None) -> bool:
-        """Validate organization slug is available."""
-        exists = await self.org_repo.slug_exists(slug, exclude_org_id)
-        if exists:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Organization slug already exists"
-            )
-        return True

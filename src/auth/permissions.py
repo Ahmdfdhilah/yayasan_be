@@ -417,6 +417,81 @@ async def log_access_attempt(user: Dict, resource: str, action: str = "access", 
         logger.warning(f"PKG Access denied: {log_data}")
 
 
+def require_rpp_submission_permission():
+    """
+    Require permission for RPP submission operations.
+    Teachers can only submit/upload, principals can approve for their organization.
+    """
+    async def _check_rpp_permission(
+        current_user: Dict = Depends(get_current_active_user),
+    ) -> Dict:
+        # Only teachers (guru) can submit RPPs
+        if not is_guru(current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only teachers (guru) can submit RPP documents",
+            )
+        return current_user
+    return _check_rpp_permission
+
+
+def require_rpp_approval_permission():
+    """
+    Require permission for RPP approval operations.
+    Only principals (kepala_sekolah) can approve RPPs for their organization.
+    """
+    async def _check_rpp_approval_permission(
+        current_user: Dict = Depends(get_current_active_user),
+    ) -> Dict:
+        # Super admin and admin can approve any RPP
+        if is_super_admin(current_user) or is_admin(current_user):
+            return current_user
+        
+        # Only kepala_sekolah can approve RPPs
+        if not is_kepala_sekolah(current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only school principals (kepala_sekolah) can approve RPP submissions",
+            )
+        return current_user
+    return _check_rpp_approval_permission
+
+
+def require_teacher_evaluation_view_permission():
+    """
+    Require permission for viewing teacher evaluations.
+    Teachers can only view their own evaluations.
+    """
+    async def _check_evaluation_view_permission(
+        current_user: Dict = Depends(get_current_active_user),
+    ) -> Dict:
+        # Everyone can view evaluations (access control handled at service level)
+        return current_user
+    return _check_evaluation_view_permission
+
+
+def require_teacher_evaluation_update_permission():
+    """
+    Require permission for updating teacher evaluations.
+    Only principals can update evaluations for teachers in their organization.
+    """
+    async def _check_evaluation_update_permission(
+        current_user: Dict = Depends(get_current_active_user),
+    ) -> Dict:
+        # Super admin and admin can update any evaluation
+        if is_super_admin(current_user) or is_admin(current_user):
+            return current_user
+        
+        # Only kepala_sekolah can update evaluations
+        if not is_kepala_sekolah(current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only school principals (kepala_sekolah) can update teacher evaluations",
+            )
+        return current_user
+    return _check_evaluation_update_permission
+
+
 def get_user_permissions_summary(user: Dict) -> Dict[str, Any]:
     """
     Get a summary of user permissions for debugging/admin purposes.

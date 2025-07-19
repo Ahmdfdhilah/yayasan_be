@@ -11,10 +11,10 @@ from src.services.organization import OrganizationService
 from src.schemas.organization import (
     OrganizationCreate, OrganizationUpdate, OrganizationResponse, 
     OrganizationListResponse, OrganizationSummary, OrganizationFilterParams,
-    ContactInfoUpdate, SettingsUpdate
+    AssignHeadRequest, RemoveHeadRequest
 )
 from src.schemas.shared import MessageResponse
-from src.models.enums import OrganizationType
+# Remove OrganizationType import as it's no longer used
 from src.auth.permissions import get_current_active_user, require_roles
 
 router = APIRouter()
@@ -43,11 +43,8 @@ async def create_organization(
     **Requires admin privileges.**
     
     - **name**: Organization name (must be unique)
-    - **slug**: URL-friendly identifier (optional, must be unique)
-    - **type**: Organization type (school, foundation, department)
     - **description**: Optional description
-    - **contact_info**: Contact information as JSON
-    - **settings**: Organization-specific settings as JSON
+    - **head_id**: Optional ID of user to assign as organization head
     """
     return await org_service.create_organization(org_data)
 
@@ -57,8 +54,8 @@ async def list_organizations(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(10, ge=1, le=100, description="Items per page"),
     q: Optional[str] = Query(None, description="Search query"),
-    type: Optional[OrganizationType] = Query(None, description="Filter by organization type"),
     has_users: Optional[bool] = Query(None, description="Filter organizations with/without users"),
+    has_head: Optional[bool] = Query(None, description="Filter organizations with/without head"),
     sort_by: str = Query("name", description="Sort field"),
     sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order"),
     current_user: dict = Depends(get_current_active_user),
@@ -68,33 +65,23 @@ async def list_organizations(
     Get paginated list of organizations with filtering.
     
     **Available filters:**
-    - Search by name, description, or contact info
-    - Filter by organization type
+    - Search by name or description
     - Filter by whether organization has users
+    - Filter by whether organization has head
     - Sort by various fields
     """
     filters = OrganizationFilterParams(
         page=page,
         size=size,
         q=q,
-        type=type,
         has_users=has_users,
+        has_head=has_head,
         sort_by=sort_by,
         sort_order=sort_order
     )
     return await org_service.get_organizations(filters)
 
 
-@router.get("/types/{org_type}", response_model=List[OrganizationSummary], summary="Get organizations by type")
-async def get_organizations_by_type(
-    org_type: OrganizationType,
-    current_user: dict = Depends(get_current_active_user),
-    org_service: OrganizationService = Depends(get_organization_service)
-):
-    """
-    Get all organizations of a specific type.
-    """
-    return await org_service.get_organizations_by_type(org_type)
 
 
 @router.get("/search", response_model=List[OrganizationSummary], summary="Search organizations")
@@ -153,16 +140,6 @@ async def get_organization(
     return await org_service.get_organization(org_id)
 
 
-@router.get("/slug/{slug}", response_model=OrganizationResponse, summary="Get organization by slug")
-async def get_organization_by_slug(
-    slug: str,
-    current_user: dict = Depends(get_current_active_user),
-    org_service: OrganizationService = Depends(get_organization_service)
-):
-    """
-    Get organization details by slug.
-    """
-    return await org_service.get_organization_by_slug(slug)
 
 
 @router.put("/{org_id}", response_model=OrganizationResponse, summary="Update organization")
@@ -177,7 +154,7 @@ async def update_organization(
     
     **Requires admin or manager privileges.**
     
-    Can update basic info, contact information, and settings.
+    Can update name, description, and head assignment.
     """
     return await org_service.update_organization(org_id, org_data)
 
@@ -198,83 +175,46 @@ async def delete_organization(
     return await org_service.delete_organization(org_id)
 
 
-# ===== CONTACT INFO MANAGEMENT =====
+# ===== HEAD MANAGEMENT =====
 
-@router.put("/{org_id}/contact", response_model=OrganizationResponse, summary="Update contact information")
-async def update_contact_info(
+@router.post("/{org_id}/assign-head", response_model=OrganizationResponse, summary="Assign head to organization")
+async def assign_head(
     org_id: int,
-    contact_data: ContactInfoUpdate,
+    assign_data: AssignHeadRequest,
     current_user: dict = Depends(admin_or_manager),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """
-    Update organization contact information.
+    Assign a head (kepala sekolah) to an organization.
     
     **Requires admin or manager privileges.**
+    
+    The user must:
+    - Belong to the organization
+    - Have 'kepala_sekolah' role
     """
-    return await org_service.update_contact_info(org_id, contact_data)
+    return await org_service.assign_head(org_id, assign_data)
 
 
-@router.get("/{org_id}/contact/{key}", response_model=str, summary="Get specific contact info")
-async def get_contact_info(
+@router.post("/{org_id}/remove-head", response_model=OrganizationResponse, summary="Remove head from organization")
+async def remove_head(
     org_id: int,
-    key: str,
-    current_user: dict = Depends(get_current_active_user),
-    org_service: OrganizationService = Depends(get_organization_service)
-):
-    """
-    Get specific contact information by key.
-    """
-    return await org_service.get_contact_info(org_id, key)
-
-
-# ===== SETTINGS MANAGEMENT =====
-
-@router.put("/{org_id}/settings", response_model=OrganizationResponse, summary="Update organization settings")
-async def update_settings(
-    org_id: int,
-    settings_data: SettingsUpdate,
+    remove_data: RemoveHeadRequest,
     current_user: dict = Depends(admin_or_manager),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """
-    Update organization settings.
+    Remove the current head from an organization.
     
     **Requires admin or manager privileges.**
-    """
-    return await org_service.update_settings(org_id, settings_data)
-
-
-@router.get("/{org_id}/settings/{key}", response_model=str, summary="Get specific setting")
-async def get_setting(
-    org_id: int,
-    key: str,
-    current_user: dict = Depends(admin_or_manager),
-    org_service: OrganizationService = Depends(get_organization_service)
-):
-    """
-    Get specific organization setting by key.
     
-    **Requires admin or manager privileges.**
+    Requires confirmation to proceed.
     """
-    return await org_service.get_setting(org_id, key)
+    return await org_service.remove_head(org_id, remove_data)
 
 
 # ===== BULK OPERATIONS =====
 
-@router.put("/bulk/type", response_model=MessageResponse, summary="Bulk update organization type")
-async def bulk_update_type(
-    org_ids: List[int],
-    new_type: OrganizationType,
-    current_user: dict = Depends(admin_required),
-    org_service: OrganizationService = Depends(get_organization_service)
-):
-    """
-    Bulk update organization type for multiple organizations.
-    
-    **Requires admin privileges.**
-    """
-    return await org_service.bulk_update_type(org_ids, new_type)
 
 
 @router.delete("/bulk", response_model=MessageResponse, summary="Bulk delete organizations")

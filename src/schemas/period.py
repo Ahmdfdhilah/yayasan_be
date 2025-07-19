@@ -1,7 +1,7 @@
 """Period schemas for API serialization."""
 
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel, validator, Field
 
 from ..models.enums import PeriodType
@@ -51,10 +51,10 @@ class PeriodResponse(PeriodBase):
     """Schema for period responses."""
     id: int
     is_active: bool
-    created_at: date
-    updated_at: date
-    created_by: Optional[int]
-    updated_by: Optional[int]
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    created_by: Optional[int] = None
+    updated_by: Optional[int] = None
     
     class Config:
         from_attributes = True

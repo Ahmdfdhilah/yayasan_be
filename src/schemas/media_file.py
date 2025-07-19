@@ -127,6 +127,19 @@ class MediaFileResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MediaFileUploadResponse(BaseModel):
+    """Schema for media file upload response."""
+    id: int
+    file_name: str
+    file_path: str
+    file_size: int
+    file_type: str
+    mime_type: str
+    is_public: bool
+    upload_url: str
+    message: str
+
+
 class MediaFileListResponse(BaseListResponse[MediaFileResponse]):
     """Standardized media file list response."""
     pass

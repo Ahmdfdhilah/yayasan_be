@@ -132,6 +132,10 @@ class RPPSubmissionFilterParams(PaginationParams, SearchParams, DateRangeFilter)
     submitted_before: Optional[datetime] = Field(None, description="Filter submissions before this date")
     reviewed_after: Optional[datetime] = Field(None, description="Filter submissions reviewed after this date")
     reviewed_before: Optional[datetime] = Field(None, description="Filter submissions reviewed before this date")
+    
+    # Date filtering for creation date
+    created_after: Optional[date] = Field(None, description="Filter submissions created after this date")
+    created_before: Optional[date] = Field(None, description="Filter submissions created before this date")
 
 
 # ===== EVALUATION FILTERS =====
@@ -147,6 +151,10 @@ class EvaluationAspectFilterParams(PaginationParams, SearchParams, DateRangeFilt
     max_weight: Optional[Decimal] = Field(None, ge=0, description="Maximum weight")
     min_score: Optional[int] = Field(None, ge=0, description="Minimum max score")
     max_score: Optional[int] = Field(None, description="Maximum max score")
+    
+    # Date filtering for creation date
+    created_after: Optional[date] = Field(None, description="Filter aspects created after this date")
+    created_before: Optional[date] = Field(None, description="Filter aspects created before this date")
 
 
 class TeacherEvaluationFilterParams(PaginationParams, SearchParams, DateRangeFilter):
@@ -163,6 +171,10 @@ class TeacherEvaluationFilterParams(PaginationParams, SearchParams, DateRangeFil
     has_notes: Optional[bool] = Field(None, description="Filter evaluations with/without notes")
     evaluated_after: Optional[datetime] = Field(None, description="Filter evaluations after this date")
     evaluated_before: Optional[datetime] = Field(None, description="Filter evaluations before this date")
+    
+    # Date filtering for creation date
+    created_after: Optional[date] = Field(None, description="Filter evaluations created after this date")
+    created_before: Optional[date] = Field(None, description="Filter evaluations created before this date")
 
 
 class EvaluationResultFilterParams(PaginationParams, SearchParams, DateRangeFilter):
@@ -180,3 +192,11 @@ class EvaluationResultFilterParams(PaginationParams, SearchParams, DateRangeFilt
     min_score_percentage: Optional[Decimal] = Field(None, ge=0, le=100, description="Minimum score percentage")
     evaluated_after: Optional[datetime] = Field(None, description="Filter results evaluated after this date")
     evaluated_before: Optional[datetime] = Field(None, description="Filter results evaluated before this date")
+    
+    # Date filtering for creation date
+    created_after: Optional[date] = Field(None, description="Filter results created after this date")
+    created_before: Optional[date] = Field(None, description="Filter results created before this date")
+    
+    # Grade filters
+    excellent_only: Optional[bool] = Field(None, description="Filter only excellent grades (performance >= 90)")
+    needs_improvement_only: Optional[bool] = Field(None, description="Filter only grades needing improvement (performance < 70)")

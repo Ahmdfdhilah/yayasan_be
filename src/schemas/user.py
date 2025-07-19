@@ -79,7 +79,7 @@ class UserResponse(BaseModel):
     roles: List[str] = Field(default_factory=list, description="User roles")
     
     @classmethod
-    def from_user_model(cls, user) -> "UserResponse":
+    def from_user_model(cls, user, roles: List[str] = None) -> "UserResponse":
         """Create UserResponse from User model."""
         return cls(
             id=user.id,
@@ -93,7 +93,7 @@ class UserResponse(BaseModel):
             updated_at=user.updated_at,
             display_name=user.display_name,
             full_name=user.full_name,
-            roles=user.get_roles() if hasattr(user, 'get_roles') else []
+            roles=roles or []
         )
     
     model_config = ConfigDict(from_attributes=True)

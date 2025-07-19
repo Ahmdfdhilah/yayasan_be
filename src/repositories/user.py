@@ -46,7 +46,8 @@ class UserRepository:
     
     async def get_by_id(self, user_id: int) -> Optional[User]:
         """Get user by ID."""
-        query = select(User).where(
+        from sqlalchemy.orm import selectinload
+        query = select(User).options(selectinload(User.user_roles)).where(
             and_(User.id == user_id, User.deleted_at.is_(None))
         )
         result = await self.session.execute(query)

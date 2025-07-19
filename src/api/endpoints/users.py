@@ -40,7 +40,7 @@ async def get_my_profile(
     
     Returns detailed profile including roles and organization info.
     """
-    return await user_service.get_user(current_user["sub"])
+    return await user_service.get_user(current_user["id"])
 
 
 @router.put("/me", response_model=UserResponse, summary="Update current user profile")
@@ -59,7 +59,7 @@ async def update_my_profile(
     user_data.status = None
     user_data.organization_id = None
     
-    return await user_service.update_user(current_user["sub"], user_data)
+    return await user_service.update_user(current_user["id"], user_data)
 
 
 @router.post("/me/change-password", response_model=MessageResponse, summary="Change current user password")
@@ -73,7 +73,7 @@ async def change_my_password(
     
     Requires current password for verification.
     """
-    return await user_service.change_password(current_user["sub"], password_data)
+    return await user_service.change_password(current_user["id"], password_data)
 
 
 @router.get("/me/profile/{field_name}", summary="Get specific profile field")
@@ -83,7 +83,7 @@ async def get_my_profile_field(
     user_service: UserService = Depends(get_user_service)
 ):
     """Get specific field from current user's profile."""
-    value = await user_service.get_user_profile_field(current_user["sub"], field_name)
+    value = await user_service.get_user_profile_field(current_user["id"], field_name)
     return {"field_name": field_name, "value": value}
 
 
@@ -96,7 +96,7 @@ async def update_my_profile_field(
 ):
     """Update specific field in current user's profile."""
     value = field_value.get("value", "")
-    return await user_service.update_user_profile_field(current_user["sub"], field_name, value)
+    return await user_service.update_user_profile_field(current_user["id"], field_name, value)
 
 
 # ===== ADMIN USER MANAGEMENT =====

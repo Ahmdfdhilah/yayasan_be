@@ -84,17 +84,18 @@ Script ini akan membuat data awal untuk sistem Tafatur PKG termasuk organisasi, 
 
 ### Command
 ```bash
-# Method 1: Simple runner
-python seed.py
+# Create organizations and seeding data
+python seed.py up
 
-# Method 2: Direct script
-python scripts/seed_users.py
+# Clear all data
+python seed.py down
 
-# Method 3: Dengan virtual environment
-source venv/bin/activate  # Linux/Mac
-# atau
-venv\Scripts\activate     # Windows
-python seed.py
+# Create users manually (workaround for async issues)
+python scripts/create_manual_users.py
+
+# Direct script with arguments
+python scripts/seed_users.py up
+python scripts/seed_users.py down
 ```
 
 ## Role Permissions

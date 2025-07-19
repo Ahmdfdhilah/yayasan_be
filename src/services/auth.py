@@ -41,7 +41,8 @@ class AuthService:
             )
         
         # Create token data with user roles
-        user_roles = user.get_roles()
+        user_roles_entities = await self.user_repo.get_user_roles(user.id)
+        user_roles = [role.role_name for role in user_roles_entities if role.is_active]
         token_data = {
             "sub": str(user.id),
             "email": user.email,
@@ -66,7 +67,7 @@ class AuthService:
         refresh_token = create_refresh_token(data=refresh_token_data)
         
         # Build user response
-        user_response = UserResponse.from_user_model(user)
+        user_response = UserResponse.from_user_model(user, user_roles)
         
         # Return token response
         return Token(
@@ -106,7 +107,8 @@ class AuthService:
                 )
             
             # Get user roles
-            user_roles = user.get_roles()
+            user_roles_entities = await self.user_repo.get_user_roles(user.id)
+            user_roles = [role.role_name for role in user_roles_entities if role.is_active]
             
             # Create new access token
             token_data = {
@@ -124,7 +126,7 @@ class AuthService:
                 expires_delta=access_token_expires
             )
             
-            user_response = UserResponse.from_user_model(user)
+            user_response = UserResponse.from_user_model(user, user_roles)
             
             return Token(
                 access_token=access_token,

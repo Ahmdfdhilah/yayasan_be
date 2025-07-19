@@ -73,7 +73,7 @@ async def get_current_user(
     
     Returns detailed user profile including roles and organization.
     """
-    return await auth_service.get_current_user_info(current_user["sub"])
+    return await auth_service.get_current_user_info(current_user["id"])
 
 
 @router.post("/password-reset", response_model=MessageResponse, summary="Request password reset")
@@ -115,7 +115,7 @@ async def change_password(
     Requires current password verification.
     """
     user_service = UserService(UserRepository(next(get_db())))
-    return await user_service.change_password(current_user["sub"], password_data)
+    return await user_service.change_password(current_user["id"], password_data)
 
 
 @router.get("/password-reset/eligibility/{user_id}", summary="Check password reset eligibility")
@@ -130,7 +130,7 @@ async def check_password_reset_eligibility(
     Requires admin role or user checking their own eligibility.
     """
     # Check if user is admin or checking their own eligibility
-    if current_user["sub"] != user_id and "admin" not in current_user.get("roles", []):
+    if current_user["id"] != user_id and "admin" not in current_user.get("roles", []):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to check password reset eligibility for other users"
@@ -170,12 +170,12 @@ async def validate_user_access(
     Optionally check for specific roles.
     """
     has_access = await auth_service.validate_user_access(
-        current_user["sub"], 
+        current_user["id"], 
         required_roles
     )
     
     return {
-        "user_id": current_user["sub"],
+        "user_id": current_user["id"],
         "has_access": has_access,
         "required_roles": required_roles,
         "user_roles": current_user.get("roles", [])

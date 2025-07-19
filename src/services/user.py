@@ -21,6 +21,11 @@ class UserService:
     def __init__(self, user_repo: UserRepository):
         self.user_repo = user_repo
     
+    async def _get_user_roles(self, user_id: int) -> List[str]:
+        """Helper method to get user roles."""
+        user_roles_entities = await self.user_repo.get_user_roles(user_id)
+        return [role.role_name for role in user_roles_entities if role.is_active]
+    
     async def create_user(self, user_data: UserCreate, organization_id: Optional[int] = None) -> UserResponse:
         """Create user with unified schema."""
         # Validate email uniqueness
@@ -33,8 +38,9 @@ class UserService:
         # Create user in database
         user = await self.user_repo.create(user_data, organization_id)
         
-        # Convert to response
-        return UserResponse.from_user_model(user)
+        # Convert to response with roles
+        user_roles = await self._get_user_roles(user.id)
+        return UserResponse.from_user_model(user, user_roles)
     
     async def get_user(self, user_id: int) -> UserResponse:
         """Get user by ID."""
@@ -44,14 +50,16 @@ class UserService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
-        return UserResponse.from_user_model(user)
+        user_roles = await self._get_user_roles(user.id)
+        return UserResponse.from_user_model(user, user_roles)
     
     async def get_user_by_email(self, email: str) -> Optional[UserResponse]:
         """Get user by email."""
         user = await self.user_repo.get_by_email(email)
         if not user:
             return None
-        return UserResponse.from_user_model(user)
+        user_roles = await self._get_user_roles(user.id)
+        return UserResponse.from_user_model(user, user_roles)
     
     async def update_user(self, user_id: int, user_data: UserUpdate) -> UserResponse:
         """Update user information."""
@@ -169,8 +177,11 @@ class UserService:
         # Get users from repository
         users, total = await self.user_repo.get_all_users_filtered(filters)
                 
-        # Convert to responses
-        user_responses = [UserResponse.from_user_model(user) for user in users]
+        # Convert to responses with roles
+        user_responses = []
+        for user in users:
+            user_roles = await self._get_user_roles(user.id)
+            user_responses.append(UserResponse.from_user_model(user, user_roles))
         
         pages = (total + filters.size - 1) // filters.size if total > 0 else 0
 
@@ -185,7 +196,12 @@ class UserService:
     async def get_users_by_role(self, role_name: str) -> List[UserResponse]:
         """Get users by role name."""
         users = await self.user_repo.get_users_by_role(role_name)
-        return [UserResponse.from_user_model(user) for user in users]
+        # Convert to responses with roles
+        user_responses = []
+        for user in users:
+            user_roles = await self._get_user_roles(user.id)
+            user_responses.append(UserResponse.from_user_model(user, user_roles))
+        return user_responses
     
     async def authenticate_user(self, email: str, password: str) -> Optional[User]:
         """Authenticate user for login."""

@@ -61,6 +61,12 @@ async def get_current_user(
         if not user_id:
             raise credentials_exception
 
+        # Convert user_id to integer since the User model uses int primary key
+        try:
+            user_id = int(user_id)
+        except (ValueError, TypeError):
+            raise credentials_exception
+
         # Get user from database to ensure they still exist and are active
         user_repo = UserRepository(session)
         user = await user_repo.get_by_id(user_id)
@@ -74,19 +80,17 @@ async def get_current_user(
                 detail="User account is deactivated"
             )
 
-        # ✅ SINGLE ROLE SYSTEM: Use current role from database
-        user_role = user.role.value  # Get from enum: "ADMIN", "INSPEKTORAT", "PERWADAG"
+        # Get user roles from user_roles relationship
+        active_roles = [role.role_name for role in user.user_roles if role.is_active]
+        primary_role = active_roles[0] if active_roles else None
         
         user_data = {
             "id": user.id,
             "email": user.email,
-            "username": user.username,
-            "nama": user.nama,
-            "role": user_role,           # Single role string
-            "roles": [user_role],        # Array with single role for compatibility
-            "is_active": user.is_active,
-            # "pangkat": user.pangkat,
-            "jabatan": user.jabatan
+            "role": primary_role,           # Primary role string
+            "roles": active_roles,          # Array of all active roles
+            "is_active": user.is_active(),
+            "profile": user.profile or {}
         }
 
         return user_data

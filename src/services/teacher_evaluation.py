@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import HTTPException, status
 
 from src.repositories.teacher_evaluation import TeacherEvaluationRepository
+from src.repositories.user import UserRepository
 from src.schemas.teacher_evaluation import (
     TeacherEvaluationCreate,
     TeacherEvaluationUpdate,
@@ -23,8 +24,9 @@ from src.models.enums import EvaluationGrade
 class TeacherEvaluationService:
     """Service for teacher evaluation operations - grade-based system."""
     
-    def __init__(self, evaluation_repo: TeacherEvaluationRepository):
+    def __init__(self, evaluation_repo: TeacherEvaluationRepository, user_repo: UserRepository):
         self.evaluation_repo = evaluation_repo
+        self.user_repo = user_repo
     
     async def create_evaluation(
         self, 
@@ -36,7 +38,7 @@ class TeacherEvaluationService:
         return TeacherEvaluationResponse.from_teacher_evaluation_model(evaluation, include_relations=True)
     
     async def get_evaluation(self, evaluation_id: int, current_user: dict = None) -> TeacherEvaluationResponse:
-        """Get teacher evaluation by ID."""
+        """Get teacher evaluation by ID with access control."""
         evaluation = await self.evaluation_repo.get_by_id(evaluation_id)
         if not evaluation:
             raise HTTPException(
@@ -44,23 +46,78 @@ class TeacherEvaluationService:
                 detail="Teacher evaluation not found"
             )
         
+        # Organization-based access control
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            
+            if current_user_obj and current_user_obj.organization_id:
+                # Get the teacher being evaluated
+                teacher = await self.user_repo.get_by_id(evaluation.teacher_id)
+                
+                if not teacher:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Teacher being evaluated not found"
+                    )
+                
+                # Teachers can only view their own evaluations
+                if current_user["id"] != evaluation.teacher_id:
+                    # Principals can view evaluations of teachers in their organization
+                    if teacher.organization_id != current_user_obj.organization_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You can only view evaluations of teachers in your organization or your own evaluations"
+                        )
+        
         return TeacherEvaluationResponse.from_teacher_evaluation_model(evaluation, include_relations=True)
     
     async def update_evaluation(
         self,
         evaluation_id: int,
         evaluation_data: TeacherEvaluationUpdate,
-        updated_by: Optional[int] = None
+        updated_by: Optional[int] = None,
+        current_user: dict = None
     ) -> TeacherEvaluationResponse:
-        """Update teacher evaluation grade."""
-        evaluation = await self.evaluation_repo.update(evaluation_id, evaluation_data, updated_by)
+        """Update teacher evaluation grade with access control."""
+        # First get the evaluation to check access
+        evaluation = await self.evaluation_repo.get_by_id(evaluation_id)
         if not evaluation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Teacher evaluation not found"
             )
         
-        return TeacherEvaluationResponse.from_teacher_evaluation_model(evaluation, include_relations=True)
+        # Organization-based access control
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            
+            if current_user_obj and current_user_obj.organization_id:
+                # Get the teacher being evaluated
+                teacher = await self.user_repo.get_by_id(evaluation.teacher_id)
+                
+                if not teacher:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Teacher being evaluated not found"
+                    )
+                
+                # Only principals can update evaluations of teachers in their organization
+                # Teachers cannot update their own evaluations
+                if teacher.organization_id != current_user_obj.organization_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You can only update evaluations of teachers in your organization"
+                    )
+        
+        # Perform the update
+        updated_evaluation = await self.evaluation_repo.update(evaluation_id, evaluation_data, updated_by)
+        if not updated_evaluation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Teacher evaluation not found"
+            )
+        
+        return TeacherEvaluationResponse.from_teacher_evaluation_model(updated_evaluation, include_relations=True)
     
     async def delete_evaluation(self, evaluation_id: int) -> MessageResponse:
         """Delete teacher evaluation."""
@@ -95,8 +152,36 @@ class TeacherEvaluationService:
         }
     
     async def get_evaluations_by_period(self, period_id: int, current_user) -> List[TeacherEvaluationResponse]:
-        """Get all evaluations for a specific period."""
+        """Get all evaluations for a specific period with organization-based access control."""
+        # Get all evaluations for the period
         evaluations = await self.evaluation_repo.get_evaluations_by_period(period_id)
+        
+        # Apply organization-based filtering
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            if current_user_obj and current_user_obj.organization_id:
+                # For principals: only show evaluations of teachers in their organization
+                # For teachers: only show their own evaluations
+                filtered_evaluations = []
+                
+                for evaluation in evaluations:
+                    # Get the teacher being evaluated
+                    if evaluation.teacher and evaluation.teacher.organization_id:
+                        # Check if current user can view this evaluation
+                        can_view = False
+                        
+                        # Teachers can only view their own evaluations
+                        if evaluation.teacher_id == current_user["id"]:
+                            can_view = True
+                        # Principals can view evaluations of teachers in their organization
+                        elif evaluation.teacher.organization_id == current_user_obj.organization_id:
+                            can_view = True
+                        
+                        if can_view:
+                            filtered_evaluations.append(evaluation)
+                
+                evaluations = filtered_evaluations
+        
         return [
             TeacherEvaluationResponse.from_teacher_evaluation_model(eval, include_relations=True)
             for eval in evaluations
@@ -108,7 +193,28 @@ class TeacherEvaluationService:
         period_id: int,
         current_user
     ) -> List[TeacherEvaluationResponse]:
-        """Get all evaluations for a teacher in a specific period."""
+        """Get all evaluations for a teacher in a specific period with access control."""
+        # Organization-based access control
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            teacher = await self.user_repo.get_by_id(teacher_id)
+            
+            if not teacher:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Teacher not found"
+                )
+            
+            if current_user_obj and current_user_obj.organization_id:
+                # Teachers can only view their own evaluations
+                if current_user["id"] != teacher_id:
+                    # Principals can view evaluations of teachers in their organization
+                    if teacher.organization_id != current_user_obj.organization_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You can only view evaluations of teachers in your organization or your own evaluations"
+                        )
+        
         evaluations = await self.evaluation_repo.get_teacher_evaluations_in_period(teacher_id, period_id)
         return [
             TeacherEvaluationResponse.from_teacher_evaluation_model(eval, include_relations=True)
@@ -118,9 +224,39 @@ class TeacherEvaluationService:
     async def bulk_update_grades(
         self,
         bulk_update_data: TeacherEvaluationBulkUpdate,
-        updated_by: Optional[int] = None
+        updated_by: Optional[int] = None,
+        current_user: dict = None
     ) -> Dict[str, Any]:
-        """Bulk update evaluation grades."""
+        """Bulk update evaluation grades with organization-based access control."""
+        # Organization-based access control for bulk updates
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            
+            if current_user_obj and current_user_obj.organization_id:
+                # Validate access to all evaluations being updated
+                for evaluation_update in bulk_update_data.evaluations:
+                    evaluation = await self.evaluation_repo.get_by_id(evaluation_update["evaluation_id"])
+                    if not evaluation:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Teacher evaluation with ID {evaluation_update['evaluation_id']} not found"
+                        )
+                    
+                    # Get the teacher being evaluated
+                    teacher = await self.user_repo.get_by_id(evaluation.teacher_id)
+                    if not teacher:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Teacher being evaluated not found for evaluation {evaluation_update['evaluation_id']}"
+                        )
+                    
+                    # Only principals can update evaluations of teachers in their organization
+                    if teacher.organization_id != current_user_obj.organization_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail=f"You can only update evaluations of teachers in your organization. Evaluation {evaluation_update['evaluation_id']} is from a different organization."
+                        )
+        
         updated_count, errors = await self.evaluation_repo.bulk_update_grades(
             bulk_update_data.evaluations,
             updated_by
@@ -135,9 +271,28 @@ class TeacherEvaluationService:
     async def complete_teacher_evaluation(
         self,
         completion_data: CompleteTeacherEvaluation,
-        evaluator_id: int
+        evaluator_id: int,
+        current_user: dict = None
     ) -> Dict[str, Any]:
-        """Complete all evaluations for a teacher in a period."""
+        """Complete all evaluations for a teacher in a period with access control."""
+        # Organization-based access control
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            teacher = await self.user_repo.get_by_id(completion_data.teacher_id)
+            
+            if not teacher:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Teacher not found"
+                )
+            
+            if current_user_obj and current_user_obj.organization_id:
+                # Only principals can complete evaluations of teachers in their organization
+                if teacher.organization_id != current_user_obj.organization_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You can only complete evaluations of teachers in your organization"
+                    )
         # Get existing evaluations for the teacher in the period
         evaluations = await self.evaluation_repo.get_teacher_evaluations_in_period(
             completion_data.teacher_id,

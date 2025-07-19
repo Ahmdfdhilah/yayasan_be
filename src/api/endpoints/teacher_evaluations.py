@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
 from src.repositories.teacher_evaluation import TeacherEvaluationRepository
+from src.repositories.user import UserRepository
 from src.services.teacher_evaluation import TeacherEvaluationService
 from src.schemas.teacher_evaluation import (
     TeacherEvaluationCreate,
@@ -35,7 +36,8 @@ admin_or_manager = require_roles(["admin", "kepala_sekolah"])
 async def get_teacher_evaluation_service(session: AsyncSession = Depends(get_db)) -> TeacherEvaluationService:
     """Get teacher evaluation service dependency."""
     evaluation_repo = TeacherEvaluationRepository(session)
-    return TeacherEvaluationService(evaluation_repo)
+    user_repo = UserRepository(session)
+    return TeacherEvaluationService(evaluation_repo, user_repo)
 
 
 @router.post("/assign-teachers-to-period", summary="Automatically assign all teachers to evaluation period")
@@ -97,7 +99,7 @@ async def update_evaluation_grade(
     
     Only principals (kepala_sekolah) can update evaluations for teachers in their organization.
     """
-    return await service.update_evaluation(evaluation_id, evaluation_data, current_user["id"])
+    return await service.update_evaluation(evaluation_id, evaluation_data, current_user["id"], current_user)
 
 
 @router.patch("/bulk-grade", summary="Bulk update evaluation grades")
@@ -111,7 +113,7 @@ async def bulk_update_grades(
     
     Only principals (kepala_sekolah) can update evaluations for teachers in their organization.
     """
-    return await service.bulk_update_grades(bulk_update_data, current_user["id"])
+    return await service.bulk_update_grades(bulk_update_data, current_user["id"], current_user)
 
 
 @router.post("/complete-teacher-evaluation", summary="Complete all evaluations for a teacher")
@@ -125,7 +127,7 @@ async def complete_teacher_evaluation(
     
     Only principals (kepala_sekolah) can complete evaluations for teachers in their organization.
     """
-    return await service.complete_teacher_evaluation(completion_data, current_user["id"])
+    return await service.complete_teacher_evaluation(completion_data, current_user["id"], current_user)
 
 
 @router.get("/period/{period_id}/stats", response_model=PeriodEvaluationStats, summary="Get period evaluation statistics")
@@ -188,7 +190,7 @@ async def update_teacher_evaluation(
     
     Only principals (kepala_sekolah) can update evaluations for teachers in their organization.
     """
-    return await service.update_evaluation(evaluation_id, evaluation_data, current_user["id"])
+    return await service.update_evaluation(evaluation_id, evaluation_data, current_user["id"], current_user)
 
 
 @router.delete("/{evaluation_id}", response_model=MessageResponse, summary="Delete teacher evaluation")

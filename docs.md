@@ -273,4 +273,136 @@ stateDiagram-v2
 
 ---
 
-*Dokumen ini merepresentasikan skema proses bisnis lengkap untuk sistem PKG (Penilaian Kinerja Guru) yang mengelola evaluasi kinerja guru secara komprehensif.*
+## 10. API Endpoints dan Implementasi
+
+### Endpoint yang Tersedia:
+
+#### A. Authentication & User Management
+- **`/auth`** - Autentikasi dan authorization
+- **`/users`** - Manajemen pengguna 
+- **`/user-roles`** - Manajemen peran pengguna
+- **`/organizations`** - Manajemen organisasi
+
+#### B. Core Evaluation System  
+- **`/evaluation-aspects`** - Manajemen aspek evaluasi
+  - CRUD operations untuk aspek evaluasi
+  - Validasi bobot aspek
+  - Analytics aspek performance
+  - Bulk operations (create, update, delete)
+  
+- **`/teacher-evaluations`** - Evaluasi individual per aspek
+  - Create/update evaluasi untuk setiap aspek
+  - Bulk operations untuk multiple evaluations
+  - Evaluation set creation (complete teacher evaluation)
+  - Teacher performance analysis
+  
+- **`/evaluation-results`** - Hasil evaluasi teragregasi
+  - Calculate results from individual evaluations
+  - Performance comparison dan trend analysis
+  - Top performers dan improvement needed
+  - Organization-wide performance overview
+
+#### C. RPP Management System
+- **`/rpp-submissions`** - Pengajuan dan review RPP
+  - Submit, update, delete RPP submissions
+  - Review workflow (approve/reject/revision)
+  - Resubmit capability untuk rejected submissions
+  - Bulk operations untuk mass review
+  - Analytics: submission stats, teacher progress, reviewer workload
+
+#### D. Media File System
+- **`/media-files`** - Manajemen file upload/download
+  - File upload dengan access control
+  - Download dengan permission checking
+  - Public/private file management
+  - File metadata management
+
+#### E. Dashboard & Analytics
+- **`/dashboard`** - Overview analytics dan monitoring
+  - Dashboard overview untuk semua role
+  - User-specific dashboard (guru perspective)
+  - Organization dashboard (kepala sekolah perspective)
+  - Admin dashboard (system-wide view)
+  - Quick stats untuk widgets
+
+### Proses Workflow yang Didukung:
+
+#### 1. RPP Submission Workflow (Sesuai Docs):
+```
+POST /rpp-submissions/ → Create submission (status: pending)
+GET /rpp-submissions/pending-reviews → List for review
+POST /rpp-submissions/{id}/review → Approve/reject/request revision
+POST /rpp-submissions/{id}/resubmit → Resubmit if needed
+GET /rpp-submissions/analytics/overview → Track progress
+```
+
+#### 2. Teacher Evaluation Workflow (Sesuai Docs):
+```
+GET /evaluation-aspects/active/list → Load active aspects
+POST /teacher-evaluations/evaluation-set → Create complete evaluation
+GET /teacher-evaluations/teacher/{id}/summary/{year}/{semester} → Get results
+POST /evaluation-results/calculate-from-evaluations → Generate final result
+```
+
+#### 3. Analytics dan Reporting (Mendukung Docs):
+```
+GET /rpp-submissions/analytics/comprehensive → RPP analytics
+GET /teacher-evaluations/analytics/overview → Evaluation analytics  
+GET /evaluation-results/analytics/overview → Results analytics
+GET /evaluation-results/period/{year}/{semester}/top-performers → Performance ranking
+```
+
+#### 4. Dashboard dan Monitoring:
+```
+GET /dashboard/overview → Comprehensive dashboard untuk current user
+GET /dashboard/user/{id} → User-specific dashboard (guru)
+GET /dashboard/organization → Organization dashboard (kepala sekolah)
+GET /dashboard/admin/overview → System-wide admin dashboard
+GET /dashboard/quick-stats → Quick statistics untuk widgets
+```
+
+### Status Implementasi vs Business Process:
+
+✅ **Implemented & Matching Docs:**
+- Complete RPP workflow dengan review system
+- Teacher evaluation dengan weighted scoring
+- Performance calculation (Nilai Kinerja = Total Skor × 1.25)
+- User role-based access control
+- File upload/management untuk RPP documents
+- Analytics untuk tracking progress
+- Bulk operations untuk efficiency
+- Dashboard system untuk monitoring dan overview
+
+✅ **Business Rules Implemented:**
+- Unique constraints (one RPP per teacher/period, one evaluation per teacher/aspect/period)
+- Status workflow validation
+- Permission-based access control
+- Academic year/semester formatting
+- Score validation dalam rentang yang ditentukan
+
+⚠️ **Minor Gaps Remaining:**
+- Notification system tidak ada explicit endpoints
+- Email notification integration belum explicit di API
+- Real-time updates/WebSocket tidak ada
+
+### Rekomendasi Penambahan:
+
+#### Optional Enhancement Endpoints:
+1. **Notification System** (`/notifications`)  
+   - In-app notifications
+   - Notification preferences
+   - Email notification triggers
+
+2. **Reporting System** (`/reports`)
+   - Comprehensive report generation
+   - Export functionality (PDF, Excel)
+   - Custom report templates
+
+3. **Real-time Updates** (WebSocket)
+   - Live updates untuk dashboard
+   - Real-time notifications
+   - Progress tracking updates
+
+---
+
+*Dokumen ini merepresentasikan skema proses bisnis lengkap untuk sistem PKG (Penilaian Kinerja Guru) yang mengelola evaluasi kinerja guru secara komprehensif. Semua endpoint utama telah diimplementasikan sesuai dengan business process yang didokumentasikan.*

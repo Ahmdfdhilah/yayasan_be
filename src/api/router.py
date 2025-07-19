@@ -11,7 +11,8 @@ from src.api.endpoints import (
     evaluation_results,
     rpp_submissions,
     teacher_evaluations,
-    media_files
+    media_files,
+    dashboard
 )
 
 # Create main API router
@@ -113,6 +114,17 @@ api_router.include_router(
 # Media Files - untuk manajemen file upload dan download
 api_router.include_router(
     media_files.router,
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Resource not found"},
+        422: {"description": "Validation Error"},
+    }
+)
+
+# Dashboard - untuk overview analytics dan monitoring
+api_router.include_router(
+    dashboard.router,
     responses={
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},

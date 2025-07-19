@@ -54,6 +54,70 @@ async def create_submission(
     return await submission_service.create_submission(submission_data)
 
 
+# Move specific routes before parameterized routes to avoid conflicts
+
+@router.get(
+    "/pending-reviews",
+    response_model=List[RPPSubmissionResponse],
+    summary="Get pending reviews"
+)
+async def get_pending_reviews(
+    reviewer_id: Optional[int] = Query(None, description="Filter by reviewer ID"),
+    current_user: dict = Depends(get_current_active_user),
+    submission_service: RPPSubmissionService = Depends(get_submission_service)
+):
+    """Get all pending review submissions."""
+    return await submission_service.get_pending_reviews(reviewer_id)
+
+
+@router.get(
+    "/overdue-reviews",
+    response_model=List[RPPSubmissionResponse],
+    summary="Get overdue reviews"
+)
+async def get_overdue_reviews(
+    days_threshold: int = Query(7, ge=1, le=30, description="Days threshold for overdue"),
+    current_user: dict = Depends(management_roles_required),
+    submission_service: RPPSubmissionService = Depends(get_submission_service)
+):
+    """
+    Get submissions that are overdue for review.
+    
+    Requires management role (super_admin, admin, or kepala_sekolah).
+    """
+    return await submission_service.get_overdue_reviews(days_threshold)
+
+
+@router.get(
+    "/period/{academic_year}/{semester}",
+    response_model=List[RPPSubmissionResponse],
+    summary="Get submissions by period"
+)
+async def get_submissions_by_period(
+    academic_year: str,
+    semester: str,
+    current_user: dict = Depends(get_current_active_user),
+    submission_service: RPPSubmissionService = Depends(get_submission_service)
+):
+    """Get all RPP submissions for a specific academic period."""
+    return await submission_service.get_submissions_by_period(academic_year, semester)
+
+
+@router.get(
+    "/teacher/{teacher_id}",
+    response_model=List[RPPSubmissionResponse],
+    summary="Get teacher submissions"
+)
+async def get_teacher_submissions(
+    teacher_id: int,
+    academic_year: Optional[str] = Query(None, description="Filter by academic year"),
+    current_user: dict = Depends(get_current_active_user),
+    submission_service: RPPSubmissionService = Depends(get_submission_service)
+):
+    """Get all RPP submissions for a specific teacher."""
+    return await submission_service.get_teacher_submissions(teacher_id, academic_year)
+
+
 @router.get(
     "/{submission_id}",
     response_model=RPPSubmissionResponse,
@@ -170,66 +234,7 @@ async def list_submissions(
     return await submission_service.get_submissions(filters)
 
 
-@router.get(
-    "/teacher/{teacher_id}",
-    response_model=List[RPPSubmissionResponse],
-    summary="Get teacher submissions"
-)
-async def get_teacher_submissions(
-    teacher_id: int,
-    academic_year: Optional[str] = Query(None, description="Filter by academic year"),
-    current_user: dict = Depends(get_current_active_user),
-    submission_service: RPPSubmissionService = Depends(get_submission_service)
-):
-    """Get all RPP submissions for a specific teacher."""
-    return await submission_service.get_teacher_submissions(teacher_id, academic_year)
-
-
-@router.get(
-    "/pending-reviews",
-    response_model=List[RPPSubmissionResponse],
-    summary="Get pending reviews"
-)
-async def get_pending_reviews(
-    reviewer_id: Optional[int] = Query(None, description="Filter by reviewer ID"),
-    current_user: dict = Depends(get_current_active_user),
-    submission_service: RPPSubmissionService = Depends(get_submission_service)
-):
-    """Get all pending review submissions."""
-    return await submission_service.get_pending_reviews(reviewer_id)
-
-
-@router.get(
-    "/period/{academic_year}/{semester}",
-    response_model=List[RPPSubmissionResponse],
-    summary="Get submissions by period"
-)
-async def get_submissions_by_period(
-    academic_year: str,
-    semester: str,
-    current_user: dict = Depends(get_current_active_user),
-    submission_service: RPPSubmissionService = Depends(get_submission_service)
-):
-    """Get all RPP submissions for a specific academic period."""
-    return await submission_service.get_submissions_by_period(academic_year, semester)
-
-
-@router.get(
-    "/overdue-reviews",
-    response_model=List[RPPSubmissionResponse],
-    summary="Get overdue reviews"
-)
-async def get_overdue_reviews(
-    days_threshold: int = Query(7, ge=1, le=30, description="Days threshold for overdue"),
-    current_user: dict = Depends(management_roles_required),
-    submission_service: RPPSubmissionService = Depends(get_submission_service)
-):
-    """
-    Get submissions that are overdue for review.
-    
-    Requires management role (super_admin, admin, or kepala_sekolah).
-    """
-    return await submission_service.get_overdue_reviews(days_threshold)
+# Duplicate routes removed - moved to above to fix routing conflicts
 
 
 # ===== BULK OPERATIONS =====

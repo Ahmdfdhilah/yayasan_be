@@ -97,6 +97,62 @@ async def list_media_files(
     )
 
 
+# Specific routes first to avoid conflicts with parameterized routes
+
+@router.get("/uploader/{uploader_id}", response_model=MediaFileListResponse)
+async def get_files_by_uploader(
+    uploader_id: int,
+    filters: MediaFileFilterParams = Depends(),
+    current_user: dict = Depends(get_current_active_user),
+    service: MediaFileService = Depends(get_media_file_service)
+):
+    """
+    Get files uploaded by specific user.
+    
+    **Required permissions:** admin, content manager, or the uploader themselves
+    
+    **Path Parameters:**
+    - uploader_id: User ID of the uploader
+    
+    **Query Parameters:** Same as list_media_files
+    
+    **Returns:** Paginated list of media files uploaded by the specified user
+    """
+    # Check permissions: admin/content manager or the uploader themselves
+    user_roles = current_user.get("roles", [])
+    is_admin = any(role in ["super_admin", "admin", "content_manager"] for role in user_roles)
+    
+    if not is_admin and current_user["id"] != uploader_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view files for this user"
+        )
+    
+    return await service.get_files_by_uploader(
+        uploader_id=uploader_id,
+        filters=filters
+    )
+
+
+@router.get("/public/list", response_model=MediaFileListResponse)
+async def list_public_files(
+    filters: MediaFileFilterParams = Depends(),
+    service: MediaFileService = Depends(get_media_file_service)
+):
+    """
+    List public media files (no authentication required).
+    
+    **Required permissions:** none (public endpoint)
+    
+    **Query Parameters:** Same as list_media_files
+    
+    **Returns:** Paginated list of public media files
+    """
+    return await service.get_public_files(filters=filters)
+
+
+# Parameterized routes come last to avoid conflicts
+
 @router.get("/{file_id}", response_model=MediaFileResponse)
 async def get_media_file(
     file_id: int,
@@ -196,53 +252,4 @@ async def delete_media_file(
     return await service.delete_file(file_id=file_id, user_id=current_user["id"])
 
 
-@router.get("/uploader/{uploader_id}", response_model=MediaFileListResponse)
-async def get_files_by_uploader(
-    uploader_id: int,
-    filters: MediaFileFilterParams = Depends(),
-    current_user: dict = Depends(get_current_active_user),
-    service: MediaFileService = Depends(get_media_file_service)
-):
-    """
-    Get files uploaded by specific user.
-    
-    **Required permissions:** admin, content manager, or the uploader themselves
-    
-    **Path Parameters:**
-    - uploader_id: User ID of the uploader
-    
-    **Query Parameters:** Same as list_media_files
-    
-    **Returns:** Paginated list of media files uploaded by the specified user
-    """
-    # Check permissions: admin/content manager or the uploader themselves
-    user_roles = current_user.get("roles", [])
-    is_admin = any(role in ["super_admin", "admin", "content_manager"] for role in user_roles)
-    
-    if not is_admin and current_user["id"] != uploader_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view files for this user"
-        )
-    
-    return await service.get_files_by_uploader(
-        uploader_id=uploader_id,
-        filters=filters
-    )
-
-
-@router.get("/public/list", response_model=MediaFileListResponse)
-async def list_public_files(
-    filters: MediaFileFilterParams = Depends(),
-    service: MediaFileService = Depends(get_media_file_service)
-):
-    """
-    List public media files (no authentication required).
-    
-    **Required permissions:** none (public endpoint)
-    
-    **Query Parameters:** Same as list_media_files
-    
-    **Returns:** Paginated list of public media files
-    """
-    return await service.get_public_files(filters=filters)
+# Duplicate routes removed - moved to above to fix routing conflicts

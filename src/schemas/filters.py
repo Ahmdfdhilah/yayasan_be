@@ -2,7 +2,8 @@
 
 from typing import Optional
 from pydantic import BaseModel, Field
-from datetime import date
+from datetime import date, datetime
+from decimal import Decimal
 
 from src.models.enums import UserRole, UserStatus, OrganizationType, RPPStatus
 
@@ -126,6 +127,11 @@ class RPPSubmissionFilterParams(PaginationParams, SearchParams, DateRangeFilter)
     status: Optional[RPPStatus] = Field(None, description="Filter by submission status")
     has_reviewer: Optional[bool] = Field(None, description="Filter submissions with/without reviewer")
     needs_review: Optional[bool] = Field(None, description="Filter submissions needing review")
+    high_revision_count: Optional[int] = Field(None, ge=1, description="Filter submissions with high revision count")
+    submitted_after: Optional[datetime] = Field(None, description="Filter submissions after this date")
+    submitted_before: Optional[datetime] = Field(None, description="Filter submissions before this date")
+    reviewed_after: Optional[datetime] = Field(None, description="Filter submissions reviewed after this date")
+    reviewed_before: Optional[datetime] = Field(None, description="Filter submissions reviewed before this date")
 
 
 # ===== EVALUATION FILTERS =====
@@ -137,6 +143,10 @@ class EvaluationAspectFilterParams(PaginationParams, SearchParams, DateRangeFilt
     organization_id: Optional[int] = Field(None, description="Filter by organization ID")
     is_active: Optional[bool] = Field(None, description="Filter by active status")
     has_evaluations: Optional[bool] = Field(None, description="Filter aspects with/without evaluations")
+    min_weight: Optional[Decimal] = Field(None, ge=0, description="Minimum weight")
+    max_weight: Optional[Decimal] = Field(None, ge=0, description="Maximum weight")
+    min_score: Optional[int] = Field(None, ge=0, description="Minimum max score")
+    max_score: Optional[int] = Field(None, description="Maximum max score")
 
 
 class TeacherEvaluationFilterParams(PaginationParams, SearchParams, DateRangeFilter):
@@ -151,6 +161,8 @@ class TeacherEvaluationFilterParams(PaginationParams, SearchParams, DateRangeFil
     min_score: Optional[int] = Field(None, ge=0, description="Minimum score")
     max_score: Optional[int] = Field(None, description="Maximum score")
     has_notes: Optional[bool] = Field(None, description="Filter evaluations with/without notes")
+    evaluated_after: Optional[datetime] = Field(None, description="Filter evaluations after this date")
+    evaluated_before: Optional[datetime] = Field(None, description="Filter evaluations before this date")
 
 
 class EvaluationResultFilterParams(PaginationParams, SearchParams, DateRangeFilter):
@@ -163,3 +175,8 @@ class EvaluationResultFilterParams(PaginationParams, SearchParams, DateRangeFilt
     semester: Optional[str] = Field(None, description="Filter by semester")
     grade_category: Optional[str] = Field(None, description="Filter by grade category")
     has_recommendations: Optional[bool] = Field(None, description="Filter results with/without recommendations")
+    min_performance: Optional[Decimal] = Field(None, ge=0, le=100, description="Minimum performance score")
+    max_performance: Optional[Decimal] = Field(None, ge=0, le=100, description="Maximum performance score")
+    min_score_percentage: Optional[Decimal] = Field(None, ge=0, le=100, description="Minimum score percentage")
+    evaluated_after: Optional[datetime] = Field(None, description="Filter results evaluated after this date")
+    evaluated_before: Optional[datetime] = Field(None, description="Filter results evaluated before this date")

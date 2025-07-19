@@ -5,6 +5,14 @@ from fastapi import APIRouter
 # Existing imports
 from src.api.endpoints import auth, users, organizations, user_roles
 
+# Evaluation system imports
+from src.api.endpoints import (
+    evaluation_aspects,
+    evaluation_results,
+    rpp_submissions,
+    teacher_evaluations
+)
+
 # Create main API router
 api_router = APIRouter()
 
@@ -51,6 +59,52 @@ api_router.include_router(
     responses={
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},
+        422: {"description": "Validation Error"},
+    }
+)
+
+# ===== EVALUATION SYSTEM ENDPOINTS =====
+
+# Evaluation Aspects - untuk mengelola aspek evaluasi
+api_router.include_router(
+    evaluation_aspects.router,
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Resource not found"},
+        422: {"description": "Validation Error"},
+    }
+)
+
+# Teacher Evaluations - untuk evaluasi individual per aspek
+api_router.include_router(
+    teacher_evaluations.router,
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Resource not found"},
+        422: {"description": "Validation Error"},
+    }
+)
+
+# Evaluation Results - untuk hasil evaluasi yang sudah di-aggregate
+api_router.include_router(
+    evaluation_results.router,
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Resource not found"},
+        422: {"description": "Validation Error"},
+    }
+)
+
+# RPP Submissions - untuk pengumpulan dan review RPP
+api_router.include_router(
+    rpp_submissions.router,
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Resource not found"},
         422: {"description": "Validation Error"},
     }
 )

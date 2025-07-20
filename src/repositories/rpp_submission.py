@@ -344,16 +344,14 @@ class RPPSubmissionRepository:
     async def find_existing_submission(
         self,
         teacher_id: int,
-        academic_year: str,
-        semester: str,
+        period_id: int,
         rpp_type: str
     ) -> Optional[RPPSubmission]:
-        """Find existing submission for teacher in academic period and type."""
+        """Find existing submission for teacher in period and type."""
         query = select(RPPSubmission).where(
             and_(
                 RPPSubmission.teacher_id == teacher_id,
-                RPPSubmission.academic_year == academic_year,
-                RPPSubmission.semester == semester,
+                RPPSubmission.period_id == period_id,
                 RPPSubmission.rpp_type == rpp_type,
                 RPPSubmission.deleted_at.is_(None)
             )
@@ -442,26 +440,17 @@ class RPPSubmissionRepository:
         status_result = await self.session.execute(status_query)
         by_status = {status.value: count for status, count in status_result.fetchall()}
         
-        # Academic year distribution
-        year_query = (
-            select(RPPSubmission.academic_year, func.count(RPPSubmission.id))
+        # Period distribution (replacing academic year)
+        period_query = (
+            select(RPPSubmission.period_id, func.count(RPPSubmission.id))
             .where(base_filter)
-            .group_by(RPPSubmission.academic_year)
-            .order_by(RPPSubmission.academic_year.desc())
+            .group_by(RPPSubmission.period_id)
+            .order_by(RPPSubmission.period_id.desc())
         )
-        year_result = await self.session.execute(year_query)
-        by_academic_year = dict(year_result.fetchall())
+        period_result = await self.session.execute(period_query)
+        by_period = dict(period_result.fetchall())
         
-        # Semester distribution
-        semester_query = (
-            select(RPPSubmission.semester, func.count(RPPSubmission.id))
-            .where(base_filter)
-            .group_by(RPPSubmission.semester)
-        )
-        semester_result = await self.session.execute(semester_query)
-        by_semester = dict(semester_result.fetchall())
-        
-        # RPP type distribution
+        # RPP type distribution (replacing semester)
         type_query = (
             select(RPPSubmission.rpp_type, func.count(RPPSubmission.id))
             .where(base_filter)
@@ -511,8 +500,7 @@ class RPPSubmissionRepository:
         return {
             "total_submissions": total_submissions,
             "by_status": by_status,
-            "by_academic_year": by_academic_year,
-            "by_semester": by_semester,
+            "by_period": by_period,
             "by_rpp_type": by_rpp_type,
             "avg_review_time_hours": avg_review_time,
             "avg_revision_count": float(avg_revision_count),

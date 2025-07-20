@@ -97,12 +97,30 @@ class PeriodRepository:
         
         return list(periods), total
     
-    async def get_active_periods(self) -> List[Period]:
-        """Get all active periods."""
+    async def get_active_period(self) -> Optional[Period]:
+        """Get the single active period. Business rule: only one period can be active at a time."""
         query = select(Period).where(Period.is_active == True)
-        query = query.order_by(Period.start_date.desc())
         result = await self.session.execute(query)
-        return list(result.scalars().all())
+        return result.scalar_one_or_none()
+    
+    async def has_active_period(self) -> bool:
+        """Check if there is any active period."""
+        query = select(func.count(Period.id)).where(Period.is_active == True)
+        result = await self.session.execute(query)
+        count = result.scalar()
+        return count > 0
+    
+    async def deactivate_all_periods(self, updated_by: Optional[int] = None) -> int:
+        """Deactivate all currently active periods. Returns count of deactivated periods."""
+        update_query = (
+            update(Period)
+            .where(Period.is_active == True)
+            .values(is_active=False, updated_by=updated_by)
+        )
+        
+        result = await self.session.execute(update_query)
+        await self.session.commit()
+        return result.rowcount
     
     async def get_current_periods(self) -> List[Period]:
         """Get periods that are currently active based on dates."""
@@ -134,12 +152,39 @@ class PeriodRepository:
         await self.session.refresh(period)
         return period
     
+    async def can_activate_period(self, period_id: int) -> Tuple[bool, str]:
+        """Check if period can be activated. Returns (can_activate, reason)."""
+        period = await self.get_by_id(period_id)
+        if not period:
+            return False, "Period not found"
+        
+        if period.is_active:
+            return True, "Period is already active"
+        
+        has_active = await self.has_active_period()
+        if has_active:
+            active_period = await self.get_active_period()
+            return False, f"Another period is already active: {active_period.period_name if active_period else 'Unknown'}"
+        
+        return True, "Can activate"
+    
     async def activate(self, period_id: int, updated_by: Optional[int] = None) -> Optional[Period]:
-        """Activate a period."""
+        """Activate a period. Business rule: only one period can be active at a time."""
         period = await self.get_by_id(period_id)
         if not period:
             return None
         
+        # Check if period is already active
+        if period.is_active:
+            return period
+        
+        # Business rule: Check if there's already an active period
+        has_active = await self.has_active_period()
+        if has_active:
+            # Return None to indicate business rule violation
+            return None
+        
+        # Activate the requested period
         period.is_active = True
         if updated_by:
             period.updated_by = updated_by

@@ -65,17 +65,17 @@ async def get_periods(
     return await period_service.get_periods(filter_params, skip, limit)
 
 
-@router.get("/active", response_model=List[PeriodResponse], summary="Get active periods")
-async def get_active_periods(
+@router.get("/active", response_model=PeriodResponse, summary="Get active period")
+async def get_active_period(
     current_user: dict = Depends(get_current_active_user),
     period_service: PeriodService = Depends(get_period_service)
 ):
     """
-    Get all active periods.
+    Get all active period.
     
-    All authenticated users can view active periods.
+    All authenticated users can view active period.
     """
-    return await period_service.get_active_periods()
+    return await period_service.get_active_period()
 
 
 @router.get("/current", response_model=List[PeriodResponse], summary="Get current periods")

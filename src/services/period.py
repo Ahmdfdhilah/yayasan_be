@@ -86,10 +86,10 @@ class PeriodService:
             pages=(total + limit - 1) // limit
         )
     
-    async def get_active_periods(self) -> List[PeriodResponse]:
+    async def get_active_period(self) -> PeriodResponse:
         """Get all active periods."""
-        periods = await self.period_repo.get_active_periods()
-        return [PeriodResponse.from_orm(period) for period in periods]
+        period = await self.period_repo.get_active_period()
+        return [PeriodResponse.from_orm(period)]
     
     async def get_current_periods(self) -> List[PeriodResponse]:
         """Get periods that are currently active based on dates."""
@@ -113,13 +113,42 @@ class PeriodService:
         return PeriodResponse.from_orm(period)
     
     async def activate_period(self, period_id: int, updated_by: Optional[int] = None) -> PeriodResponse:
-        """Activate a period."""
+        """Activate a period. Business rule: only one period can be active at a time."""
+        # Check if activation is allowed
+        can_activate, reason = await self.period_repo.can_activate_period(period_id)
+        
+        if not can_activate:
+            if "not found" in reason.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=reason
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=reason
+                )
+        
+        # If already active, just return the period
+        if "already active" in reason.lower():
+            period = await self.period_repo.get_by_id(period_id)
+            return PeriodResponse.from_orm(period)
+        
+        # Activate the period
         period = await self.period_repo.activate(period_id, updated_by)
         if not period:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Period not found"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to activate period"
             )
+        
+        return PeriodResponse.from_orm(period)
+    
+    async def get_active_period(self) -> Optional[PeriodResponse]:
+        """Get the currently active period."""
+        period = await self.period_repo.get_active_period()
+        if not period:
+            return None
         
         return PeriodResponse.from_orm(period)
     

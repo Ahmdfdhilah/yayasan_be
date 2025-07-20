@@ -83,7 +83,13 @@ async def get_submissions_by_period(
     current_user: dict = Depends(get_current_active_user),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
-    """Get all RPP submissions for a specific academic period."""
+    """
+    Get all RPP submissions for a specific academic period.
+    
+    Teachers can only view their own submissions in the period.
+    Principals can view submissions from teachers in their organization for the period.
+    Admins can view all submissions for the period.
+    """
     return await submission_service.get_submissions_by_period(period_id, current_user)
 
 
@@ -98,7 +104,13 @@ async def get_teacher_submissions(
     current_user: dict = Depends(get_current_active_user),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
-    """Get all RPP submissions for a specific teacher."""
+    """
+    Get all RPP submissions for a specific teacher.
+    
+    Teachers can only view their own submissions.
+    Principals can view submissions from teachers in their organization.
+    Admins can view submissions for any teacher.
+    """
     return await submission_service.get_teacher_submissions(teacher_id, academic_year, current_user)
 
 
@@ -112,7 +124,13 @@ async def get_submission(
     current_user: dict = Depends(get_current_active_user),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
-    """Get RPP submission by ID."""
+    """
+    Get RPP submission by ID.
+    
+    Teachers can only view their own submissions.
+    Principals can view submissions from teachers in their organization.
+    Admins can view all submissions.
+    """
     return await submission_service.get_submission_by_id(submission_id, current_user)
 
 
@@ -214,7 +232,14 @@ async def list_submissions(
     current_user: dict = Depends(get_current_active_user),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
-    """List RPP submissions with filtering and pagination."""
+    """
+    List RPP submissions with filtering and pagination.
+    
+    Teachers can only view their own submissions.
+    Principals can view submissions from teachers in their organization.
+    Admins can view all submissions.
+    Non-admin users have automatic filtering applied based on their organization.
+    """
     return await submission_service.get_submissions(filters, current_user)
 
 

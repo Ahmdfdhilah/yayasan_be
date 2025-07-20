@@ -93,13 +93,35 @@ class RPPSubmissionService:
         )
     
     async def get_submission_by_id(self, submission_id: int, current_user: dict = None) -> RPPSubmissionResponse:
-        """Get RPP submission by ID."""
+        """Get RPP submission by ID with organization-based access control."""
         submission = await self.submission_repo.get_by_id(submission_id)
         if not submission:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="RPP submission not found"
             )
+        
+        # Organization-based access control
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            
+            if current_user_obj and current_user_obj.organization_id:
+                # Get the teacher who submitted the RPP
+                teacher = await self.user_repo.get_by_id(submission.teacher_id)
+                if not teacher:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Teacher who submitted RPP not found"
+                    )
+                
+                # Teachers can only view their own submissions
+                if current_user["id"] != submission.teacher_id:
+                    # Principals can view submissions from teachers in their organization
+                    if teacher.organization_id != current_user_obj.organization_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You can only view RPP submissions from teachers in your organization or your own submissions"
+                        )
         
         return RPPSubmissionResponse.from_rpp_submission_model(
             submission, include_relations=True
@@ -317,8 +339,62 @@ class RPPSubmissionService:
     # ===== LISTING AND FILTERING =====
     
     async def get_submissions(self, filters: RPPSubmissionFilterParams, current_user: dict = None) -> RPPSubmissionListResponse:
-        """Get RPP submissions with filters and pagination."""
+        """Get RPP submissions with filters and pagination, with organization-based access control."""
+        # Apply organization-based filtering for non-admin users
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            
+            # Check if user is admin (has no organization_id or specific admin role)
+            is_admin = (not current_user_obj.organization_id or 
+                       current_user.get("role") == "admin")
+            
+            if not is_admin and current_user_obj and current_user_obj.organization_id:
+                # For non-admin users, apply automatic filtering
+                # Teachers can only see their own submissions
+                if not filters.teacher_id:
+                    filters.teacher_id = current_user["id"]
+                else:
+                    # If teacher_id is specified, verify access
+                    target_teacher = await self.user_repo.get_by_id(filters.teacher_id)
+                    if target_teacher:
+                        # Teachers can only request their own submissions
+                        if current_user["id"] != filters.teacher_id:
+                            # Principals can request submissions from teachers in their organization
+                            if target_teacher.organization_id != current_user_obj.organization_id:
+                                raise HTTPException(
+                                    status_code=status.HTTP_403_FORBIDDEN,
+                                    detail="You can only view RPP submissions from teachers in your organization or your own submissions"
+                                )
+        
         submissions, total = await self.submission_repo.get_all_submissions_filtered(filters)
+        
+        # Additional organization-based filtering at result level for safety
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            is_admin = (not current_user_obj.organization_id or 
+                       current_user.get("role") == "admin")
+            
+            if not is_admin and current_user_obj and current_user_obj.organization_id:
+                filtered_submissions = []
+                
+                for submission in submissions:
+                    # Get the teacher who submitted the RPP
+                    if submission.teacher and submission.teacher.organization_id:
+                        # Check if current user can view this submission
+                        can_view = False
+                        
+                        # Teachers can only view their own submissions
+                        if submission.teacher_id == current_user["id"]:
+                            can_view = True
+                        # Principals can view submissions from teachers in their organization
+                        elif submission.teacher.organization_id == current_user_obj.organization_id:
+                            can_view = True
+                        
+                        if can_view:
+                            filtered_submissions.append(submission)
+                
+                submissions = filtered_submissions
+                total = len(filtered_submissions)
         
         submission_responses = [
             RPPSubmissionResponse.from_rpp_submission_model(
@@ -341,7 +417,7 @@ class RPPSubmissionService:
         academic_year: Optional[str] = None,
         current_user: dict = None
     ) -> List[RPPSubmissionResponse]:
-        """Get all submissions for a specific teacher."""
+        """Get all submissions for a specific teacher with organization-based access control."""
         # Validate teacher exists
         teacher = await self.user_repo.get_by_id(teacher_id)
         if not teacher:
@@ -349,6 +425,20 @@ class RPPSubmissionService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Teacher not found"
             )
+        
+        # Organization-based access control
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            
+            if current_user_obj and current_user_obj.organization_id:
+                # Teachers can only view their own submissions
+                if current_user["id"] != teacher_id:
+                    # Principals can view submissions from teachers in their organization
+                    if teacher.organization_id != current_user_obj.organization_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You can only view RPP submissions from teachers in your organization or your own submissions"
+                        )
         
         submissions = await self.submission_repo.get_teacher_submissions(teacher_id, academic_year)
         
@@ -392,8 +482,37 @@ class RPPSubmissionService:
         ]
     
     async def get_submissions_by_period(self, period_id: int, current_user: dict = None) -> List[RPPSubmissionResponse]:
-        """Get all submissions for a specific period."""
+        """Get all submissions for a specific period with organization-based access control."""
         submissions = await self.submission_repo.get_submissions_by_period(period_id)
+        
+        # Apply organization-based filtering for non-admin users
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+            
+            # Check if user is admin (has no organization_id or specific admin role)
+            is_admin = (not current_user_obj.organization_id or 
+                       current_user.get("role") == "admin")
+            
+            if not is_admin and current_user_obj and current_user_obj.organization_id:
+                filtered_submissions = []
+                
+                for submission in submissions:
+                    # Get the teacher who submitted the RPP
+                    if submission.teacher and submission.teacher.organization_id:
+                        # Check if current user can view this submission
+                        can_view = False
+                        
+                        # Teachers can only view their own submissions
+                        if submission.teacher_id == current_user["id"]:
+                            can_view = True
+                        # Principals can view submissions from teachers in their organization
+                        elif submission.teacher.organization_id == current_user_obj.organization_id:
+                            can_view = True
+                        
+                        if can_view:
+                            filtered_submissions.append(submission)
+                
+                submissions = filtered_submissions
         
         return [
             RPPSubmissionResponse.from_rpp_submission_model(

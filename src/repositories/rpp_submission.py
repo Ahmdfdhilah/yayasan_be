@@ -376,12 +376,14 @@ class RPPSubmissionRepository:
                 status=RPPSubmissionStatus.DRAFT
             )
             self.session.add(submission)
+            await self.session.flush()  # Flush to get the submission.id
             
             # Create items for all 3 RPP types
             for rpp_type in RPPType.get_all_values():
                 item = RPPSubmissionItem(
                     teacher_id=teacher.id,
                     period_id=period_id,
+                    rpp_submission_id=submission.id,  # Link to parent submission
                     rpp_type=RPPType(rpp_type),
                     file_id=None  # Initially null
                 )

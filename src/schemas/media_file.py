@@ -142,6 +142,14 @@ class MediaFileUploadResponse(BaseModel):
     message: str
 
 
+class MediaFileViewResponse(BaseModel):
+    """Schema for media file view response."""
+    file_path: str
+    file_name: str
+    mime_type: str
+    view_url: str
+
+
 class MediaFileListResponse(BaseListResponse[MediaFileResponse]):
     """Standardized media file list response."""
     pass

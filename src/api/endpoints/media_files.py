@@ -12,7 +12,7 @@ from src.services.media_file import MediaFileService
 from src.repositories.media_file import MediaFileRepository
 from src.schemas.media_file import (
     MediaFileResponse, MediaFileListResponse, MediaFileUpdate,
-    MediaFileUploadResponse
+    MediaFileUploadResponse, MediaFileViewResponse
 )
 from src.schemas.shared import MessageResponse
 from src.schemas.media_file import MediaFileFilterParams
@@ -170,6 +170,26 @@ async def get_media_file(
     **Returns:** Media file details
     """
     return await service.get_file(file_id=file_id, user_id=current_user["id"])
+
+
+@router.get("/{file_id}/view", response_model=MediaFileViewResponse)
+async def get_file_view_info(
+    file_id: int,
+    current_user: Optional[dict] = Depends(get_current_active_user),
+    service: MediaFileService = Depends(get_media_file_service)
+):
+    """
+    Get file view information with static URL path.
+    
+    **Required permissions:** authenticated user (for private files) or public access (for public files)
+    
+    **Path Parameters:**
+    - file_id: Media file ID
+    
+    **Returns:** File view information with static URL for direct access
+    """
+    user_id = current_user["id"] if current_user else None
+    return await service.get_file_view_info(file_id=file_id, user_id=user_id)
 
 
 @router.get("/{file_id}/download")

@@ -10,7 +10,7 @@ import mimetypes
 from src.repositories.media_file import MediaFileRepository
 from src.schemas.media_file import (
     MediaFileCreate, MediaFileUpdate, MediaFileResponse, 
-    MediaFileListResponse, MediaFileUploadResponse
+    MediaFileListResponse, MediaFileUploadResponse, MediaFileViewResponse
 )
 from src.schemas.shared import MessageResponse
 from src.schemas.media_file import MediaFileFilterParams
@@ -29,7 +29,7 @@ class MediaFileService:
         uploader_id: int,
         organization_id: Optional[int] = None,
         is_public: bool = False,
-        upload_path: str = "uploads"
+        upload_path: str = "static/uploads"
     ) -> MediaFileUploadResponse:
         """Upload file and create media file record."""
         
@@ -112,9 +112,18 @@ class MediaFileService:
             )
         
         # Check access permissions
-        if not media_file.is_public and user_id != media_file.uploader_id:
-            # Additional permission checks can be added here
-            pass
+        if not media_file.is_public:
+            # Private file - only uploader can access
+            if user_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required to access private file"
+                )
+            if user_id != media_file.uploader_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this file"
+                )
         
         return MediaFileResponse(
             id=media_file.id,
@@ -257,9 +266,18 @@ class MediaFileService:
             )
         
         # Check access permissions
-        if not media_file.is_public and user_id != media_file.uploader_id:
-            # Additional permission checks can be added here
-            pass
+        if not media_file.is_public:
+            # Private file - only uploader can access
+            if user_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required to access private file"
+                )
+            if user_id != media_file.uploader_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this file"
+                )
         
         # Read file content
         file_path = Path(media_file.file_path)
@@ -300,3 +318,45 @@ class MediaFileService:
         filters.is_public = True
         
         return await self.list_files(filters)
+    
+    async def get_file_view_info(self, file_id: int, user_id: Optional[int] = None) -> MediaFileViewResponse:
+        """Get file view information with static URL."""
+        
+        media_file = await self.media_file_repo.get_by_id(file_id)
+        if not media_file:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Media file not found"
+            )
+        
+        # Check access permissions
+        if not media_file.is_public:
+            # Private file - only uploader can access
+            if user_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required to access private file"
+                )
+            if user_id != media_file.uploader_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this file"
+                )
+        
+        # Check if physical file exists
+        file_path = Path(media_file.file_path)
+        if not file_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Physical file not found"
+            )
+        
+        # Generate static URL path (relative to static serving)
+        view_url = f"/static/uploads/{file_path.name}"
+        
+        return MediaFileViewResponse(
+            file_path=str(file_path),
+            file_name=media_file.file_name,
+            mime_type=media_file.mime_type,
+            view_url=view_url
+        )

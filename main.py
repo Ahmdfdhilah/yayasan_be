@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     logger.info("🚀 Starting Government Auth API...")
-    
+
     # Initialize database
     try:
         await init_db()
@@ -32,17 +32,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")
         raise
-    
+
     # Log configuration
     logger.info(f"📊 Configuration loaded:")
-    logger.info(f"   - Environment: {'Development' if settings.DEBUG else 'Production'}")
+    logger.info(
+        f"   - Environment: {'Development' if settings.DEBUG else 'Production'}"
+    )
     logger.info(f"   - Database: PostgreSQL")
-    logger.info(f"   - Rate Limiting: {settings.RATE_LIMIT_CALLS} calls/{settings.RATE_LIMIT_PERIOD}s")
-    logger.info(f"   - Auth Rate Limiting: {settings.AUTH_RATE_LIMIT_CALLS} calls/{settings.AUTH_RATE_LIMIT_PERIOD}s")
-    
-    
+    logger.info(
+        f"   - Rate Limiting: {settings.RATE_LIMIT_CALLS} calls/{settings.RATE_LIMIT_PERIOD}s"
+    )
+    logger.info(
+        f"   - Auth Rate Limiting: {settings.AUTH_RATE_LIMIT_CALLS} calls/{settings.AUTH_RATE_LIMIT_PERIOD}s"
+    )
+
     yield
-    
+
     # Shutdown
     logger.info("🛑 Shutting down Government Auth API...")
     logger.info("✅ Shutdown completed")
@@ -77,20 +82,21 @@ def create_application() -> FastAPI:
     uploads_path = Path(settings.UPLOADS_PATH)  # "static/uploads"
     uploads_path.mkdir(parents=True, exist_ok=True)  # Create if not exists
 
-    app.mount("/static/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
+    app.mount(
+        "/static/uploads", StaticFiles(directory=str(uploads_path)), name="uploads"
+    )
 
     @app.middleware("http")
     async def add_cors_headers_for_static(request, call_next):
         response = await call_next(request)
-        
+
         # Add CORS headers hanya untuk static files
         if request.url.path.startswith("/static/"):
             response.headers["Access-Control-Allow-Origin"] = "*"
             response.headers["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS"
             response.headers["Access-Control-Allow-Headers"] = "*"
             response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
-            
-        
+
         return response
 
     # Add error handlers
@@ -107,8 +113,10 @@ def create_application() -> FastAPI:
             "message": f"Welcome to {settings.PROJECT_NAME}",
             "version": settings.VERSION,
             "status": "operational",
-            "documentation": "/docs" if settings.DEBUG else "Documentation disabled in production",
-            "environment": "development" if settings.DEBUG else "production"
+            "documentation": (
+                "/docs" if settings.DEBUG else "Documentation disabled in production"
+            ),
+            "environment": "development" if settings.DEBUG else "production",
         }
 
     # Health check endpoint
@@ -119,7 +127,7 @@ def create_application() -> FastAPI:
             "status": "healthy",
             "service": settings.PROJECT_NAME,
             "version": settings.VERSION,
-            "environment": "development" if settings.DEBUG else "production"
+            "environment": "development" if settings.DEBUG else "production",
         }
 
     # API info endpoint
@@ -136,14 +144,14 @@ def create_application() -> FastAPI:
                 "User Management",
                 "Password Reset",
                 "Rate Limiting",
-                "Government-specific Fields"
+                "Government-specific Fields",
             ],
             "endpoints": {
                 "authentication": "/api/v1/auth/",
                 "user_management": "/api/v1/users/",
-                "role_management": "/api/v1/roles/"
+                "role_management": "/api/v1/roles/",
             },
-            "documentation": "/docs" if settings.DEBUG else None
+            "documentation": "/docs" if settings.DEBUG else None,
         }
 
     return app
@@ -155,7 +163,7 @@ app = create_application()
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     # Run with uvicorn
     uvicorn.run(
         "main:app",
@@ -163,5 +171,5 @@ if __name__ == "__main__":
         port=8000,
         reload=settings.DEBUG,
         log_level="info" if not settings.DEBUG else "debug",
-        access_log=True
+        access_log=True,
     )

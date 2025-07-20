@@ -6,7 +6,6 @@ from datetime import datetime
 
 from src.models.enums import RPPType, RPPSubmissionStatus
 from src.schemas.shared import BaseListResponse, MessageResponse
-from src.schemas.common import BaseSchema, TimestampSchema
 
 
 # ===== RPP SUBMISSION ITEM SCHEMAS =====
@@ -29,12 +28,14 @@ class RPPSubmissionItemUpdate(BaseModel):
     file_id: int = Field(..., description="Uploaded file ID")
 
 
-class RPPSubmissionItemResponse(RPPSubmissionItemBase, TimestampSchema):
+class RPPSubmissionItemResponse(RPPSubmissionItemBase):
     """Schema for RPP submission item response."""
     id: int
     uploaded_at: Optional[datetime] = None
     is_uploaded: bool = Field(..., description="Whether file has been uploaded")
     rpp_type_display_name: str = Field(..., description="Display name for RPP type")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     
     # Nested data
     teacher_name: Optional[str] = Field(None, description="Teacher name")
@@ -87,7 +88,7 @@ class RPPSubmissionReviewRequest(BaseModel):
         return status
 
 
-class RPPSubmissionResponse(RPPSubmissionBase, TimestampSchema):
+class RPPSubmissionResponse(RPPSubmissionBase):
     """Schema for RPP submission response."""
     id: int
     status: RPPSubmissionStatus
@@ -97,6 +98,8 @@ class RPPSubmissionResponse(RPPSubmissionBase, TimestampSchema):
     reviewed_at: Optional[datetime] = None
     completion_percentage: float = Field(..., description="Completion percentage (0-100)")
     can_be_submitted: bool = Field(..., description="Whether submission can be submitted for approval")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     
     # Nested data
     teacher_name: Optional[str] = Field(None, description="Teacher name")

@@ -46,7 +46,6 @@ class MediaFile(BaseModel, SQLModel, table=True):
     # Relationships
     uploader: Optional["User"] = Relationship(back_populates="uploaded_files")
     organization: Optional["Organization"] = Relationship(back_populates="media_files")
-    rpp_submissions: List["RPPSubmission"] = Relationship(back_populates="file")
     rpp_submission_items: List["RPPSubmissionItem"] = Relationship(back_populates="file")
     
     def __repr__(self) -> str:

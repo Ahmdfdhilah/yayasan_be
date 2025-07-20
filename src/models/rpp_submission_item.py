@@ -26,6 +26,12 @@ class RPPSubmissionItem(BaseModel, SQLModel, table=True):
     id: int = Field(primary_key=True)
     teacher_id: int = Field(foreign_key="users.id", index=True, nullable=False)
     period_id: int = Field(foreign_key="periods.id", index=True, nullable=False)
+    rpp_submission_id: Optional[int] = Field(
+        default=None,
+        foreign_key="rpp_submissions.id",
+        index=True,
+        description="Reference to the main RPP submission"
+    )
     rpp_type: RPPType = Field(
         sa_column=Column(SQLEnum(RPPType), nullable=False),
         description="Type of RPP: harian, semester, or tahunan"
@@ -52,10 +58,7 @@ class RPPSubmissionItem(BaseModel, SQLModel, table=True):
         back_populates="rpp_submission_items"
     )
     rpp_submission: Optional["RPPSubmission"] = Relationship(
-        back_populates="items",
-        sa_relationship_kwargs={
-            "primaryjoin": "and_(RPPSubmissionItem.teacher_id==RPPSubmission.teacher_id, RPPSubmissionItem.period_id==RPPSubmission.period_id)"
-        }
+        back_populates="items"
     )
     
     def __repr__(self) -> str:

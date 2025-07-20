@@ -6,7 +6,7 @@ from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
 from sqlalchemy import Enum as SQLEnum, Column
 
 from .base import BaseModel
-from .enums import RPPSubmissionStatus
+from .enums import RPPSubmissionStatus, RPPType
 
 if TYPE_CHECKING:
     from .user import User
@@ -61,10 +61,7 @@ class RPPSubmission(BaseModel, SQLModel, table=True):
         back_populates="rpp_submissions"
     )
     items: List["RPPSubmissionItem"] = Relationship(
-        back_populates="rpp_submission",
-        sa_relationship_kwargs={
-            "primaryjoin": "and_(RPPSubmission.teacher_id==RPPSubmissionItem.teacher_id, RPPSubmission.period_id==RPPSubmissionItem.period_id)"
-        }
+        back_populates="rpp_submission"
     )
     
     def __repr__(self) -> str:

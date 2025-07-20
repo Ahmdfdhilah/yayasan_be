@@ -21,7 +21,7 @@ from src.schemas.dashboard import (
     PrincipalDashboard,
     AdminDashboard
 )
-from src.models.enums import RPPStatus, EvaluationGrade
+from src.models.enums import RPPSubmissionStatus, EvaluationGrade
 
 
 class DashboardService:
@@ -400,7 +400,7 @@ class DashboardService:
         """Get quick statistics for a teacher."""
         # Get pending RPPs
         pending_rpps = await self.rpp_repo.get_teacher_submissions(teacher_id, period_id)
-        my_pending_rpps = len([r for r in pending_rpps if r.status == RPPStatus.PENDING])
+        my_pending_rpps = len([r for r in pending_rpps if r.status == RPPSubmissionStatus.PENDING])
         
         # Teachers don't review, so pending reviews is 0
         my_pending_reviews = 0

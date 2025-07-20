@@ -1,7 +1,7 @@
 """Dashboard API endpoints."""
 
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -40,7 +40,7 @@ def get_dashboard_service(db: AsyncSession = Depends(get_db)) -> DashboardServic
     summary="Get dashboard data"
 )
 async def get_dashboard(
-    period_id: Optional[int] = Query(None, description="Filter by specific period"),
+    period_id: int = Query(..., description="Period ID (required)"),
     organization_id: Optional[int] = Query(None, description="Filter by organization (admin only)"),
     include_inactive: bool = Query(False, description="Include inactive periods/organizations"),
     current_user: dict = Depends(get_current_active_user),
@@ -54,8 +54,10 @@ async def get_dashboard(
     - **Principals (kepala_sekolah)**: See organization-wide statistics and teacher summaries
     - **Admins**: See system-wide statistics and can filter by organization
     
-    **Available filters:**
-    - `period_id`: Filter data by specific evaluation period
+    **Required parameters:**
+    - `period_id`: Evaluation period ID (required for all dashboard data)
+    
+    **Optional filters:**
     - `organization_id`: Filter by organization (admin only)
     - `include_inactive`: Include inactive periods/organizations in results
     
@@ -82,7 +84,7 @@ async def get_dashboard(
     summary="Get teacher-specific dashboard"
 )
 async def get_teacher_dashboard(
-    period_id: Optional[int] = Query(None, description="Filter by specific period"),
+    period_id: int = Query(..., description="Period ID (required)"),
     current_user: dict = Depends(get_current_active_user),
     dashboard_service: DashboardService = Depends(get_dashboard_service)
 ):
@@ -90,18 +92,22 @@ async def get_teacher_dashboard(
     Get teacher-specific dashboard with personal statistics.
     
     **For teachers only.** Shows:
-    - Personal RPP submission statistics
-    - Personal evaluation statistics
+    - Personal RPP submission statistics for the specified period
+    - Personal evaluation statistics for the specified period
     - Quick stats (pending items)
     - Organization context for comparison
+    
+    **Required:** period_id - Evaluation period to filter data
     """
     filters = DashboardFilters(period_id=period_id)
     result = await dashboard_service.get_dashboard_data(current_user, filters)
     
-    # Ensure it's a teacher dashboard
+    # Check if user is actually a teacher, if not return 403 Forbidden
     if not isinstance(result, TeacherDashboard):
-        # Convert to teacher dashboard if needed
-        return result
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. This endpoint is only available for teachers (guru)."
+        )
     
     return result
 
@@ -112,7 +118,7 @@ async def get_teacher_dashboard(
     summary="Get principal-specific dashboard"
 )
 async def get_principal_dashboard(
-    period_id: Optional[int] = Query(None, description="Filter by specific period"),
+    period_id: int = Query(..., description="Period ID (required)"),
     current_user: dict = Depends(get_current_active_user),
     dashboard_service: DashboardService = Depends(get_dashboard_service)
 ):
@@ -120,17 +126,24 @@ async def get_principal_dashboard(
     Get principal-specific dashboard with organization statistics.
     
     **For principals only.** Shows:
-    - Organization-wide RPP and evaluation statistics
-    - Teacher summaries within organization
+    - Organization-wide RPP and evaluation statistics for the specified period
+    - Teacher summaries within organization for the specified period
     - Pending reviews and organization overview
     - Quick stats for principal tasks
+    
+    **Required:** period_id - Evaluation period to filter data
     """
     filters = DashboardFilters(period_id=period_id)
+    
+    # Validate that user has principal role before allowing access
     result = await dashboard_service.get_dashboard_data(current_user, filters)
     
-    # Ensure it's a principal dashboard
+    # Check if user is actually a principal, if not return 403 Forbidden
     if not isinstance(result, PrincipalDashboard):
-        return result
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. This endpoint is only available for principals (kepala_sekolah)."
+        )
     
     return result
 
@@ -141,7 +154,7 @@ async def get_principal_dashboard(
     summary="Get admin-specific dashboard"
 )
 async def get_admin_dashboard(
-    period_id: Optional[int] = Query(None, description="Filter by specific period"),
+    period_id: int = Query(..., description="Period ID (required)"),
     organization_id: Optional[int] = Query(None, description="Filter by specific organization"),
     current_user: dict = Depends(get_current_active_user),
     dashboard_service: DashboardService = Depends(get_dashboard_service)
@@ -150,10 +163,13 @@ async def get_admin_dashboard(
     Get admin-specific dashboard with system-wide statistics.
     
     **For admins only.** Shows:
-    - System-wide or organization-specific statistics
-    - All organization summaries
+    - System-wide or organization-specific statistics for the specified period
+    - All organization summaries for the specified period
     - System overview and health
     - Recent system activities
+    
+    **Required:** period_id - Evaluation period to filter data
+    **Optional:** organization_id - Filter to specific organization
     """
     filters = DashboardFilters(
         period_id=period_id,
@@ -161,9 +177,12 @@ async def get_admin_dashboard(
     )
     result = await dashboard_service.get_dashboard_data(current_user, filters)
     
-    # Ensure it's an admin dashboard
+    # Check if user is actually an admin, if not return 403 Forbidden
     if not isinstance(result, AdminDashboard):
-        return result
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. This endpoint is only available for administrators (admin)."
+        )
     
     return result
 
@@ -173,7 +192,7 @@ async def get_admin_dashboard(
     summary="Get quick statistics for current user"
 )
 async def get_quick_stats(
-    period_id: Optional[int] = Query(None, description="Filter by specific period"),
+    period_id: int = Query(..., description="Period ID (required)"),
     current_user: dict = Depends(get_current_active_user),
     dashboard_service: DashboardService = Depends(get_dashboard_service)
 ):

@@ -304,3 +304,9 @@ class OrganizationRepository:
             "organizations_with_heads": with_heads_count,
             "organizations_without_heads": total_count - with_heads_count
         }
+    
+    async def get_organization_count(self) -> int:
+        """Get total count of active organizations."""
+        query = select(func.count(Organization.id)).where(Organization.deleted_at.is_(None))
+        result = await self.session.execute(query)
+        return result.scalar() or 0

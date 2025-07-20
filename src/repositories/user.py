@@ -383,3 +383,75 @@ class UserRepository:
         )
         result = await self.session.execute(query)
         return list(result.scalars().all())
+    
+    # ===== ORGANIZATION-RELATED METHODS =====
+    
+    async def get_users_by_organization(self, organization_id: int) -> List[User]:
+        """Get all users belonging to a specific organization."""
+        query = select(User).where(
+            and_(
+                User.organization_id == organization_id,
+                User.deleted_at.is_(None)
+            )
+        )
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+    
+    async def get_teachers_by_organization(self, organization_id: int) -> List[User]:
+        """Get all teachers (guru) in a specific organization."""
+        query = (
+            select(User)
+            .join(UserRole)
+            .where(
+                and_(
+                    User.organization_id == organization_id,
+                    UserRole.role_name == "guru",
+                    UserRole.is_active == True,
+                    User.deleted_at.is_(None),
+                    User.status == UserStatus.ACTIVE
+                )
+            )
+        )
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+    
+    async def get_user_count(self) -> int:
+        """Get total count of active users."""
+        query = select(func.count(User.id)).where(
+            and_(
+                User.deleted_at.is_(None),
+                User.status == UserStatus.ACTIVE
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalar() or 0
+    
+    async def get_users_count_by_organization(self, organization_id: int) -> int:
+        """Get count of users in a specific organization."""
+        query = select(func.count(User.id)).where(
+            and_(
+                User.organization_id == organization_id,
+                User.deleted_at.is_(None),
+                User.status == UserStatus.ACTIVE
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalar() or 0
+    
+    async def get_teachers_count_by_organization(self, organization_id: int) -> int:
+        """Get count of teachers in a specific organization."""
+        query = (
+            select(func.count(User.id))
+            .join(UserRole)
+            .where(
+                and_(
+                    User.organization_id == organization_id,
+                    UserRole.role_name == "guru",
+                    UserRole.is_active == True,
+                    User.deleted_at.is_(None),
+                    User.status == UserStatus.ACTIVE
+                )
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalar() or 0

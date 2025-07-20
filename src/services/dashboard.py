@@ -55,8 +55,22 @@ class DashboardService:
                 detail="User not found"
             )
         
-        # Determine user role and organization
-        user_role = self._determine_user_role(user_obj)
+        # Determine user role and organization - prioritize JWT roles
+        user_role = "guru"  # default
+        
+        # First check JWT roles (most reliable since they come from authentication)
+        if current_user.get("roles"):
+            jwt_roles = current_user["roles"]
+            if "admin" in jwt_roles:
+                user_role = "admin"
+            elif "kepala_sekolah" in jwt_roles:
+                user_role = "kepala_sekolah"
+            elif "guru" in jwt_roles:
+                user_role = "guru"
+        
+        # Fallback to database role detection if JWT doesn't have roles
+        if user_role == "guru" and not current_user.get("roles"):
+            user_role = self._determine_user_role(user_obj)
         
         # Get period information
         period = None
@@ -84,6 +98,16 @@ class DashboardService:
         # Check if user has no organization (likely admin)
         if not user_obj.organization_id:
             return "admin"
+        
+        # Check user roles from UserRole relationship
+        if hasattr(user_obj, 'user_roles') and user_obj.user_roles:
+            active_roles = [ur.role_name for ur in user_obj.user_roles if ur.is_active]
+            if "admin" in active_roles:
+                return "admin"
+            elif "kepala_sekolah" in active_roles:
+                return "kepala_sekolah"
+            elif "guru" in active_roles:
+                return "guru"
         
         # Check user role from profile or role field
         if hasattr(user_obj, 'role') and user_obj.role:
@@ -116,17 +140,29 @@ class DashboardService:
         org_rpp_stats = await self._get_organization_rpp_stats(user_obj.organization_id, filters.period_id)
         org_eval_stats = await self._get_organization_evaluation_stats(user_obj.organization_id, filters.period_id)
         
-        # Get organization name
+        # Get organization name and create organization summary for teacher
         org_name = None
+        org_summary = None
         if user_obj.organization_id:
             org = await self.org_repo.get_by_id(user_obj.organization_id)
             org_name = org.name if org else None
+            
+            # Create organization summary for teacher context
+            if org:
+                teacher_count = await self.user_repo.get_teachers_count_by_organization(org.id)
+                org_summary = OrganizationSummary(
+                    organization_id=org.id,
+                    organization_name=org.name,
+                    total_teachers=teacher_count,
+                    rpp_stats=org_rpp_stats,
+                    evaluation_stats=org_eval_stats
+                )
         
         return TeacherDashboard(
             period=period,
             rpp_stats=org_rpp_stats,
             evaluation_stats=org_eval_stats,
-            organizations=None,
+            organizations=[org_summary] if org_summary else [],
             user_role="guru",
             organization_name=org_name,
             last_updated=datetime.utcnow(),
@@ -155,17 +191,29 @@ class DashboardService:
         # Get teacher summaries in organization
         teacher_summaries = await self._get_organization_teacher_summaries(user_obj.organization_id, filters.period_id)
         
-        # Get organization name
+        # Get organization name and create organization summary for principal
         org_name = None
+        org_summary = None
         if user_obj.organization_id:
             org = await self.org_repo.get_by_id(user_obj.organization_id)
             org_name = org.name if org else None
+            
+            # Create organization summary for principal context
+            if org:
+                teacher_count = await self.user_repo.get_teachers_count_by_organization(org.id)
+                org_summary = OrganizationSummary(
+                    organization_id=org.id,
+                    organization_name=org.name,
+                    total_teachers=teacher_count,
+                    rpp_stats=org_rpp_stats,
+                    evaluation_stats=org_eval_stats
+                )
         
         return PrincipalDashboard(
             period=period,
             rpp_stats=org_rpp_stats,
             evaluation_stats=org_eval_stats,
-            organizations=None,
+            organizations=[org_summary] if org_summary else [],
             user_role="kepala_sekolah",
             organization_name=org_name,
             last_updated=datetime.utcnow(),
@@ -412,11 +460,8 @@ class DashboardService:
             rpp_stats = await self._get_organization_rpp_stats(org.id, period_id)
             eval_stats = await self._get_organization_evaluation_stats(org.id, period_id)
             
-            # Count teachers in organization - use organization repo method
-            try:
-                teacher_count = await self.org_repo.get_user_count(org.id)
-            except:
-                teacher_count = 0
+            # Count teachers in organization using user repository
+            teacher_count = await self.user_repo.get_teachers_count_by_organization(org.id)
             
             summaries.append(OrganizationSummary(
                 organization_id=org.id,
@@ -434,11 +479,8 @@ class DashboardService:
         if not org:
             return {}
         
-        # Get teacher count from organization repo
-        try:
-            teacher_count = await self.org_repo.get_user_count(org_id)
-        except:
-            teacher_count = 0
+        # Get teacher count using user repository
+        teacher_count = await self.user_repo.get_teachers_count_by_organization(org_id)
         
         return {
             "organization_name": org.name,
@@ -449,32 +491,41 @@ class DashboardService:
     
     async def _get_organization_teacher_summaries(self, org_id: int, period_id: Optional[int]) -> List[Dict[str, Any]]:
         """Get teacher summaries for an organization."""
-        # For now, return simplified summaries since we don't have the exact user repo method
-        try:
-            teacher_count = await self.org_repo.get_user_count(org_id)
-            
-            # Return a simplified summary
-            return [{
-                "teacher_id": 0,
-                "teacher_name": f"Teachers in organization ({teacher_count} total)",
-                "total_rpps": 0,
-                "approved_rpps": 0,
-                "completion_rate": 0.0
-            }]
-        except:
-            return []
+        # Get all teachers in the organization
+        teachers = await self.user_repo.get_teachers_by_organization(org_id)
+        
+        summaries = []
+        for teacher in teachers[:10]:  # Limit to top 10 for performance
+            try:
+                rpp_progress = await self.rpp_repo.get_teacher_progress(teacher.id)
+                
+                summaries.append({
+                    "teacher_id": teacher.id,
+                    "teacher_name": teacher.profile.get('full_name', teacher.email) if teacher.profile else teacher.email,
+                    "total_rpps": rpp_progress["total_submitted"],
+                    "approved_rpps": rpp_progress["approved"],
+                    "completion_rate": rpp_progress["completion_rate"]
+                })
+            except:
+                # If we can't get RPP progress, still include the teacher with zero stats
+                summaries.append({
+                    "teacher_id": teacher.id,
+                    "teacher_name": teacher.profile.get('full_name', teacher.email) if teacher.profile else teacher.email,
+                    "total_rpps": 0,
+                    "approved_rpps": 0,
+                    "completion_rate": 0.0
+                })
+        
+        return summaries
     
     async def _get_system_overview(self, period_id: Optional[int]) -> Dict[str, Any]:
         """Get system-wide overview."""
-        # Get total counts - simplified since we don't have exact methods
-        try:
-            organizations = await self.org_repo.get_all()
-            total_orgs = len(organizations)
-        except:
-            total_orgs = 0
+        # Get total counts using repository methods
+        total_users = await self.user_repo.get_user_count()
+        total_orgs = await self.org_repo.get_organization_count()
         
         return {
-            "total_users": 0,  # Simplified since we don't have the exact method
+            "total_users": total_users,
             "total_organizations": total_orgs,
             "system_health": "good"  # This could be calculated based on various metrics
         }

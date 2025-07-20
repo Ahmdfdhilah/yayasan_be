@@ -34,7 +34,6 @@ class UserRepository:
             profile=user_data.profile,
             organization_id=organization_id or user_data.organization_id,
             status=user_data.status,
-            email_verified_at=None,
             last_login_at=None,
             remember_token=None
         )
@@ -70,15 +69,15 @@ class UserRepository:
         # Update fields
         update_data = user_data.model_dump(exclude_unset=True)
         for key, value in update_data.items():
-            if key == "email" and value:
+            if value is None:
+                # Skip setting None values to avoid null constraint violations
+                continue
+            elif key == "email" and value:
                 # Normalize email
                 value = value.lower()
             elif key == "profile" and value:
-                # Merge profile data instead of replacing
-                if user.profile:
-                    user.profile.update(value)
-                else:
-                    user.profile = value
+                # Replace profile data completely
+                user.profile = value
                 continue
             setattr(user, key, value)
         

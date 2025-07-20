@@ -54,8 +54,7 @@ async def update_my_profile(
     
     Users can only update their own profile data (not roles or organization).
     """
-    # Users cannot change their own email, status, or organization
-    user_data.email = None
+    # Users cannot change their own status or organization
     user_data.status = None
     user_data.organization_id = None
     

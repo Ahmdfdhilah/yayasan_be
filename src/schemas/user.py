@@ -40,7 +40,14 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    """Schema for updating a user."""
+    """Schema for updating a user (self-update, no email)."""
+    profile: Optional[Dict[str, Any]] = None
+    organization_id: Optional[int] = None
+    status: Optional[UserStatus] = None
+
+
+class AdminUserUpdate(BaseModel):
+    """Schema for admin updating a user (includes email)."""
     email: Optional[EmailStr] = None
     profile: Optional[Dict[str, Any]] = None
     organization_id: Optional[int] = None
@@ -68,7 +75,6 @@ class UserResponse(BaseModel):
     profile: Dict[str, Any]
     organization_id: Optional[int] = None
     status: UserStatus
-    email_verified_at: Optional[datetime] = None
     last_login_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -87,7 +93,6 @@ class UserResponse(BaseModel):
             profile=user.profile or {},
             organization_id=user.organization_id,
             status=user.status,
-            email_verified_at=user.email_verified_at,
             last_login_at=user.last_login_at,
             created_at=user.created_at,
             updated_at=user.updated_at,

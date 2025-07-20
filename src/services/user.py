@@ -72,7 +72,7 @@ class UserService:
             )
         
         # Validate email uniqueness if being updated
-        if user_data.email and await self.user_repo.email_exists(user_data.email, exclude_user_id=user_id):
+        if hasattr(user_data, 'email') and user_data.email and await self.user_repo.email_exists(user_data.email, exclude_user_id=user_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"

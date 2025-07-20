@@ -44,7 +44,6 @@ class User(BaseModel, SQLModel, table=True):
         sa_column=Column(SQLEnum(UserStatus), nullable=False, default=UserStatus.ACTIVE),
         description="User status: active, inactive, or suspended"
     )
-    email_verified_at: Optional[datetime] = Field(default=None)
     last_login_at: Optional[datetime] = Field(default=None)
     remember_token: Optional[str] = Field(default=None, max_length=100)
     
@@ -104,10 +103,6 @@ class User(BaseModel, SQLModel, table=True):
         if self.profile and isinstance(self.profile, dict):
             return self.profile.get("address")
         return None
-    
-    def has_email_verified(self) -> bool:
-        """Check if user has verified email."""
-        return self.email_verified_at is not None
     
     def is_active(self) -> bool:
         """Check if user is active."""

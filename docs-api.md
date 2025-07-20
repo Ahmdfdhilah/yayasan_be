@@ -211,7 +211,6 @@ Get current user's profile.
   };
   organization_id?: number;
   status: UserStatus;
-  email_verified_at?: string;
   last_login_at?: string;
   created_at: string;
   updated_at?: string;

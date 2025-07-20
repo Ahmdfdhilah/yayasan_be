@@ -9,6 +9,7 @@ from src.repositories.rpp_submission import RPPSubmissionRepository
 from src.repositories.user import UserRepository
 from src.repositories.media_file import MediaFileRepository
 from src.repositories.organization import OrganizationRepository
+from src.repositories.period import PeriodRepository
 from src.schemas.rpp_submission import (
     RPPSubmissionCreate,
     RPPSubmissionUpdate,
@@ -21,6 +22,8 @@ from src.schemas.rpp_submission import (
 )
 from src.schemas.rpp_submission import RPPSubmissionFilterParams
 from src.models.enums import RPPStatus
+from src.utils.period_validation import validate_period_is_active
+from src.core.exceptions import PeriodInactiveError
 
 
 class RPPSubmissionService:
@@ -31,17 +34,23 @@ class RPPSubmissionService:
         submission_repo: RPPSubmissionRepository,
         user_repo: UserRepository,
         media_repo: MediaFileRepository,
-        org_repo: OrganizationRepository
+        org_repo: OrganizationRepository,
+        session: AsyncSession = None
     ):
         self.submission_repo = submission_repo
         self.user_repo = user_repo
         self.media_repo = media_repo
         self.org_repo = org_repo
+        self.session = session
     
     # ===== BASIC CRUD OPERATIONS =====
     
     async def create_submission(self, submission_data: RPPSubmissionCreate, created_by: Optional[int] = None) -> RPPSubmissionResponse:
         """Create new RPP submission with automatic reviewer assignment."""
+        # Validate period is active
+        if self.session:
+            await validate_period_is_active(self.session, submission_data.period_id)
+        
         # Validate teacher exists
         teacher = await self.user_repo.get_by_id(submission_data.teacher_id)
         if not teacher:
@@ -140,6 +149,10 @@ class RPPSubmissionService:
                 detail="RPP submission not found"
             )
         
+        # Validate period is active
+        if self.session:
+            await validate_period_is_active(self.session, submission.period_id)
+        
         # Check if submission can be updated (only pending submissions)
         if submission.status != RPPStatus.PENDING:
             raise HTTPException(
@@ -202,6 +215,10 @@ class RPPSubmissionService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="RPP submission not found"
             )
+        
+        # Validate period is active
+        if self.session:
+            await validate_period_is_active(self.session, submission.period_id)
         
         # Check if submission is pending
         if submission.status != RPPStatus.PENDING:
@@ -283,6 +300,10 @@ class RPPSubmissionService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="RPP submission not found"
             )
+        
+        # Validate period is active
+        if self.session:
+            await validate_period_is_active(self.session, submission.period_id)
         
         # Check if submission can be resubmitted
         if submission.status not in [RPPStatus.REJECTED, RPPStatus.REVISION_NEEDED]:
@@ -525,18 +546,36 @@ class RPPSubmissionService:
     
     async def bulk_review_submissions(self, bulk_data: RPPSubmissionBulkReview, current_user_id: int, current_user: dict = None) -> Dict[str, Any]:
         """Bulk review submissions with organization-based access control."""
-        # Get current user's organization for access control
-        current_user_obj = None
-        if current_user:
-            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+        # First validate all submissions exist and get their periods for validation
+        submission_periods = set()
+        submissions_to_review = []
         
-        # Validate all submission IDs exist and are pending, and check organization access
         for submission_id in bulk_data.submission_ids:
             submission = await self.submission_repo.get_by_id(submission_id)
             if not submission:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"RPP submission with ID {submission_id} not found"
+                )
+            submission_periods.add(submission.period_id)
+            submissions_to_review.append(submission)
+        
+        # Validate all periods are active
+        if self.session:
+            for period_id in submission_periods:
+                await validate_period_is_active(self.session, period_id)
+        
+        # Get current user's organization for access control
+        current_user_obj = None
+        if current_user:
+            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
+        
+        # Validate all submission IDs exist and are pending, and check organization access
+        for submission in submissions_to_review:
+            if not submission:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"RPP submission with ID {submission.id} not found"
                 )
             
             if submission.status != RPPStatus.PENDING:

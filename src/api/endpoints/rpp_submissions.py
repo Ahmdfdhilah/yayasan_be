@@ -38,7 +38,7 @@ def get_submission_service(db: AsyncSession = Depends(get_db)) -> RPPSubmissionS
     user_repo = UserRepository(db)
     media_repo = MediaFileRepository(db)
     org_repo = OrganizationRepository(db)
-    return RPPSubmissionService(submission_repo, user_repo, media_repo, org_repo)
+    return RPPSubmissionService(submission_repo, user_repo, media_repo, org_repo, db)
 
 
 # ===== BASIC CRUD OPERATIONS =====

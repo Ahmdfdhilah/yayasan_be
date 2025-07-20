@@ -2,9 +2,11 @@
 
 from typing import List, Optional, Dict, Any
 from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.repositories.teacher_evaluation import TeacherEvaluationRepository
 from src.repositories.user import UserRepository
+from src.repositories.period import PeriodRepository
 from src.schemas.teacher_evaluation import (
     TeacherEvaluationCreate,
     TeacherEvaluationUpdate,
@@ -19,14 +21,17 @@ from src.schemas.teacher_evaluation import (
 )
 from src.schemas.shared import MessageResponse
 from src.models.enums import EvaluationGrade
+from src.utils.period_validation import validate_period_is_active
+from src.core.exceptions import PeriodInactiveError
 
 
 class TeacherEvaluationService:
     """Service for teacher evaluation operations - grade-based system."""
     
-    def __init__(self, evaluation_repo: TeacherEvaluationRepository, user_repo: UserRepository):
+    def __init__(self, evaluation_repo: TeacherEvaluationRepository, user_repo: UserRepository, session: AsyncSession = None):
         self.evaluation_repo = evaluation_repo
         self.user_repo = user_repo
+        self.session = session
     
     async def create_evaluation(
         self, 
@@ -34,6 +39,10 @@ class TeacherEvaluationService:
         created_by: Optional[int] = None
     ) -> TeacherEvaluationResponse:
         """Create new teacher evaluation."""
+        # Validate period is active
+        if self.session:
+            await validate_period_is_active(self.session, evaluation_data.period_id)
+        
         evaluation = await self.evaluation_repo.create(evaluation_data, created_by)
         return TeacherEvaluationResponse.from_teacher_evaluation_model(evaluation, include_relations=True)
     
@@ -87,6 +96,10 @@ class TeacherEvaluationService:
                 detail="Teacher evaluation not found"
             )
         
+        # Validate period is active
+        if self.session:
+            await validate_period_is_active(self.session, evaluation.period_id)
+        
         # Organization-based access control
         if current_user:
             current_user_obj = await self.user_repo.get_by_id(current_user["id"])
@@ -138,6 +151,10 @@ class TeacherEvaluationService:
         created_by: Optional[int] = None
     ) -> Dict[str, Any]:
         """Bulk assign all teachers to evaluation period automatically."""
+        # Validate period is active
+        if self.session:
+            await validate_period_is_active(self.session, assignment_data.period_id)
+        
         created_count, errors = await self.evaluation_repo.assign_teachers_to_period(
             period_id=assignment_data.period_id,
             teacher_ids=None,  # Auto-assign all teachers with GURU role
@@ -228,6 +245,23 @@ class TeacherEvaluationService:
         current_user: dict = None
     ) -> Dict[str, Any]:
         """Bulk update evaluation grades with organization-based access control."""
+        # First validate all evaluations exist and get their periods for validation
+        evaluation_periods = set()
+        
+        for evaluation_update in bulk_update_data.evaluations:
+            evaluation = await self.evaluation_repo.get_by_id(evaluation_update["evaluation_id"])
+            if not evaluation:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Teacher evaluation with ID {evaluation_update['evaluation_id']} not found"
+                )
+            evaluation_periods.add(evaluation.period_id)
+        
+        # Validate all periods are active
+        if self.session:
+            for period_id in evaluation_periods:
+                await validate_period_is_active(self.session, period_id)
+        
         # Organization-based access control for bulk updates
         if current_user:
             current_user_obj = await self.user_repo.get_by_id(current_user["id"])
@@ -275,6 +309,10 @@ class TeacherEvaluationService:
         current_user: dict = None
     ) -> Dict[str, Any]:
         """Complete all evaluations for a teacher in a period with access control."""
+        # Validate period is active
+        if self.session:
+            await validate_period_is_active(self.session, completion_data.period_id)
+        
         # Organization-based access control
         if current_user:
             current_user_obj = await self.user_repo.get_by_id(current_user["id"])

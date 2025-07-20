@@ -37,7 +37,7 @@ async def get_teacher_evaluation_service(session: AsyncSession = Depends(get_db)
     """Get teacher evaluation service dependency."""
     evaluation_repo = TeacherEvaluationRepository(session)
     user_repo = UserRepository(session)
-    return TeacherEvaluationService(evaluation_repo, user_repo)
+    return TeacherEvaluationService(evaluation_repo, user_repo, session)
 
 
 @router.post("/assign-teachers-to-period", summary="Automatically assign all teachers to evaluation period")

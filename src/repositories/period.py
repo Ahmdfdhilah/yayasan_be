@@ -212,3 +212,13 @@ class PeriodRepository:
                 eval.teacher_id for eval in period.teacher_evaluations
             )) if period.teacher_evaluations else 0
         }
+    
+    async def is_period_active(self, period_id: int) -> bool:
+        """Check if a period is active."""
+        period = await self.get_by_id(period_id)
+        return period.is_active if period else False
+    
+    async def get_period_if_active(self, period_id: int) -> Optional[Period]:
+        """Get period only if it's active."""
+        period = await self.get_by_id(period_id)
+        return period if period and period.is_active else None

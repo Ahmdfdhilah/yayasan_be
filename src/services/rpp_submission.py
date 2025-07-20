@@ -308,11 +308,15 @@ class RPPSubmissionService:
         """Get submissions with filtering and pagination."""
         submissions, total = await self.rpp_repo.get_submissions_by_filter(filters, limit, offset)
         
+        pages = (total + limit - 1) // limit if limit > 0 else 1
+        page = (offset // limit) + 1 if limit > 0 else 1
+        
         return RPPSubmissionListResponse(
-            data=[self._convert_submission_to_response(sub) for sub in submissions],
+            items=[self._convert_submission_to_response(sub) for sub in submissions],
             total=total,
-            limit=limit,
-            offset=offset
+            page=page,
+            size=limit,
+            pages=pages
         )
     
     async def get_submission_items(

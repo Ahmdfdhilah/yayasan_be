@@ -29,9 +29,9 @@ class UserStatus(str, Enum):
 
 class RPPType(str, Enum):
     """RPP type enum for the 3 required RPP types."""
-    RENCANA_PROGRAM_HARIAN = "rencana_program_harian"
-    RENCANA_PROGRAM_SEMESTER = "rencana_program_semester"
-    RENCANA_PROGRAM_TAHUNAN = "rencana_program_tahunan"
+    RENCANA_PROGRAM_HARIAN = "RENCANA_PROGRAM_HARIAN"
+    RENCANA_PROGRAM_SEMESTER = "RENCANA_PROGRAM_SEMESTER"
+    RENCANA_PROGRAM_TAHUNAN = "RENCANA_PROGRAM_TAHUNAN"
     
     @classmethod
     def get_all_values(cls):
@@ -50,11 +50,11 @@ class RPPType(str, Enum):
 
 class RPPSubmissionStatus(str, Enum):
     """RPP submission status enum."""
-    DRAFT = "draft"
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    REVISION_NEEDED = "revision_needed"
+    DRAFT = "DRAFT"
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    REVISION_NEEDED = "REVISION_NEEDED"
     
     @classmethod
     def get_all_values(cls):

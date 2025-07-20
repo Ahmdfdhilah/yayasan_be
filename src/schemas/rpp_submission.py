@@ -131,14 +131,14 @@ class GenerateRPPSubmissionsResponse(MessageResponse):
 
 # ===== LIST RESPONSES =====
 
-class RPPSubmissionItemListResponse(BaseListResponse):
+class RPPSubmissionItemListResponse(BaseListResponse[RPPSubmissionItemResponse]):
     """List response for RPP submission items."""
-    data: List[RPPSubmissionItemResponse]
+    pass
 
 
-class RPPSubmissionListResponse(BaseListResponse):
+class RPPSubmissionListResponse(BaseListResponse[RPPSubmissionResponse]):
     """List response for RPP submissions."""
-    data: List[RPPSubmissionResponse]
+    pass
 
 
 # ===== FILTER AND QUERY SCHEMAS =====

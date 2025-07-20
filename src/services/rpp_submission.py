@@ -414,10 +414,10 @@ class RPPSubmissionService:
     async def get_teacher_submissions(
         self, 
         teacher_id: int, 
-        academic_year: Optional[str] = None,
+        period_id: int,
         current_user: dict = None
     ) -> List[RPPSubmissionResponse]:
-        """Get all submissions for a specific teacher with organization-based access control."""
+        """Get all submissions for a specific teacher in a specific period with organization-based access control."""
         # Validate teacher exists
         teacher = await self.user_repo.get_by_id(teacher_id)
         if not teacher:
@@ -440,7 +440,7 @@ class RPPSubmissionService:
                             detail="You can only view RPP submissions from teachers in your organization or your own submissions"
                         )
         
-        submissions = await self.submission_repo.get_teacher_submissions(teacher_id, academic_year)
+        submissions = await self.submission_repo.get_teacher_submissions(teacher_id, period_id)
         
         return [
             RPPSubmissionResponse.from_rpp_submission_model(

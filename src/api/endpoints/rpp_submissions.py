@@ -100,18 +100,18 @@ async def get_submissions_by_period(
 )
 async def get_teacher_submissions(
     teacher_id: int,
-    academic_year: Optional[str] = Query(None, description="Filter by academic year"),
+    period_id: int = Query(..., description="Period ID (required)"),
     current_user: dict = Depends(get_current_active_user),
     submission_service: RPPSubmissionService = Depends(get_submission_service)
 ):
     """
-    Get all RPP submissions for a specific teacher.
+    Get all RPP submissions for a specific teacher in a specific period.
     
     Teachers can only view their own submissions.
     Principals can view submissions from teachers in their organization.
     Admins can view submissions for any teacher.
     """
-    return await submission_service.get_teacher_submissions(teacher_id, academic_year, current_user)
+    return await submission_service.get_teacher_submissions(teacher_id, period_id, current_user)
 
 
 @router.get(

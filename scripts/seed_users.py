@@ -90,21 +90,6 @@ class UserSeeder:
         org3_id = organizations.get("org_3").id if organizations.get("org_3") else None
         
         users_data = [
-            # Super Admin
-            {
-                "email": "superadmin@tafatur.id",
-                "password": "@SuperAdmin123",
-                "profile": {
-                    "name": "Super Administrator",
-                    "phone": "081234567890",
-                    "address": "Jakarta, Indonesia",
-                    "position": "Super Administrator"
-                },
-                "organization_id": None,
-                "status": UserStatus.ACTIVE,
-                "roles": ["super_admin"]
-            },
-            
             # System Admin
             {
                 "email": "admin@tafatur.id",
@@ -318,30 +303,6 @@ class UserSeeder:
         print("Setting up role permissions...")
         
         role_permissions = {
-            "super_admin": {
-                "users.create": True,
-                "users.read": True,
-                "users.update": True,
-                "users.delete": True,
-                "organizations.create": True,
-                "organizations.read": True,
-                "organizations.update": True,
-                "organizations.delete": True,
-                "roles.create": True,
-                "roles.read": True,
-                "roles.update": True,
-                "roles.delete": True,
-                "evaluations.create": True,
-                "evaluations.read": True,
-                "evaluations.update": True,
-                "evaluations.delete": True,
-                "rpps.create": True,
-                "rpps.read": True,
-                "rpps.update": True,
-                "rpps.delete": True,
-                "analytics.read": True,
-                "system.admin": True
-            },
             "admin": {
                 "users.create": True,
                 "users.read": True,
@@ -377,14 +338,6 @@ class UserSeeder:
                 "rpps.update": True,
                 "profile.update": True
             },
-            "content_manager": {
-                "content.create": True,
-                "content.read": True,
-                "content.update": True,
-                "content.delete": True,
-                "media.upload": True,
-                "media.manage": True
-            }
         }
         
         # Update role permissions
@@ -420,7 +373,7 @@ class UserSeeder:
         print(f"Total role assignments: {role_total}")
         
         # List users by role
-        roles = ["super_admin", "admin", "kepala_sekolah", "guru", "content_manager"]
+        roles = ["admin", "kepala_sekolah", "guru"]
         for role_name in roles:
             users_with_role = await self.role_repo.get_users_with_role(role_name, active_only=True)
             print(f"{role_name}: {len(users_with_role)} users")
@@ -477,7 +430,6 @@ class UserSeeder:
             
             print(f"\nUsers created: {len(users)}")
             print("\nLogin credentials:")
-            print("Super Admin: superadmin@tafatur.id / @SuperAdmin123")
             print("Admin: admin@tafatur.id / @Admin123")
             print("Kepala Sekolah: kepsek@[school-domain] / @KepSek123")
             print("Guru: guru1@[school-domain] / @Guru123")

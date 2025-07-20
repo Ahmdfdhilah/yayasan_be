@@ -83,7 +83,7 @@ async def list_media_files(
     """
     # Regular users can only see their own files and public files
     user_roles = current_user.get("roles", [])
-    is_admin = any(role in ["super_admin", "admin", "content_manager"] for role in user_roles)
+    is_admin = any(role in ["admin"] for role in user_roles)
     
     if not is_admin:
         # Regular users: filter to own files or public files
@@ -120,7 +120,7 @@ async def get_files_by_uploader(
     """
     # Check permissions: admin/content manager or the uploader themselves
     user_roles = current_user.get("roles", [])
-    is_admin = any(role in ["super_admin", "admin", "content_manager"] for role in user_roles)
+    is_admin = any(role in ["admin"] for role in user_roles)
     
     if not is_admin and current_user["id"] != uploader_id:
         raise HTTPException(

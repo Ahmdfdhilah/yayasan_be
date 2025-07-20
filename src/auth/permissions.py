@@ -149,9 +149,6 @@ def require_roles(required_roles: List[str]):
 
 # ===== PKG ROLE-BASED DEPENDENCIES =====
 
-# Super Admin - Full system access
-super_admin_required = require_roles(["super_admin"])
-
 # Admin - Administrative functions
 admin_required = require_roles(["admin"])
 
@@ -161,14 +158,10 @@ kepala_sekolah_required = require_roles(["kepala_sekolah"])
 # Guru - Teachers who submit RPPs and receive evaluations
 guru_required = require_roles(["guru"])
 
-# Content Manager - Website content and media management
-content_manager_required = require_roles(["content_manager"])
-
 # Combined role dependencies for common access patterns
-admin_or_super_admin_required = require_roles(["super_admin", "admin"])
-management_roles_required = require_roles(["super_admin", "admin", "kepala_sekolah"])
-evaluator_roles_required = require_roles(["super_admin", "admin", "kepala_sekolah"])
-media_manager_roles_required = require_roles(["super_admin", "admin", "content_manager"])
+management_roles_required = require_roles([ "admin", "kepala_sekolah"])
+evaluator_roles_required = require_roles([ "admin", "kepala_sekolah"])
+media_manager_roles_required = require_roles(["admin"])
 
 
 # ===== PKG BUSINESS PROCESS PERMISSIONS =====
@@ -179,43 +172,43 @@ def require_rpp_submission_access():
 
 
 def require_rpp_review_access():
-    """Require access to review RPP (Kepala Sekolah, Admin, Super Admin)."""
-    return require_roles(["super_admin", "admin", "kepala_sekolah"])
+    """Require access to review RPP (Kepala Sekolah, Admin)."""
+    return require_roles(["admin", "kepala_sekolah"])
 
 
 def require_evaluation_create_access():
     """Require access to create teacher evaluations (evaluators)."""
-    return require_roles(["super_admin", "admin", "kepala_sekolah"])
+    return require_roles(["admin", "kepala_sekolah"])
 
 
 def require_evaluation_view_access():
     """Require access to view evaluation results."""
-    return require_roles(["super_admin", "admin", "kepala_sekolah", "guru"])
+    return require_roles([ "admin", "kepala_sekolah", "guru"])
 
 
 def require_evaluation_aspect_management():
     """Require access to manage evaluation aspects."""
-    return require_roles(["super_admin", "admin", "kepala_sekolah"])
+    return require_roles([ "admin", "kepala_sekolah"])
 
 
 def require_user_management_access():
     """Require access to manage users."""
-    return require_roles(["super_admin", "admin"])
+    return require_roles([ "admin"])
 
 
 def require_organization_management_access():
     """Require access to manage organizations."""
-    return require_roles(["super_admin", "admin"])
+    return require_roles(["admin"])
 
 
 def require_media_management_access():
     """Require access to manage media files."""
-    return require_roles(["super_admin", "admin", "content_manager"])
+    return require_roles([ "admin"])
 
 
 def require_analytics_access():
     """Require access to view analytics and reports."""
-    return require_roles(["super_admin", "admin", "kepala_sekolah"])
+    return require_roles([ "admin", "kepala_sekolah"])
 
 
 # ===== PKG UTILITY FUNCTIONS =====
@@ -230,11 +223,6 @@ def has_any_role(user: Dict, roles: List[str]) -> bool:
     """Check if user has any of the specified roles."""
     user_roles = user.get("roles", [])
     return any(role in user_roles for role in roles)
-
-
-def is_super_admin(user: Dict) -> bool:
-    """Check if user is super admin."""
-    return has_role(user, "super_admin")
 
 
 def is_admin(user: Dict) -> bool:
@@ -252,19 +240,14 @@ def is_guru(user: Dict) -> bool:
     return has_role(user, "guru")
 
 
-def is_content_manager(user: Dict) -> bool:
-    """Check if user is content manager."""
-    return has_role(user, "content_manager")
-
-
 def is_evaluator(user: Dict) -> bool:
     """Check if user can perform evaluations."""
-    return has_any_role(user, ["super_admin", "admin", "kepala_sekolah"])
+    return has_any_role(user, ["admin"])
 
 
 def is_rpp_reviewer(user: Dict) -> bool:
     """Check if user can review RPP submissions."""
-    return has_any_role(user, ["super_admin", "admin", "kepala_sekolah"])
+    return has_any_role(user, ["admin"])
 
 
 def can_manage_users(user: Dict) -> bool:
@@ -279,7 +262,7 @@ def can_manage_organization(user: Dict) -> bool:
 
 def can_access_analytics(user: Dict) -> bool:
     """Check if user can access analytics and reports."""
-    return has_any_role(user, ["super_admin", "admin", "kepala_sekolah"])
+    return has_any_role(user, ["admin"])
 
 
 # ===== ORGANIZATIONAL BOUNDARY CHECKS =====
@@ -289,11 +272,10 @@ def check_organization_access(current_user: Dict, target_organization_id: Option
     Check if user has access to specific organization data.
     
     Rules:
-    - Super admin: Access to all organizations
     - Admin: Access to all organizations 
     - Others: Access only to their own organization
     """
-    if is_super_admin(current_user) or is_admin(current_user):
+    if is_admin(current_user):
         return True
     
     user_org_id = current_user.get("organization_id")
@@ -305,11 +287,10 @@ def check_user_data_access(current_user: Dict, target_user_id: int, target_org_i
     Check if user has access to specific user data.
     
     Rules:
-    - Super admin/Admin: Access to all users
     - Kepala Sekolah: Access to users in same organization
     - Guru: Access only to own data
     """
-    if is_super_admin(current_user) or is_admin(current_user):
+    if is_admin(current_user):
         return True
     
     # Users can always access their own data
@@ -328,11 +309,10 @@ def check_rpp_access(current_user: Dict, rpp_teacher_id: int, rpp_org_id: Option
     Check if user has access to specific RPP submission.
     
     Rules:
-    - Super admin/Admin: Access to all RPPs
     - Kepala Sekolah: Access to RPPs in same organization
     - Guru: Access only to own RPPs
     """
-    if is_super_admin(current_user) or is_admin(current_user):
+    if  is_admin(current_user):
         return True
     
     # Teachers can access their own RPPs
@@ -351,11 +331,10 @@ def check_evaluation_access(current_user: Dict, teacher_id: int, teacher_org_id:
     Check if user has access to specific teacher evaluation.
     
     Rules:
-    - Super admin/Admin: Access to all evaluations
     - Kepala Sekolah: Access to evaluations in same organization
     - Guru: Access only to own evaluations
     """
-    if is_super_admin(current_user) or is_admin(current_user):
+    if  is_admin(current_user):
         return True
     
     # Teachers can access their own evaluations
@@ -377,14 +356,10 @@ def get_rate_limit_by_role(user: Dict) -> int:
     """
     user_roles = user.get("roles", [])
     
-    if "super_admin" in user_roles:
-        return 2000  # Highest limit for super admins
-    elif "admin" in user_roles:
+    if "admin" in user_roles:
         return 1000  # High limit for admins
     elif "kepala_sekolah" in user_roles:
         return 500   # Medium limit for school principals
-    elif "content_manager" in user_roles:
-        return 300   # Medium limit for content managers
     elif "guru" in user_roles:
         return 200   # Standard limit for teachers
     else:
@@ -443,8 +418,8 @@ def require_rpp_approval_permission():
     async def _check_rpp_approval_permission(
         current_user: Dict = Depends(get_current_active_user),
     ) -> Dict:
-        # Super admin and admin can approve any RPP
-        if is_super_admin(current_user) or is_admin(current_user):
+        # admin can approve any RPP
+        if is_admin(current_user):
             return current_user
         
         # Only kepala_sekolah can approve RPPs
@@ -478,8 +453,8 @@ def require_teacher_evaluation_update_permission():
     async def _check_evaluation_update_permission(
         current_user: Dict = Depends(get_current_active_user),
     ) -> Dict:
-        # Super admin and admin can update any evaluation
-        if is_super_admin(current_user) or is_admin(current_user):
+        #  admin can update any evaluation
+        if is_admin(current_user):
             return current_user
         
         # Only kepala_sekolah can update evaluations
@@ -507,7 +482,7 @@ def get_user_permissions_summary(user: Dict) -> Dict[str, Any]:
         "can_create_evaluations": is_evaluator(user),
         "can_manage_users": can_manage_users(user),
         "can_manage_organization": can_manage_organization(user),
-        "can_manage_media": has_any_role(user, ["super_admin", "admin", "content_manager"]),
+        "can_manage_media": has_any_role(user, ["admin"]),
         "can_access_analytics": can_access_analytics(user),
         "rate_limit": get_rate_limit_by_role(user)
     }

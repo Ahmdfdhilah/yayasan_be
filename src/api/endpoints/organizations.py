@@ -20,8 +20,8 @@ from src.auth.permissions import get_current_active_user, require_roles
 router = APIRouter()
 
 # Permission dependencies
-admin_required = require_roles(["admin", "super_admin"])
-admin_or_manager = require_roles(["admin", "super_admin", "kepala_sekolah"])
+admin_required = require_roles(["admin"])
+admin_or_manager = require_roles(["admin", "kepala_sekolah"])
 
 
 async def get_organization_service(session: AsyncSession = Depends(get_db)) -> OrganizationService:

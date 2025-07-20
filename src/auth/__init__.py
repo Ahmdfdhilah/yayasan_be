@@ -6,13 +6,10 @@ from .permissions import (
     get_current_active_user, 
     require_roles,
     # PKG Role dependencies
-    super_admin_required,
     admin_required,
     kepala_sekolah_required,
     guru_required,
-    content_manager_required,
     # Combined role dependencies
-    admin_or_super_admin_required,
     management_roles_required,
     evaluator_roles_required,
     media_manager_roles_required,
@@ -40,13 +37,10 @@ __all__ = [
     "get_current_active_user",
     "require_roles",
     # PKG Role dependencies
-    "super_admin_required",
     "admin_required",
     "kepala_sekolah_required",
     "guru_required",
-    "content_manager_required",
     # Combined role dependencies
-    "admin_or_super_admin_required",
     "management_roles_required",
     "evaluator_roles_required",
     "media_manager_roles_required",

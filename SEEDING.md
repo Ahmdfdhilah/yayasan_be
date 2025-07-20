@@ -19,12 +19,6 @@ Script ini akan membuat data awal untuk sistem Tafatur PKG termasuk organisasi, 
 
 ### 👥 User Accounts
 
-#### Super Admin
-- **Email**: `superadmin@tafatur.id`
-- **Password**: `@SuperAdmin123`
-- **Role**: super_admin
-- **Access**: Full system access
-
 #### System Admin
 - **Email**: `admin@tafatur.id`
 - **Password**: `@Admin123`
@@ -68,13 +62,6 @@ Script ini akan membuat data awal untuk sistem Tafatur PKG termasuk organisasi, 
 - **Subject**: IPA Terpadu
 - **Organization**: SMP Negeri 5 Bandung
 
-#### Content Manager
-- **Email**: `content@nusantara.org`
-- **Password**: `@Content123`
-- **Role**: content_manager
-- **Name**: Maya Sari, S.Kom
-- **Organization**: Yayasan Pendidikan Nusantara
-
 ## Cara Menjalankan
 
 ### Prerequisites
@@ -100,10 +87,6 @@ python scripts/seed_users.py down
 
 ## Role Permissions
 
-### Super Admin
-- Full access ke semua fitur sistem
-- Manage users, organizations, roles
-- System administration
 
 ### Admin
 - User management (create, read, update)

@@ -22,7 +22,7 @@ class UserRole(BaseModel, SQLModel, table=True):
         max_length=50, 
         nullable=False, 
         index=True,
-        description="Role name: admin, guru, kepala_sekolah, content_manager, etc"
+        description="Role name: admin, guru, kepala_sekolah, etc"
     )
     
     # JSON field for specific permissions

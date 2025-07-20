@@ -8,8 +8,6 @@ class UserRole(str, Enum):
     ADMIN = "admin"
     GURU = "guru"
     KEPALA_SEKOLAH = "kepala_sekolah"
-    CONTENT_MANAGER = "content_manager"
-    SUPER_ADMIN = "super_admin"
     
     @classmethod
     def get_all_values(cls):

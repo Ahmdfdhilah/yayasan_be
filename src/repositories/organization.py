@@ -310,3 +310,9 @@ class OrganizationRepository:
         query = select(func.count(Organization.id)).where(Organization.deleted_at.is_(None))
         result = await self.session.execute(query)
         return result.scalar() or 0
+    
+    async def get_all(self) -> List[Organization]:
+        """Get all active organizations."""
+        query = select(Organization).where(Organization.deleted_at.is_(None)).order_by(Organization.name)
+        result = await self.session.execute(query)
+        return list(result.scalars().all())

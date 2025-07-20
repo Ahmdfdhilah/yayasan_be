@@ -11,7 +11,6 @@ class RPPDashboardStats(BaseModel):
     pending_submissions: int = Field(description="Number of pending submissions")
     approved_submissions: int = Field(description="Number of approved submissions")
     rejected_submissions: int = Field(description="Number of rejected submissions")
-    revision_needed_submissions: int = Field(description="Number of submissions needing revision")
     pending_reviews: int = Field(description="Number of submissions pending review")
     avg_review_time_hours: Optional[float] = Field(description="Average review time in hours")
     submission_rate: float = Field(description="Submission completion rate percentage")

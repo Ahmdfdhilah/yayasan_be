@@ -270,7 +270,6 @@ class DashboardService:
             pending_submissions=progress["pending"],
             approved_submissions=progress["approved"],
             rejected_submissions=progress["rejected"],
-            revision_needed_submissions=progress["revision_needed"],
             pending_reviews=progress["pending"],
             avg_review_time_hours=None,  # Individual teacher doesn't need this
             submission_rate=progress["completion_rate"]
@@ -321,7 +320,6 @@ class DashboardService:
             pending_submissions=analytics["by_status"].get("pending", 0),
             approved_submissions=analytics["by_status"].get("approved", 0),
             rejected_submissions=analytics["by_status"].get("rejected", 0),
-            revision_needed_submissions=analytics["by_status"].get("revision_needed", 0),
             pending_reviews=analytics["pending_reviews"],
             avg_review_time_hours=analytics["avg_review_time_hours"],
             submission_rate=self._calculate_submission_rate(analytics)
@@ -363,7 +361,6 @@ class DashboardService:
             pending_submissions=analytics["by_status"].get("pending", 0),
             approved_submissions=analytics["by_status"].get("approved", 0),
             rejected_submissions=analytics["by_status"].get("rejected", 0),
-            revision_needed_submissions=analytics["by_status"].get("revision_needed", 0),
             pending_reviews=analytics["pending_reviews"],
             avg_review_time_hours=analytics["avg_review_time_hours"],
             submission_rate=self._calculate_submission_rate(analytics)

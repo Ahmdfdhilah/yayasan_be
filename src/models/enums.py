@@ -54,8 +54,7 @@ class RPPSubmissionStatus(str, Enum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
-    REVISION_NEEDED = "REVISION_NEEDED"
-    
+
     @classmethod
     def get_all_values(cls):
         """Get all status values as list."""

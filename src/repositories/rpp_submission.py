@@ -102,7 +102,7 @@ class RPPSubmissionRepository:
             .where(
                 and_(
                     RPPSubmission.id == submission_id,
-                    RPPSubmission.status == RPPSubmissionStatus.DRAFT,
+                    RPPSubmission.status.in_([RPPSubmissionStatus.DRAFT, RPPSubmissionStatus.REJECTED]),
                     RPPSubmission.deleted_at.is_(None)
                 )
             )
@@ -406,7 +406,6 @@ class RPPSubmissionRepository:
             func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.PENDING, 1), else_=0)).label('pending'),
             func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.APPROVED, 1), else_=0)).label('approved'),
             func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.REJECTED, 1), else_=0)).label('rejected'),
-            func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.REVISION_NEEDED, 1), else_=0)).label('revision_needed'),
         ).where(RPPSubmission.deleted_at.is_(None))
         
         if period_id:
@@ -431,7 +430,6 @@ class RPPSubmissionRepository:
             'pending_count': stats.pending or 0,
             'approved_count': stats.approved or 0,
             'rejected_count': stats.rejected or 0,
-            'revision_needed_count': stats.revision_needed or 0,
             'completion_rate': completion_rate
         }
     
@@ -439,7 +437,7 @@ class RPPSubmissionRepository:
         """Check if submission can be submitted for approval."""
         # Get submission with items
         submission = await self.get_submission_by_id(submission_id)
-        if not submission or submission.status != RPPSubmissionStatus.DRAFT:
+        if not submission or submission.status not in [RPPSubmissionStatus.DRAFT, RPPSubmissionStatus.REJECTED]:
             return False
         
         # Check if all 3 RPP types have uploaded files

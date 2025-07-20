@@ -27,7 +27,7 @@ class RPPSubmission(BaseModel, SQLModel, table=True):
     period_id: int = Field(foreign_key="periods.id", index=True, nullable=False)
     status: RPPSubmissionStatus = Field(
         sa_column=Column(SQLEnum(RPPSubmissionStatus), nullable=False, default=RPPSubmissionStatus.DRAFT),
-        description="Submission status: draft, pending, approved, rejected, revision_needed"
+        description="Submission status: draft, pending, approved, rejected"
     )
     reviewer_id: Optional[int] = Field(
         default=None,
@@ -88,11 +88,6 @@ class RPPSubmission(BaseModel, SQLModel, table=True):
         return self.status == RPPSubmissionStatus.REJECTED
     
     @property
-    def needs_revision(self) -> bool:
-        """Check if submission needs revision."""
-        return self.status == RPPSubmissionStatus.REVISION_NEEDED
-    
-    @property
     def can_be_submitted(self) -> bool:
         """Check if submission can be submitted for approval."""
         if self.status != RPPSubmissionStatus.DRAFT:
@@ -134,14 +129,6 @@ class RPPSubmission(BaseModel, SQLModel, table=True):
     def reject(self, reviewer_id: int, notes: str) -> None:
         """Reject submission."""
         self.status = RPPSubmissionStatus.REJECTED
-        self.reviewer_id = reviewer_id
-        self.review_notes = notes
-        self.reviewed_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
-    
-    def request_revision(self, reviewer_id: int, notes: str) -> None:
-        """Request revision."""
-        self.status = RPPSubmissionStatus.REVISION_NEEDED
         self.reviewer_id = reviewer_id
         self.review_notes = notes
         self.reviewed_at = datetime.utcnow()

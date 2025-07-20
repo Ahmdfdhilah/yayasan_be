@@ -259,8 +259,7 @@ class RPPSubmissionService:
         
         action_map = {
             RPPSubmissionStatus.APPROVED: "approved",
-            RPPSubmissionStatus.REJECTED: "rejected",
-            RPPSubmissionStatus.REVISION_NEEDED: "marked for revision"
+            RPPSubmissionStatus.REJECTED: "rejected"
         }
         action = action_map.get(review_data.status, "reviewed")
         
@@ -371,7 +370,6 @@ class RPPSubmissionService:
             pending_count=stats_data['pending_count'],
             approved_count=stats_data['approved_count'],
             rejected_count=stats_data['rejected_count'],
-            revision_needed_count=stats_data['revision_needed_count'],
             completion_rate=stats_data['completion_rate']
         )
     

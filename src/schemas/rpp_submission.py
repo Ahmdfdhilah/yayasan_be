@@ -81,7 +81,6 @@ class RPPSubmissionReviewRequest(BaseModel):
         valid_statuses = [
             RPPSubmissionStatus.APPROVED,
             RPPSubmissionStatus.REJECTED,
-            RPPSubmissionStatus.REVISION_NEEDED
         ]
         if status not in valid_statuses:
             raise ValueError(f"Status must be one of: {[s.value for s in valid_statuses]}")
@@ -176,7 +175,6 @@ class RPPSubmissionStats(BaseModel):
     pending_count: int = Field(..., description="Number of pending submissions")
     approved_count: int = Field(..., description="Number of approved submissions")
     rejected_count: int = Field(..., description="Number of rejected submissions")
-    revision_needed_count: int = Field(..., description="Number of submissions needing revision")
     completion_rate: float = Field(..., description="Overall completion rate percentage")
 
 

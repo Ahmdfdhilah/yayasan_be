@@ -12,6 +12,7 @@ from .media_file import MediaFile
 # PKG System models
 from .period import Period
 from .rpp_submission import RPPSubmission
+from .rpp_submission_item import RPPSubmissionItem
 from .evaluation_aspect import EvaluationAspect
 from .teacher_evaluation import TeacherEvaluation
 
@@ -19,7 +20,8 @@ from .teacher_evaluation import TeacherEvaluation
 from .enums import (
     UserRole as UserRoleEnum,
     UserStatus,
-    RPPStatus,
+    RPPType,
+    RPPSubmissionStatus,
     EvaluationGrade,
     ContentStatus,
     MessageStatus,
@@ -45,13 +47,15 @@ __all__ = [
     # PKG System models
     "Period",
     "RPPSubmission",
+    "RPPSubmissionItem",
     "EvaluationAspect",
     "TeacherEvaluation",
     
     # Enums
     "UserRoleEnum",
     "UserStatus",
-    "RPPStatus",
+    "RPPType",
+    "RPPSubmissionStatus",
     "EvaluationGrade",
     "ContentStatus",
     "MessageStatus",

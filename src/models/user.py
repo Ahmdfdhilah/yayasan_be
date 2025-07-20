@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from .user_role import UserRole
     from .media_file import MediaFile
     from .rpp_submission import RPPSubmission
+    from .rpp_submission_item import RPPSubmissionItem
     from .teacher_evaluation import TeacherEvaluation
 
 
@@ -63,6 +64,10 @@ class User(BaseModel, SQLModel, table=True):
     reviewed_rpps: List["RPPSubmission"] = Relationship(
         back_populates="reviewer",
         sa_relationship_kwargs={"foreign_keys": "RPPSubmission.reviewer_id"}
+    )
+    rpp_submission_items: List["RPPSubmissionItem"] = Relationship(
+        back_populates="teacher",
+        sa_relationship_kwargs={"foreign_keys": "RPPSubmissionItem.teacher_id"}
     )
     conducted_evaluations: List["TeacherEvaluation"] = Relationship(
         back_populates="evaluator",

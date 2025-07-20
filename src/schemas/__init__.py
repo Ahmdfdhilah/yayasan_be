@@ -40,6 +40,28 @@ from .user import (
     DateRangeFilter,
 )
 
+# RPP Submission schemas
+from .rpp_submission import (
+    RPPSubmissionBase,
+    RPPSubmissionCreate,
+    RPPSubmissionUpdate,
+    RPPSubmissionResponse,
+    RPPSubmissionItemBase,
+    RPPSubmissionItemCreate,
+    RPPSubmissionItemUpdate,
+    RPPSubmissionItemResponse,
+    RPPSubmissionSubmitRequest,
+    RPPSubmissionReviewRequest,
+    GenerateRPPSubmissionsRequest,
+    GenerateRPPSubmissionsResponse,
+    RPPSubmissionListResponse,
+    RPPSubmissionItemListResponse,
+    RPPSubmissionFilter,
+    RPPSubmissionItemFilter,
+    RPPSubmissionStats,
+    RPPSubmissionDashboard,
+)
+
 # Common schemas
 from .common import *
 
@@ -77,4 +99,24 @@ __all__ = [
     "PaginationParams",
     "SearchParams",
     "DateRangeFilter",
+    
+    # RPP Submission
+    "RPPSubmissionBase",
+    "RPPSubmissionCreate",
+    "RPPSubmissionUpdate",
+    "RPPSubmissionResponse",
+    "RPPSubmissionItemBase",
+    "RPPSubmissionItemCreate",
+    "RPPSubmissionItemUpdate",
+    "RPPSubmissionItemResponse",
+    "RPPSubmissionSubmitRequest",
+    "RPPSubmissionReviewRequest",
+    "GenerateRPPSubmissionsRequest",
+    "GenerateRPPSubmissionsResponse",
+    "RPPSubmissionListResponse",
+    "RPPSubmissionItemListResponse",
+    "RPPSubmissionFilter",
+    "RPPSubmissionItemFilter",
+    "RPPSubmissionStats",
+    "RPPSubmissionDashboard",
 ]

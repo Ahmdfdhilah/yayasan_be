@@ -27,12 +27,39 @@ class UserStatus(str, Enum):
     SUSPENDED = "suspended"
 
 
-class RPPStatus(str, Enum):
+class RPPType(str, Enum):
+    """RPP type enum for the 3 required RPP types."""
+    RENCANA_PROGRAM_HARIAN = "rencana_program_harian"
+    RENCANA_PROGRAM_SEMESTER = "rencana_program_semester"
+    RENCANA_PROGRAM_TAHUNAN = "rencana_program_tahunan"
+    
+    @classmethod
+    def get_all_values(cls):
+        """Get all RPP type values as list."""
+        return [rpp_type.value for rpp_type in cls]
+    
+    @classmethod
+    def get_display_names(cls):
+        """Get display names for RPP types."""
+        return {
+            cls.RENCANA_PROGRAM_HARIAN.value: "Rencana Program Harian",
+            cls.RENCANA_PROGRAM_SEMESTER.value: "Rencana Program Semester", 
+            cls.RENCANA_PROGRAM_TAHUNAN.value: "Rencana Program Tahunan"
+        }
+
+
+class RPPSubmissionStatus(str, Enum):
     """RPP submission status enum."""
+    DRAFT = "draft"
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
     REVISION_NEEDED = "revision_needed"
+    
+    @classmethod
+    def get_all_values(cls):
+        """Get all status values as list."""
+        return [status.value for status in cls]
 
 
 class EvaluationGrade(str, Enum):

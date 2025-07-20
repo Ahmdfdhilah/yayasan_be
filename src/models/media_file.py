@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .user import User
     from .organization import Organization
     from .rpp_submission import RPPSubmission
+    from .rpp_submission_item import RPPSubmissionItem
 
 
 class MediaFile(BaseModel, SQLModel, table=True):
@@ -46,6 +47,7 @@ class MediaFile(BaseModel, SQLModel, table=True):
     uploader: Optional["User"] = Relationship(back_populates="uploaded_files")
     organization: Optional["Organization"] = Relationship(back_populates="media_files")
     rpp_submissions: List["RPPSubmission"] = Relationship(back_populates="file")
+    rpp_submission_items: List["RPPSubmissionItem"] = Relationship(back_populates="file")
     
     def __repr__(self) -> str:
         return f"<MediaFile(id={self.id}, file_name={self.file_name}, type={self.file_type})>"

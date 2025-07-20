@@ -9,6 +9,7 @@ from .base import BaseModel
 if TYPE_CHECKING:
     from .teacher_evaluation import TeacherEvaluation
     from .rpp_submission import RPPSubmission
+    from .rpp_submission_item import RPPSubmissionItem
 
 
 class Period(BaseModel, SQLModel, table=True):
@@ -27,6 +28,7 @@ class Period(BaseModel, SQLModel, table=True):
     # Relationships
     teacher_evaluations: List["TeacherEvaluation"] = Relationship(back_populates="period")
     rpp_submissions: List["RPPSubmission"] = Relationship(back_populates="period")
+    rpp_submission_items: List["RPPSubmissionItem"] = Relationship(back_populates="period")
     
     # Unique constraint for academic_year + semester
     __table_args__ = (

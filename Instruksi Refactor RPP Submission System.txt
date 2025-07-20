@@ -1,0 +1,84 @@
+Instruksi Refactor RPP Submission System (Complete Fresh Start)
+
+  Overview
+
+  Refactor sistem RPP submission menggunakan struktur 2 tabel dengan enum-based RPP types dan requirement bahwa guru harus upload
+  ketiga-tiga RPP type sebelum bisa submit untuk approval.
+
+  Important Note for Fresh Start:
+
+  Semua file RPP-related telah dihapus dan akan dibuat ulang dari awal. Ini adalah implementasi fresh tanpa legacy code.
+
+  Requirements:
+
+  1. Enum RPP Types (3 types wajib)
+
+  - Rencana Program Harian
+  - Rencana Program Semester
+  - Rencana Program Tahunan
+
+  2. Database Structure (2 Tables)
+
+  Table 1: rpp_submission_items
+  - Menyimpan file upload individual per RPP type
+  - Fields: id, teacher_id, period_id, rpp_type (enum), file_id, uploaded_at, created_at, updated_at
+  - Unique constraint: (teacher_id, period_id, rpp_type)
+  - Relationship: belongsTo User, Period, MediaFile
+  - Status: file_id bisa NULL initially (belum upload file)
+
+  Table 2: rpp_submissions
+  - Menyimpan submission utama untuk approval (setelah ketiga RPP type terupload)
+  - Fields: id, teacher_id, period_id, status, reviewer_id, review_notes, submitted_at, reviewed_at, created_at, updated_at
+  - Unique constraint: (teacher_id, period_id)
+  - Status enum: draft, pending, approved, rejected, revision_needed
+  - Relationship: belongsTo User (teacher), User (reviewer), Period
+  - Relationship: hasMany RPPSubmissionItems
+
+  3. Business Logic Flow
+
+  1. Auto-Generation Phase: Admin menggunakan endpoint yang mirip dengan assign_teachers_to_period, dengan params period_id, sistem       
+  akan generate submissions beserta items nya sudah otomatis 3 type untuk semua guru. Skip jika submission sudah ada untuk teacher_id     
+   dan period_id yang sama.
+  2. Upload Phase: Guru upload file per RPP type → UPDATE rpp_submission_items (PUT method) untuk mengisi file_id pada items yang
+  sudah di-generate sebelumnya.
+  3. Submit Phase: Jika ketiga file sudah terupload, guru bisa "submit for approval" → update rpp_submissions status dari "draft" ke      
+  "pending".
+  4. Review Phase: Kepala sekolah review dan approve/reject → update status di rpp_submissions.
+
+  4. Implementation Scope
+
+  - Models: 2 models baru (RPPSubmissionItem, RPPSubmission)
+  - Enums: RPPType enum dan RPPSubmissionStatus enum di models/enums.py
+  - Schemas: Request/response schemas untuk kedua entities
+  - Repository: 2 repositories untuk handle CRUD operations
+  - Services: Business logic untuk validasi dan submission flow
+  - Endpoints: API endpoints untuk auto-generate, upload, submit, dan review
+  - Migration: Alembic migration untuk create tables baru
+
+  5. Key Constraints
+
+  - Guru tidak bisa submit untuk approval jika belum upload ketiga RPP type
+  - Satu periode hanya boleh ada satu submission per guru
+  - Items di-generate otomatis oleh admin, guru hanya upload file
+  - Gunakan enum untuk RPP types, bukan string bebas
+  - Status progression: draft → pending → approved/rejected/revision_needed
+
+  6. Admin Endpoint untuk Auto-Generate
+
+  Endpoint: POST /admin/rpp-submissions/generate-for-period
+  - Body: {"period_id": int}
+  - Logic: Generate submissions (status: draft) + 3 items (file_id: NULL) untuk semua guru
+  - Skip jika sudah ada untuk teacher+period combination
+
+  Deliverables (Fresh Implementation):
+
+  1. Create src/models/enums.py dengan RPPType dan RPPSubmissionStatus enum
+  2. Create src/models/rpp_submission_item.py
+  3. Create src/models/rpp_submission.py
+  4. Create src/schemas/rpp_submission.py
+  5. Create src/repositories/rpp_submission.py
+  6. Create src/services/rpp_submission.py
+  7. Create src/api/endpoints/rpp_submissions.py
+  8. Create Alembic migration
+
+  Start Order: Enums → Models → Schemas → Repository → Services → Endpoints

@@ -1,633 +1,421 @@
-"""RPPSubmission service for PKG system."""
+"""RPP Submission service for business logic handling."""
 
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from typing import Optional, List, Dict, Any, Tuple
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.repositories.rpp_submission import RPPSubmissionRepository
 from src.repositories.user import UserRepository
-from src.repositories.media_file import MediaFileRepository
-from src.repositories.organization import OrganizationRepository
 from src.repositories.period import PeriodRepository
+from src.repositories.media_file import MediaFileRepository
 from src.schemas.rpp_submission import (
-    RPPSubmissionCreate,
-    RPPSubmissionUpdate,
-    RPPSubmissionResponse,
-    RPPSubmissionListResponse,
-    RPPSubmissionSummary,
-    RPPSubmissionReview,
-    RPPSubmissionResubmit,
-    RPPSubmissionBulkReview
+    RPPSubmissionCreate, RPPSubmissionUpdate, RPPSubmissionResponse,
+    RPPSubmissionItemCreate, RPPSubmissionItemUpdate, RPPSubmissionItemResponse,
+    RPPSubmissionFilter, RPPSubmissionItemFilter,
+    RPPSubmissionSubmitRequest, RPPSubmissionReviewRequest,
+    GenerateRPPSubmissionsRequest, GenerateRPPSubmissionsResponse,
+    RPPSubmissionListResponse, RPPSubmissionItemListResponse,
+    RPPSubmissionStats, RPPSubmissionDashboard
 )
-from src.schemas.rpp_submission import RPPSubmissionFilterParams
-from src.models.enums import RPPStatus
-from src.utils.period_validation import validate_period_is_active
-from src.core.exceptions import PeriodInactiveError
+from src.schemas.shared import MessageResponse
+from src.models.enums import RPPType, RPPSubmissionStatus
+from src.models.rpp_submission import RPPSubmission
+from src.models.rpp_submission_item import RPPSubmissionItem
 
 
 class RPPSubmissionService:
-    """Service for RPP submission operations."""
+    """Service for RPP Submission business logic."""
     
     def __init__(
-        self,
-        submission_repo: RPPSubmissionRepository,
+        self, 
+        rpp_repo: RPPSubmissionRepository,
         user_repo: UserRepository,
-        media_repo: MediaFileRepository,
-        org_repo: OrganizationRepository,
-        session: AsyncSession = None
+        period_repo: PeriodRepository,
+        media_repo: MediaFileRepository
     ):
-        self.submission_repo = submission_repo
+        self.rpp_repo = rpp_repo
         self.user_repo = user_repo
+        self.period_repo = period_repo
         self.media_repo = media_repo
-        self.org_repo = org_repo
-        self.session = session
     
-    # ===== BASIC CRUD OPERATIONS =====
+    # ===== HELPER METHODS =====
     
-    async def create_submission(self, submission_data: RPPSubmissionCreate, created_by: Optional[int] = None) -> RPPSubmissionResponse:
-        """Create new RPP submission with automatic reviewer assignment."""
-        # Validate period is active
-        if self.session:
-            await validate_period_is_active(self.session, submission_data.period_id)
-        
-        # Validate teacher exists
-        teacher = await self.user_repo.get_by_id(submission_data.teacher_id)
-        if not teacher:
+    def _convert_submission_to_response(self, submission: RPPSubmission) -> RPPSubmissionResponse:
+        """Convert submission model to response schema."""
+        return RPPSubmissionResponse(
+            id=submission.id,
+            teacher_id=submission.teacher_id,
+            period_id=submission.period_id,
+            status=submission.status,
+            reviewer_id=submission.reviewer_id,
+            review_notes=submission.review_notes,
+            submitted_at=submission.submitted_at,
+            reviewed_at=submission.reviewed_at,
+            completion_percentage=submission.completion_percentage,
+            can_be_submitted=submission.can_be_submitted,
+            teacher_name=submission.teacher.display_name if submission.teacher else None,
+            reviewer_name=submission.reviewer.display_name if submission.reviewer else None,
+            period_name=submission.period.period_name if submission.period else None,
+            items=[self._convert_item_to_response(item) for item in submission.items],
+            created_at=submission.created_at,
+            updated_at=submission.updated_at
+        )
+    
+    def _convert_item_to_response(self, item: RPPSubmissionItem) -> RPPSubmissionItemResponse:
+        """Convert submission item model to response schema."""
+        return RPPSubmissionItemResponse(
+            id=item.id,
+            teacher_id=item.teacher_id,
+            period_id=item.period_id,
+            rpp_type=item.rpp_type,
+            file_id=item.file_id,
+            uploaded_at=item.uploaded_at,
+            is_uploaded=item.is_uploaded,
+            rpp_type_display_name=item.rpp_type_display_name,
+            teacher_name=item.teacher.display_name if item.teacher else None,
+            period_name=item.period.period_name if item.period else None,
+            file_name=item.file.file_name if item.file else None,
+            created_at=item.created_at,
+            updated_at=item.updated_at
+        )
+    
+    async def _validate_teacher_exists(self, teacher_id: int) -> None:
+        """Validate that teacher exists and has guru role."""
+        user = await self.user_repo.get_by_id(teacher_id)
+        if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Teacher not found"
             )
         
-        # Validate file exists
-        file = await self.media_repo.get_by_id(submission_data.file_id)
+        # Check if user has guru role
+        if not user.has_role("guru"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is not a teacher"
+            )
+    
+    async def _validate_period_exists(self, period_id: int) -> None:
+        """Validate that period exists."""
+        period = await self.period_repo.get_by_id(period_id)
+        if not period:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Period not found"
+            )
+    
+    async def _validate_file_exists(self, file_id: int) -> None:
+        """Validate that file exists."""
+        file = await self.media_repo.get_by_id(file_id)
         if not file:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="File not found"
             )
-        
-        # Get teacher's organization to find the head/principal
-        if not teacher.organization_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Teacher must be assigned to an organization"
-            )
-        
-        organization = await self.org_repo.get_by_id(teacher.organization_id)
-        if not organization:
+    
+    async def _validate_reviewer_exists(self, reviewer_id: int) -> None:
+        """Validate that reviewer exists and has kepala_sekolah role."""
+        user = await self.user_repo.get_by_id(reviewer_id)
+        if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher's organization not found"
+                detail="Reviewer not found"
             )
         
-        # Automatically assign organization head as reviewer
-        reviewer_id = None
-        if organization.head_id:
-            # Validate that the head exists and is active
-            head = await self.user_repo.get_by_id(organization.head_id)
-            if head and not head.deleted_at:
-                reviewer_id = organization.head_id
-        
-        if not reviewer_id:
+        # Check if user has kepala_sekolah role
+        if not user.has_role("kepala_sekolah"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No active head/principal found for the teacher's organization to assign as reviewer"
+                detail="User is not authorized to review submissions"
+            )
+    
+    # ===== SUBMISSION OPERATIONS =====
+    
+    async def create_submission(self, submission_data: RPPSubmissionCreate) -> RPPSubmissionResponse:
+        """Create new RPP submission."""
+        # Validate inputs
+        await self._validate_teacher_exists(submission_data.teacher_id)
+        await self._validate_period_exists(submission_data.period_id)
+        
+        # Check if submission already exists
+        existing = await self.rpp_repo.get_submission_by_teacher_period(
+            submission_data.teacher_id, submission_data.period_id
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Submission already exists for this teacher and period"
             )
         
-        # Create submission with automatic reviewer assignment
-        submission = await self.submission_repo.create(submission_data, created_by, reviewer_id)
-        return RPPSubmissionResponse.from_rpp_submission_model(
-            submission, include_relations=True
-        )
+        # Create submission
+        submission = await self.rpp_repo.create_submission(submission_data)
+        
+        # Create items for all 3 RPP types
+        for rpp_type in RPPType.get_all_values():
+            item_data = RPPSubmissionItemCreate(
+                teacher_id=submission_data.teacher_id,
+                period_id=submission_data.period_id,
+                rpp_type=RPPType(rpp_type),
+                file_id=None
+            )
+            await self.rpp_repo.create_submission_item(item_data)
+        
+        # Refresh to get items
+        submission = await self.rpp_repo.get_submission_by_id(submission.id)
+        return self._convert_submission_to_response(submission)
     
-    async def get_submission_by_id(self, submission_id: int, current_user: dict = None) -> RPPSubmissionResponse:
-        """Get RPP submission by ID with organization-based access control."""
-        submission = await self.submission_repo.get_by_id(submission_id)
+    async def get_submission(self, submission_id: int) -> RPPSubmissionResponse:
+        """Get submission by ID."""
+        submission = await self.rpp_repo.get_submission_by_id(submission_id)
         if not submission:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="RPP submission not found"
+                detail="Submission not found"
             )
         
-        # Organization-based access control
-        if current_user:
-            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
-            
-            if current_user_obj and current_user_obj.organization_id:
-                # Get the teacher who submitted the RPP
-                teacher = await self.user_repo.get_by_id(submission.teacher_id)
-                if not teacher:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Teacher who submitted RPP not found"
-                    )
-                
-                # Teachers can only view their own submissions
-                if current_user["id"] != submission.teacher_id:
-                    # Principals can view submissions from teachers in their organization
-                    if teacher.organization_id != current_user_obj.organization_id:
-                        raise HTTPException(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You can only view RPP submissions from teachers in your organization or your own submissions"
-                        )
-        
-        return RPPSubmissionResponse.from_rpp_submission_model(
-            submission, include_relations=True
-        )
+        return self._convert_submission_to_response(submission)
     
-    async def update_submission(
-        self, 
-        submission_id: int, 
-        submission_data: RPPSubmissionUpdate
+    async def get_submission_by_teacher_period(
+        self, teacher_id: int, period_id: int
     ) -> RPPSubmissionResponse:
-        """Update RPP submission."""
-        submission = await self.submission_repo.get_by_id(submission_id)
+        """Get submission by teacher and period."""
+        submission = await self.rpp_repo.get_submission_by_teacher_period(teacher_id, period_id)
         if not submission:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="RPP submission not found"
+                detail="Submission not found for this teacher and period"
             )
         
-        # Validate period is active
-        if self.session:
-            await validate_period_is_active(self.session, submission.period_id)
-        
-        # Check if submission can be updated (only pending submissions)
-        if submission.status != RPPStatus.PENDING:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only pending submissions can be updated"
-            )
-        
-        # Validate new file if provided
-        if submission_data.file_id:
-            file = await self.media_repo.get_by_id(submission_data.file_id)
-            if not file:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="File not found"
-                )
-        
-        updated_submission = await self.submission_repo.update(submission_id, submission_data)
-        return RPPSubmissionResponse.from_rpp_submission_model(
-            updated_submission, include_relations=True
-        )
+        return self._convert_submission_to_response(submission)
     
-    async def delete_submission(self, submission_id: int) -> Dict[str, str]:
-        """Delete RPP submission."""
-        submission = await self.submission_repo.get_by_id(submission_id)
+    async def submit_for_review(
+        self, submission_id: int, teacher_id: int, submit_data: RPPSubmissionSubmitRequest
+    ) -> MessageResponse:
+        """Submit RPP for review."""
+        # Get submission
+        submission = await self.rpp_repo.get_submission_by_id(submission_id)
         if not submission:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="RPP submission not found"
+                detail="Submission not found"
             )
         
-        # Check if submission can be deleted (only pending or rejected)
-        if submission.status not in [RPPStatus.PENDING, RPPStatus.REJECTED]:
+        # Validate ownership
+        if submission.teacher_id != teacher_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only submit your own submissions"
+            )
+        
+        # Check if can be submitted
+        can_submit = await self.rpp_repo.can_submission_be_submitted(submission_id)
+        if not can_submit:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only pending or rejected submissions can be deleted"
+                detail="Cannot submit: ensure all 3 RPP types are uploaded and submission is in draft status"
             )
         
-        success = await self.submission_repo.soft_delete(submission_id)
+        # Submit for review
+        success = await self.rpp_repo.submit_for_review(submission_id)
         if not success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete RPP submission"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to submit for review"
             )
         
-        return {"message": "RPP submission deleted successfully"}
-    
-    # ===== REVIEW OPERATIONS =====
+        return MessageResponse(message="Submission successfully submitted for review")
     
     async def review_submission(
-        self, 
-        submission_id: int, 
-        reviewer_id: int, 
-        review_data: RPPSubmissionReview,
-        current_user: dict = None
-    ) -> RPPSubmissionResponse:
-        """Review RPP submission with organization-based access control."""
-        submission = await self.submission_repo.get_by_id(submission_id)
+        self, submission_id: int, reviewer_id: int, review_data: RPPSubmissionReviewRequest
+    ) -> MessageResponse:
+        """Review RPP submission."""
+        # Validate reviewer
+        await self._validate_reviewer_exists(reviewer_id)
+        
+        # Get submission
+        submission = await self.rpp_repo.get_submission_by_id(submission_id)
         if not submission:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="RPP submission not found"
+                detail="Submission not found"
             )
         
-        # Validate period is active
-        if self.session:
-            await validate_period_is_active(self.session, submission.period_id)
-        
-        # Check if submission is pending
-        if submission.status != RPPStatus.PENDING:
+        # Validate submission is pending
+        if submission.status != RPPSubmissionStatus.PENDING:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only pending submissions can be reviewed"
+                detail="Submission is not pending review"
             )
         
-        # Validate reviewer exists
-        reviewer = await self.user_repo.get_by_id(reviewer_id)
-        if not reviewer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Reviewer not found"
-            )
+        # Review submission
+        success = await self.rpp_repo.review_submission(
+            submission_id, reviewer_id, review_data.status, review_data.review_notes
+        )
         
-        # Organization-based access control for principals
-        if current_user:
-            # Get the teacher who submitted the RPP
-            teacher = await self.user_repo.get_by_id(submission.teacher_id)
-            if not teacher:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Teacher who submitted RPP not found"
-                )
-            
-            # Check if current user is a principal (kepala_sekolah) and can only review RPPs from their organization
-            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
-            if current_user_obj and current_user_obj.organization_id:
-                # Principal can only review submissions from teachers in their organization
-                if teacher.organization_id != current_user_obj.organization_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="You can only review RPP submissions from teachers in your organization"
-                    )
-        
-        # Perform review action
-        if review_data.action == "approve":
-            updated_submission = await self.submission_repo.approve_submission(
-                submission_id, reviewer_id, review_data.review_notes
-            )
-        elif review_data.action == "reject":
-            if not review_data.review_notes:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Review notes are required for rejection"
-                )
-            updated_submission = await self.submission_repo.reject_submission(
-                submission_id, reviewer_id, review_data.review_notes
-            )
-        elif review_data.action == "revision":
-            if not review_data.review_notes:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Review notes are required for revision request"
-                )
-            updated_submission = await self.submission_repo.request_revision(
-                submission_id, reviewer_id, review_data.review_notes
-            )
-        else:
+        if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid review action"
+                detail="Failed to review submission"
             )
         
-        return RPPSubmissionResponse.from_rpp_submission_model(
-            updated_submission, include_relations=True
-        )
+        action_map = {
+            RPPSubmissionStatus.APPROVED: "approved",
+            RPPSubmissionStatus.REJECTED: "rejected",
+            RPPSubmissionStatus.REVISION_NEEDED: "marked for revision"
+        }
+        action = action_map.get(review_data.status, "reviewed")
+        
+        return MessageResponse(message=f"Submission successfully {action}")
     
-    async def resubmit_submission(
-        self, 
-        submission_id: int, 
-        resubmit_data: RPPSubmissionResubmit
-    ) -> RPPSubmissionResponse:
-        """Resubmit RPP submission with new file."""
-        submission = await self.submission_repo.get_by_id(submission_id)
-        if not submission:
+    # ===== SUBMISSION ITEM OPERATIONS =====
+    
+    async def upload_rpp_file(
+        self, teacher_id: int, period_id: int, rpp_type: RPPType, file_id: int
+    ) -> RPPSubmissionItemResponse:
+        """Upload file for specific RPP type."""
+        # Validate inputs
+        await self._validate_teacher_exists(teacher_id)
+        await self._validate_period_exists(period_id)
+        await self._validate_file_exists(file_id)
+        
+        # Get submission item
+        item = await self.rpp_repo.get_submission_item_by_teacher_period_type(
+            teacher_id, period_id, rpp_type
+        )
+        
+        if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="RPP submission not found"
+                detail="Submission item not found. Please ensure submission exists for this period."
             )
         
-        # Validate period is active
-        if self.session:
-            await validate_period_is_active(self.session, submission.period_id)
-        
-        # Check if submission can be resubmitted
-        if submission.status not in [RPPStatus.REJECTED, RPPStatus.REVISION_NEEDED]:
+        # Update file
+        updated_item = await self.rpp_repo.update_submission_item_file(item.id, file_id)
+        if not updated_item:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only rejected or revision-needed submissions can be resubmitted"
+                detail="Failed to upload file"
             )
         
-        # Validate new file
-        file = await self.media_repo.get_by_id(resubmit_data.file_id)
-        if not file:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="File not found"
-            )
-        
-        updated_submission = await self.submission_repo.resubmit(
-            submission_id, resubmit_data.file_id
-        )
-        
-        return RPPSubmissionResponse.from_rpp_submission_model(
-            updated_submission, include_relations=True
-        )
+        # Get full item with relationships
+        item = await self.rpp_repo.get_submission_item_by_id(updated_item.id)
+        return self._convert_item_to_response(item)
     
-    async def assign_reviewer(
-        self, 
-        submission_id: int, 
-        reviewer_id: int
-    ) -> RPPSubmissionResponse:
-        """Assign reviewer to submission."""
-        submission = await self.submission_repo.get_by_id(submission_id)
-        if not submission:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="RPP submission not found"
-            )
-        
-        # Validate reviewer exists
-        reviewer = await self.user_repo.get_by_id(reviewer_id)
-        if not reviewer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Reviewer not found"
-            )
-        
-        updated_submission = await self.submission_repo.assign_reviewer(
-            submission_id, reviewer_id
-        )
-        
-        return RPPSubmissionResponse.from_rpp_submission_model(
-            updated_submission, include_relations=True
-        )
+    # ===== QUERY OPERATIONS =====
     
-    # ===== LISTING AND FILTERING =====
-    
-    async def get_submissions(self, filters: RPPSubmissionFilterParams, current_user: dict = None) -> RPPSubmissionListResponse:
-        """Get RPP submissions with filters and pagination, with organization-based access control."""
-        # Apply organization-based filtering for non-admin users
-        if current_user:
-            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
-            
-            # Check if user is admin (has no organization_id or specific admin role)
-            is_admin = (not current_user_obj.organization_id or 
-                       current_user.get("role") == "admin")
-            
-            if not is_admin and current_user_obj and current_user_obj.organization_id:
-                # For non-admin users, apply automatic filtering
-                # Teachers can only see their own submissions
-                if not filters.teacher_id:
-                    filters.teacher_id = current_user["id"]
-                else:
-                    # If teacher_id is specified, verify access
-                    target_teacher = await self.user_repo.get_by_id(filters.teacher_id)
-                    if target_teacher:
-                        # Teachers can only request their own submissions
-                        if current_user["id"] != filters.teacher_id:
-                            # Principals can request submissions from teachers in their organization
-                            if target_teacher.organization_id != current_user_obj.organization_id:
-                                raise HTTPException(
-                                    status_code=status.HTTP_403_FORBIDDEN,
-                                    detail="You can only view RPP submissions from teachers in your organization or your own submissions"
-                                )
-        
-        submissions, total = await self.submission_repo.get_all_submissions_filtered(filters)
-        
-        # Additional organization-based filtering at result level for safety
-        if current_user:
-            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
-            is_admin = (not current_user_obj.organization_id or 
-                       current_user.get("role") == "admin")
-            
-            if not is_admin and current_user_obj and current_user_obj.organization_id:
-                filtered_submissions = []
-                
-                for submission in submissions:
-                    # Get the teacher who submitted the RPP
-                    if submission.teacher and submission.teacher.organization_id:
-                        # Check if current user can view this submission
-                        can_view = False
-                        
-                        # Teachers can only view their own submissions
-                        if submission.teacher_id == current_user["id"]:
-                            can_view = True
-                        # Principals can view submissions from teachers in their organization
-                        elif submission.teacher.organization_id == current_user_obj.organization_id:
-                            can_view = True
-                        
-                        if can_view:
-                            filtered_submissions.append(submission)
-                
-                submissions = filtered_submissions
-                total = len(filtered_submissions)
-        
-        submission_responses = [
-            RPPSubmissionResponse.from_rpp_submission_model(
-                submission, include_relations=True
-            )
-            for submission in submissions
-        ]
+    async def get_submissions(
+        self, filters: RPPSubmissionFilter, limit: int = 100, offset: int = 0
+    ) -> RPPSubmissionListResponse:
+        """Get submissions with filtering and pagination."""
+        submissions, total = await self.rpp_repo.get_submissions_by_filter(filters, limit, offset)
         
         return RPPSubmissionListResponse(
-            items=submission_responses,
+            data=[self._convert_submission_to_response(sub) for sub in submissions],
             total=total,
-            page=filters.page,
-            size=filters.size,
-            pages=(total + filters.size - 1) // filters.size
+            limit=limit,
+            offset=offset
         )
     
-    async def get_teacher_submissions(
-        self, 
-        teacher_id: int, 
-        period_id: int,
-        current_user: dict = None
-    ) -> List[RPPSubmissionResponse]:
-        """Get all submissions for a specific teacher in a specific period with organization-based access control."""
-        # Validate teacher exists
-        teacher = await self.user_repo.get_by_id(teacher_id)
-        if not teacher:
+    async def get_submission_items(
+        self, filters: RPPSubmissionItemFilter, limit: int = 100, offset: int = 0
+    ) -> RPPSubmissionItemListResponse:
+        """Get submission items with filtering and pagination."""
+        items, total = await self.rpp_repo.get_submission_items_by_filter(filters, limit, offset)
+        
+        return RPPSubmissionItemListResponse(
+            data=[self._convert_item_to_response(item) for item in items],
+            total=total,
+            limit=limit,
+            offset=offset
+        )
+    
+    # ===== ADMIN OPERATIONS =====
+    
+    async def generate_submissions_for_period(
+        self, generate_data: GenerateRPPSubmissionsRequest
+    ) -> GenerateRPPSubmissionsResponse:
+        """Generate submissions for all teachers in a period."""
+        # Validate period
+        await self._validate_period_exists(generate_data.period_id)
+        
+        # Generate submissions
+        generated, skipped, total = await self.rpp_repo.generate_submissions_for_period(
+            generate_data.period_id
+        )
+        
+        return GenerateRPPSubmissionsResponse(
+            message=f"Generated {generated} submissions, skipped {skipped} existing ones",
+            generated_count=generated,
+            skipped_count=skipped,
+            total_teachers=total
+        )
+    
+    # ===== STATISTICS OPERATIONS =====
+    
+    async def get_submission_statistics(
+        self, period_id: Optional[int] = None, organization_id: Optional[int] = None
+    ) -> RPPSubmissionStats:
+        """Get submission statistics."""
+        stats_data = await self.rpp_repo.get_submission_stats(period_id, organization_id)
+        
+        return RPPSubmissionStats(
+            total_submissions=stats_data['total_submissions'],
+            draft_count=stats_data['draft_count'],
+            pending_count=stats_data['pending_count'],
+            approved_count=stats_data['approved_count'],
+            rejected_count=stats_data['rejected_count'],
+            revision_needed_count=stats_data['revision_needed_count'],
+            completion_rate=stats_data['completion_rate']
+        )
+    
+    async def get_dashboard_data(
+        self, user_id: int, organization_id: Optional[int] = None
+    ) -> RPPSubmissionDashboard:
+        """Get dashboard data for user."""
+        # Get user
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher not found"
+                detail="User not found"
             )
         
-        # Organization-based access control
-        if current_user:
-            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
-            
-            if current_user_obj and current_user_obj.organization_id:
-                # Teachers can only view their own submissions
-                if current_user["id"] != teacher_id:
-                    # Principals can view submissions from teachers in their organization
-                    if teacher.organization_id != current_user_obj.organization_id:
-                        raise HTTPException(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You can only view RPP submissions from teachers in your organization or your own submissions"
-                        )
+        # Get overall stats
+        overall_stats = await self.get_submission_statistics(organization_id=organization_id)
         
-        submissions = await self.submission_repo.get_teacher_submissions(teacher_id, period_id)
-        
-        return [
-            RPPSubmissionResponse.from_rpp_submission_model(
-                submission, include_relations=True
-            )
-            for submission in submissions
-        ]
-    
-    async def get_pending_reviews(self, reviewer_id: Optional[int] = None, current_user: dict = None) -> List[RPPSubmissionResponse]:
-        """Get all pending review submissions with organization-based filtering."""
-        if reviewer_id:
-            # Validate reviewer exists
-            reviewer = await self.user_repo.get_by_id(reviewer_id)
-            if not reviewer:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Reviewer not found"
-                )
-        
-        # Get submissions assigned to the reviewer
-        submissions = await self.submission_repo.get_pending_reviews(reviewer_id)
-        
-        # Additional organization-based filtering for security
-        filtered_submissions = []
-        if current_user:
-            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
-            if current_user_obj and current_user_obj.organization_id:
-                # Only include submissions from teachers in the same organization
-                for submission in submissions:
-                    if submission.teacher and submission.teacher.organization_id == current_user_obj.organization_id:
-                        filtered_submissions.append(submission)
-                submissions = filtered_submissions
-        
-        return [
-            RPPSubmissionResponse.from_rpp_submission_model(
-                submission, include_relations=True
-            )
-            for submission in submissions
-        ]
-    
-    async def get_submissions_by_period(self, period_id: int, current_user: dict = None) -> List[RPPSubmissionResponse]:
-        """Get all submissions for a specific period with organization-based access control."""
-        submissions = await self.submission_repo.get_submissions_by_period(period_id)
-        
-        # Apply organization-based filtering for non-admin users
-        if current_user:
-            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
-            
-            # Check if user is admin (has no organization_id or specific admin role)
-            is_admin = (not current_user_obj.organization_id or 
-                       current_user.get("role") == "admin")
-            
-            if not is_admin and current_user_obj and current_user_obj.organization_id:
-                filtered_submissions = []
-                
-                for submission in submissions:
-                    # Get the teacher who submitted the RPP
-                    if submission.teacher and submission.teacher.organization_id:
-                        # Check if current user can view this submission
-                        can_view = False
-                        
-                        # Teachers can only view their own submissions
-                        if submission.teacher_id == current_user["id"]:
-                            can_view = True
-                        # Principals can view submissions from teachers in their organization
-                        elif submission.teacher.organization_id == current_user_obj.organization_id:
-                            can_view = True
-                        
-                        if can_view:
-                            filtered_submissions.append(submission)
-                
-                submissions = filtered_submissions
-        
-        return [
-            RPPSubmissionResponse.from_rpp_submission_model(
-                submission, include_relations=True
-            )
-            for submission in submissions
-        ]
-    
-    # ===== BULK OPERATIONS =====
-    
-    async def bulk_review_submissions(self, bulk_data: RPPSubmissionBulkReview, current_user_id: int, current_user: dict = None) -> Dict[str, Any]:
-        """Bulk review submissions with organization-based access control."""
-        # First validate all submissions exist and get their periods for validation
-        submission_periods = set()
-        submissions_to_review = []
-        
-        for submission_id in bulk_data.submission_ids:
-            submission = await self.submission_repo.get_by_id(submission_id)
-            if not submission:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"RPP submission with ID {submission_id} not found"
-                )
-            submission_periods.add(submission.period_id)
-            submissions_to_review.append(submission)
-        
-        # Validate all periods are active
-        if self.session:
-            for period_id in submission_periods:
-                await validate_period_is_active(self.session, period_id)
-        
-        # Get current user's organization for access control
-        current_user_obj = None
-        if current_user:
-            current_user_obj = await self.user_repo.get_by_id(current_user["id"])
-        
-        # Validate all submission IDs exist and are pending, and check organization access
-        for submission in submissions_to_review:
-            if not submission:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"RPP submission with ID {submission.id} not found"
-                )
-            
-            if submission.status != RPPStatus.PENDING:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Submission {submission_id} is not pending review"
-                )
-            
-            # Organization-based access control
-            if current_user_obj and current_user_obj.organization_id:
-                # Get the teacher who submitted the RPP
-                teacher = await self.user_repo.get_by_id(submission.teacher_id)
-                if not teacher:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Teacher who submitted RPP {submission_id} not found"
-                    )
-                
-                # Principal can only review submissions from teachers in their organization
-                if teacher.organization_id != current_user_obj.organization_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"You can only review RPP submissions from teachers in your organization. Submission {submission_id} is from a different organization."
-                    )
-        
-        reviewed_count = 0
-        
-        if bulk_data.action == "approve":
-            reviewed_count = await self.submission_repo.bulk_approve(
-                bulk_data.submission_ids,
-                current_user_id,
-                bulk_data.review_notes
-            )
-        elif bulk_data.action == "reject":
-            if not bulk_data.review_notes:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Review notes are required for bulk rejection"
-                )
-            reviewed_count = await self.submission_repo.bulk_reject(
-                bulk_data.submission_ids,
-                current_user_id,
-                bulk_data.review_notes
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid bulk review action"
+        # Get current period
+        current_period = await self.period_repo.get_active_period()
+        current_period_stats = None
+        if current_period:
+            current_period_stats = await self.get_submission_statistics(
+                period_id=current_period.id, organization_id=organization_id
             )
         
-        return {
-            "message": f"Successfully {bulk_data.action}d {reviewed_count} submissions",
-            "reviewed_count": reviewed_count
-        }
-    
+        # Get recent submissions
+        recent_filter = RPPSubmissionFilter(organization_id=organization_id)
+        recent_submissions_response = await self.get_submissions(recent_filter, limit=10)
+        recent_submissions = recent_submissions_response.data
+        
+        # Get pending reviews (for kepala sekolah)
+        pending_reviews = []
+        if user.has_role("kepala_sekolah"):
+            pending_filter = RPPSubmissionFilter(
+                status=RPPSubmissionStatus.PENDING,
+                organization_id=organization_id
+            )
+            pending_response = await self.get_submissions(pending_filter, limit=20)
+            pending_reviews = pending_response.data
+        
+        # Get my submissions (for teachers)
+        my_submissions = []
+        if user.has_role("guru"):
+            my_filter = RPPSubmissionFilter(teacher_id=user_id)
+            my_response = await self.get_submissions(my_filter, limit=10)
+            my_submissions = my_response.data
+        
+        return RPPSubmissionDashboard(
+            current_period_stats=current_period_stats,
+            recent_submissions=recent_submissions,
+            pending_reviews=pending_reviews,
+            my_submissions=my_submissions,
+            overall_stats=overall_stats
+        )

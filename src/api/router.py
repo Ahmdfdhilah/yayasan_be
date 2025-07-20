@@ -9,10 +9,10 @@ from src.api.endpoints import auth, users, organizations, user_roles
 from src.api.endpoints import (
     periods,
     evaluation_aspects,
-    rpp_submissions,
     teacher_evaluations,
     media_files,
     dashboard,
+    rpp_submissions,
 )
 
 # Create main API router
@@ -105,17 +105,6 @@ api_router.include_router(
 )
 
 
-# RPP Submissions - untuk pengumpulan dan review RPP
-api_router.include_router(
-    rpp_submissions.router,
-    responses={
-        401: {"description": "Unauthorized"},
-        403: {"description": "Forbidden"},
-        404: {"description": "Resource not found"},
-        422: {"description": "Validation Error"},
-    }
-)
-
 # Media Files - untuk manajemen file upload dan download
 api_router.include_router(
     media_files.router,
@@ -130,6 +119,19 @@ api_router.include_router(
 # Dashboard - untuk statistik dan overview sistem
 api_router.include_router(
     dashboard.router,
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Resource not found"},
+        422: {"description": "Validation Error"},
+    }
+)
+
+# RPP Submissions - untuk pengelolaan RPP submission
+api_router.include_router(
+    rpp_submissions.router,
+    prefix="/rpp-submissions",
+    tags=["RPP Submissions"],
     responses={
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},

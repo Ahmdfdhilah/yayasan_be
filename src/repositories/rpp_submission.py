@@ -1,603 +1,447 @@
-"""RPPSubmission repository for PKG system."""
+"""RPP Submission repository for database operations."""
 
 from typing import List, Optional, Tuple, Dict, Any
-from datetime import datetime, timedelta
-from sqlalchemy import select, and_, or_, func, update, delete, desc
+from datetime import datetime
+from sqlalchemy import select, and_, or_, func, update, delete, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from src.models.rpp_submission import RPPSubmission
+from src.models.rpp_submission_item import RPPSubmissionItem
 from src.models.user import User
-from src.models.media_file import MediaFile
+from src.models.user_role import UserRole
 from src.models.period import Period
-from src.models.enums import RPPStatus
-from src.schemas.rpp_submission import RPPSubmissionCreate, RPPSubmissionUpdate
-from src.schemas.rpp_submission import RPPSubmissionFilterParams
+from src.models.media_file import MediaFile
+from src.models.enums import RPPType, RPPSubmissionStatus
+from src.schemas.rpp_submission import (
+    RPPSubmissionCreate, RPPSubmissionUpdate, RPPSubmissionFilter,
+    RPPSubmissionItemCreate, RPPSubmissionItemUpdate, RPPSubmissionItemFilter
+)
 
 
 class RPPSubmissionRepository:
-    """Repository for RPP submission operations."""
+    """Repository for RPP Submission operations."""
     
     def __init__(self, session: AsyncSession):
         self.session = session
     
-    # ===== BASIC CRUD OPERATIONS =====
+    # ===== RPP SUBMISSION CRUD OPERATIONS =====
     
-    async def create(self, submission_data: RPPSubmissionCreate, created_by: Optional[int] = None, reviewer_id: Optional[int] = None) -> RPPSubmission:
-        """Create new RPP submission - updated for periods with automatic reviewer assignment."""
+    async def create_submission(self, submission_data: RPPSubmissionCreate) -> RPPSubmission:
+        """Create new RPP submission."""
         submission = RPPSubmission(
             teacher_id=submission_data.teacher_id,
             period_id=submission_data.period_id,
-            rpp_type=submission_data.rpp_type,
-            file_id=submission_data.file_id,
-            reviewer_id=reviewer_id,
-            status=RPPStatus.PENDING,
-            revision_count=0,
-            created_by=created_by
+            status=RPPSubmissionStatus.DRAFT
         )
         
         self.session.add(submission)
         await self.session.commit()
-        
-        # Refresh with relationships loaded
-        await self.session.refresh(
-            submission,
-            ["teacher", "reviewer", "file", "period"]
-        )
-        return submission
-    
-    async def get_by_id(self, submission_id: int) -> Optional[RPPSubmission]:
-        """Get RPP submission by ID with relationships - updated for periods."""
-        query = select(RPPSubmission).options(
-            selectinload(RPPSubmission.teacher),
-            selectinload(RPPSubmission.reviewer),
-            selectinload(RPPSubmission.file),
-            selectinload(RPPSubmission.period)
-        ).where(RPPSubmission.id == submission_id)
-        result = await self.session.execute(query)
-        return result.scalar_one_or_none()
-    
-    async def update(self, submission_id: int, submission_data: RPPSubmissionUpdate) -> Optional[RPPSubmission]:
-        """Update RPP submission."""
-        submission = await self.get_by_id(submission_id)
-        if not submission:
-            return None
-        
-        # Update fields
-        update_data = submission_data.model_dump(exclude_unset=True)
-        for key, value in update_data.items():
-            setattr(submission, key, value)
-        
-        submission.updated_at = datetime.utcnow()
-        await self.session.commit()
         await self.session.refresh(submission)
         return submission
     
-    async def soft_delete(self, submission_id: int) -> bool:
-        """Soft delete RPP submission."""
+    async def get_submission_by_id(self, submission_id: int) -> Optional[RPPSubmission]:
+        """Get submission by ID with related data."""
+        query = select(RPPSubmission).options(
+            selectinload(RPPSubmission.teacher),
+            selectinload(RPPSubmission.reviewer),
+            selectinload(RPPSubmission.period),
+            selectinload(RPPSubmission.items).selectinload(RPPSubmissionItem.file)
+        ).where(
+            and_(RPPSubmission.id == submission_id, RPPSubmission.deleted_at.is_(None))
+        )
+        
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+    
+    async def get_submission_by_teacher_period(
+        self, teacher_id: int, period_id: int
+    ) -> Optional[RPPSubmission]:
+        """Get submission by teacher and period."""
+        query = select(RPPSubmission).options(
+            selectinload(RPPSubmission.teacher),
+            selectinload(RPPSubmission.reviewer),
+            selectinload(RPPSubmission.period),
+            selectinload(RPPSubmission.items).selectinload(RPPSubmissionItem.file)
+        ).where(
+            and_(
+                RPPSubmission.teacher_id == teacher_id,
+                RPPSubmission.period_id == period_id,
+                RPPSubmission.deleted_at.is_(None)
+            )
+        )
+        
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+    
+    async def update_submission(
+        self, submission_id: int, submission_data: RPPSubmissionUpdate
+    ) -> Optional[RPPSubmission]:
+        """Update submission."""
         query = (
             update(RPPSubmission)
-            .where(RPPSubmission.id == submission_id)
+            .where(
+                and_(RPPSubmission.id == submission_id, RPPSubmission.deleted_at.is_(None))
+            )
             .values(
-                deleted_at=datetime.utcnow(),
+                status=submission_data.status,
+                review_notes=submission_data.review_notes,
+                updated_at=datetime.utcnow()
+            )
+            .returning(RPPSubmission)
+        )
+        
+        result = await self.session.execute(query)
+        await self.session.commit()
+        return result.scalar_one_or_none()
+    
+    async def submit_for_review(self, submission_id: int) -> bool:
+        """Submit submission for review."""
+        query = (
+            update(RPPSubmission)
+            .where(
+                and_(
+                    RPPSubmission.id == submission_id,
+                    RPPSubmission.status == RPPSubmissionStatus.DRAFT,
+                    RPPSubmission.deleted_at.is_(None)
+                )
+            )
+            .values(
+                status=RPPSubmissionStatus.PENDING,
+                submitted_at=datetime.utcnow(),
                 updated_at=datetime.utcnow()
             )
         )
+        
         result = await self.session.execute(query)
         await self.session.commit()
         return result.rowcount > 0
     
-    # ===== REVIEW OPERATIONS =====
-    
-    async def approve_submission(self, submission_id: int, reviewer_id: int, notes: Optional[str] = None) -> Optional[RPPSubmission]:
-        """Approve RPP submission."""
-        submission = await self.get_by_id(submission_id)
-        if not submission:
-            return None
+    async def review_submission(
+        self, submission_id: int, reviewer_id: int, status: RPPSubmissionStatus, notes: Optional[str] = None
+    ) -> bool:
+        """Review submission (approve/reject/request revision)."""
+        query = (
+            update(RPPSubmission)
+            .where(
+                and_(
+                    RPPSubmission.id == submission_id,
+                    RPPSubmission.status == RPPSubmissionStatus.PENDING,
+                    RPPSubmission.deleted_at.is_(None)
+                )
+            )
+            .values(
+                status=status,
+                reviewer_id=reviewer_id,
+                review_notes=notes,
+                reviewed_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+        )
         
-        submission.approve(reviewer_id, notes)
-        submission.updated_at = datetime.utcnow()
-        
+        result = await self.session.execute(query)
         await self.session.commit()
-        await self.session.refresh(submission)
-        return submission
+        return result.rowcount > 0
     
-    async def reject_submission(self, submission_id: int, reviewer_id: int, notes: str) -> Optional[RPPSubmission]:
-        """Reject RPP submission."""
-        submission = await self.get_by_id(submission_id)
-        if not submission:
-            return None
+    async def delete_submission(self, submission_id: int) -> bool:
+        """Soft delete submission."""
+        query = (
+            update(RPPSubmission)
+            .where(
+                and_(RPPSubmission.id == submission_id, RPPSubmission.deleted_at.is_(None))
+            )
+            .values(deleted_at=datetime.utcnow())
+        )
         
-        submission.reject(reviewer_id, notes)
-        submission.updated_at = datetime.utcnow()
-        
+        result = await self.session.execute(query)
         await self.session.commit()
-        await self.session.refresh(submission)
-        return submission
+        return result.rowcount > 0
     
-    async def request_revision(self, submission_id: int, reviewer_id: int, notes: str) -> Optional[RPPSubmission]:
-        """Request revision for RPP submission."""
-        submission = await self.get_by_id(submission_id)
-        if not submission:
-            return None
+    # ===== RPP SUBMISSION ITEM CRUD OPERATIONS =====
+    
+    async def create_submission_item(self, item_data: RPPSubmissionItemCreate) -> RPPSubmissionItem:
+        """Create new RPP submission item."""
+        item = RPPSubmissionItem(
+            teacher_id=item_data.teacher_id,
+            period_id=item_data.period_id,
+            rpp_type=item_data.rpp_type,
+            file_id=item_data.file_id
+        )
         
-        submission.request_revision(reviewer_id, notes)
-        submission.updated_at = datetime.utcnow()
+        # Set uploaded_at if file_id is provided
+        if item_data.file_id:
+            item.uploaded_at = datetime.utcnow()
         
+        self.session.add(item)
         await self.session.commit()
-        await self.session.refresh(submission)
-        return submission
+        await self.session.refresh(item)
+        return item
     
-    async def resubmit(self, submission_id: int, new_file_id: int) -> Optional[RPPSubmission]:
-        """Resubmit RPP submission with new file."""
-        submission = await self.get_by_id(submission_id)
-        if not submission:
-            return None
+    async def get_submission_item_by_id(self, item_id: int) -> Optional[RPPSubmissionItem]:
+        """Get submission item by ID."""
+        query = select(RPPSubmissionItem).options(
+            selectinload(RPPSubmissionItem.teacher),
+            selectinload(RPPSubmissionItem.period),
+            selectinload(RPPSubmissionItem.file)
+        ).where(
+            and_(RPPSubmissionItem.id == item_id, RPPSubmissionItem.deleted_at.is_(None))
+        )
         
-        submission.file_id = new_file_id
-        submission.resubmit()
-        submission.updated_at = datetime.utcnow()
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+    
+    async def get_submission_item_by_teacher_period_type(
+        self, teacher_id: int, period_id: int, rpp_type: RPPType
+    ) -> Optional[RPPSubmissionItem]:
+        """Get submission item by teacher, period, and type."""
+        query = select(RPPSubmissionItem).options(
+            selectinload(RPPSubmissionItem.teacher),
+            selectinload(RPPSubmissionItem.period),
+            selectinload(RPPSubmissionItem.file)
+        ).where(
+            and_(
+                RPPSubmissionItem.teacher_id == teacher_id,
+                RPPSubmissionItem.period_id == period_id,
+                RPPSubmissionItem.rpp_type == rpp_type,
+                RPPSubmissionItem.deleted_at.is_(None)
+            )
+        )
         
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+    
+    async def update_submission_item_file(
+        self, item_id: int, file_id: int
+    ) -> Optional[RPPSubmissionItem]:
+        """Update submission item file."""
+        query = (
+            update(RPPSubmissionItem)
+            .where(
+                and_(RPPSubmissionItem.id == item_id, RPPSubmissionItem.deleted_at.is_(None))
+            )
+            .values(
+                file_id=file_id,
+                uploaded_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            .returning(RPPSubmissionItem)
+        )
+        
+        result = await self.session.execute(query)
         await self.session.commit()
-        await self.session.refresh(submission)
-        return submission
+        return result.scalar_one_or_none()
     
-    async def assign_reviewer(self, submission_id: int, reviewer_id: int) -> Optional[RPPSubmission]:
-        """Assign reviewer to submission."""
-        submission = await self.get_by_id(submission_id)
-        if not submission:
-            return None
-        
-        submission.reviewer_id = reviewer_id
-        submission.updated_at = datetime.utcnow()
-        
-        await self.session.commit()
-        await self.session.refresh(submission)
-        return submission
+    # ===== QUERY OPERATIONS =====
     
-    # ===== LISTING AND FILTERING =====
-    
-    async def get_all_submissions_filtered(self, filters: RPPSubmissionFilterParams) -> Tuple[List[RPPSubmission], int]:
-        """Get RPP submissions with filters and pagination."""
-        # Base query with eager loading
+    async def get_submissions_by_filter(
+        self, filters: RPPSubmissionFilter, limit: int = 100, offset: int = 0
+    ) -> Tuple[List[RPPSubmission], int]:
+        """Get submissions with filtering and pagination."""
+        # Build base query
         query = select(RPPSubmission).options(
             selectinload(RPPSubmission.teacher),
             selectinload(RPPSubmission.reviewer),
-            selectinload(RPPSubmission.file),
-            selectinload(RPPSubmission.period)
-        ).where(RPPSubmission.deleted_at.is_(None))
-        count_query = select(func.count(RPPSubmission.id)).where(RPPSubmission.deleted_at.is_(None))
+            selectinload(RPPSubmission.period),
+            selectinload(RPPSubmission.items).selectinload(RPPSubmissionItem.file)
+        )
         
-        # Join with users for search if needed
-        if filters.q:
-            query = query.join(User, RPPSubmission.teacher_id == User.id, isouter=True)
-            count_query = count_query.join(User, RPPSubmission.teacher_id == User.id, isouter=True)
-            
-            search_filter = or_(
-                RPPSubmission.rpp_type.ilike(f"%{filters.q}%"),
-                User.email.ilike(f"%{filters.q}%"),
-                func.json_extract_path_text(User.profile, 'name').ilike(f"%{filters.q}%"),
-                RPPSubmission.review_notes.ilike(f"%{filters.q}%")
-            )
-            query = query.where(search_filter)
-            count_query = count_query.where(search_filter)
+        # Build where conditions
+        conditions = [RPPSubmission.deleted_at.is_(None)]
         
-        # Apply filters
         if filters.teacher_id:
-            query = query.where(RPPSubmission.teacher_id == filters.teacher_id)
-            count_query = count_query.where(RPPSubmission.teacher_id == filters.teacher_id)
-        
-        if filters.reviewer_id:
-            query = query.where(RPPSubmission.reviewer_id == filters.reviewer_id)
-            count_query = count_query.where(RPPSubmission.reviewer_id == filters.reviewer_id)
-        
+            conditions.append(RPPSubmission.teacher_id == filters.teacher_id)
         if filters.period_id:
-            query = query.where(RPPSubmission.period_id == filters.period_id)
-            count_query = count_query.where(RPPSubmission.period_id == filters.period_id)
-        
-        if filters.rpp_type:
-            query = query.where(RPPSubmission.rpp_type.ilike(f"%{filters.rpp_type}%"))
-            count_query = count_query.where(RPPSubmission.rpp_type.ilike(f"%{filters.rpp_type}%"))
-        
+            conditions.append(RPPSubmission.period_id == filters.period_id)
         if filters.status:
-            query = query.where(RPPSubmission.status == filters.status)
-            count_query = count_query.where(RPPSubmission.status == filters.status)
-        
-        if filters.has_reviewer is not None:
-            if filters.has_reviewer:
-                query = query.where(RPPSubmission.reviewer_id.is_not(None))
-                count_query = count_query.where(RPPSubmission.reviewer_id.is_not(None))
-            else:
-                query = query.where(RPPSubmission.reviewer_id.is_(None))
-                count_query = count_query.where(RPPSubmission.reviewer_id.is_(None))
-        
-        if filters.needs_review:
-            query = query.where(RPPSubmission.status == RPPStatus.PENDING)
-            count_query = count_query.where(RPPSubmission.status == RPPStatus.PENDING)
-        
-        if filters.high_revision_count:
-            query = query.where(RPPSubmission.revision_count >= filters.high_revision_count)
-            count_query = count_query.where(RPPSubmission.revision_count >= filters.high_revision_count)
-        
-        # Date filters
+            conditions.append(RPPSubmission.status == filters.status)
+        if filters.reviewer_id:
+            conditions.append(RPPSubmission.reviewer_id == filters.reviewer_id)
         if filters.submitted_after:
-            query = query.where(RPPSubmission.submitted_at >= filters.submitted_after)
-            count_query = count_query.where(RPPSubmission.submitted_at >= filters.submitted_after)
-        
+            conditions.append(RPPSubmission.submitted_at >= filters.submitted_after)
         if filters.submitted_before:
-            query = query.where(RPPSubmission.submitted_at <= filters.submitted_before)
-            count_query = count_query.where(RPPSubmission.submitted_at <= filters.submitted_before)
-        
+            conditions.append(RPPSubmission.submitted_at <= filters.submitted_before)
         if filters.reviewed_after:
-            query = query.where(RPPSubmission.reviewed_at >= filters.reviewed_after)
-            count_query = count_query.where(RPPSubmission.reviewed_at >= filters.reviewed_after)
-        
+            conditions.append(RPPSubmission.reviewed_at >= filters.reviewed_after)
         if filters.reviewed_before:
-            query = query.where(RPPSubmission.reviewed_at <= filters.reviewed_before)
-            count_query = count_query.where(RPPSubmission.reviewed_at <= filters.reviewed_before)
+            conditions.append(RPPSubmission.reviewed_at <= filters.reviewed_before)
         
-        if filters.created_after:
-            query = query.where(RPPSubmission.created_at >= filters.created_after)
-            count_query = count_query.where(RPPSubmission.created_at >= filters.created_after)
-        
-        if filters.created_before:
-            query = query.where(RPPSubmission.created_at <= filters.created_before)
-            count_query = count_query.where(RPPSubmission.created_at <= filters.created_before)
-        
-        # Apply sorting
-        if filters.sort_by == "teacher_name":
+        # Organization filter via teacher
+        if filters.organization_id:
             query = query.join(User, RPPSubmission.teacher_id == User.id)
-            sort_column = func.json_extract_path_text(User.profile, 'name')
-        elif filters.sort_by == "period_id":
-            sort_column = RPPSubmission.period_id
-        elif filters.sort_by == "rpp_type":
-            sort_column = RPPSubmission.rpp_type
-        elif filters.sort_by == "status":
-            sort_column = RPPSubmission.status
-        elif filters.sort_by == "revision_count":
-            sort_column = RPPSubmission.revision_count
-        elif filters.sort_by == "submitted_at":
-            sort_column = RPPSubmission.submitted_at
-        elif filters.sort_by == "reviewed_at":
-            sort_column = RPPSubmission.reviewed_at
-        elif filters.sort_by == "created_at":
-            sort_column = RPPSubmission.created_at
-        elif filters.sort_by == "updated_at":
-            sort_column = RPPSubmission.updated_at
-        else:
-            sort_column = RPPSubmission.submitted_at
+            conditions.append(User.organization_id == filters.organization_id)
         
-        if filters.sort_order == "desc":
-            query = query.order_by(sort_column.desc())
-        else:
-            query = query.order_by(sort_column.asc())
+        # Apply conditions
+        if conditions:
+            query = query.where(and_(*conditions))
         
-        # Apply pagination
-        offset = (filters.page - 1) * filters.size
-        query = query.offset(offset).limit(filters.size)
-        
-        # Execute queries
-        result = await self.session.execute(query)
-        submissions = result.scalars().all()
+        # Get total count
+        count_query = select(func.count(distinct(RPPSubmission.id))).where(and_(*conditions))
+        if filters.organization_id:
+            count_query = count_query.join(User, RPPSubmission.teacher_id == User.id)
         
         count_result = await self.session.execute(count_query)
         total = count_result.scalar()
         
+        # Apply pagination
+        query = query.offset(offset).limit(limit)
+        
+        result = await self.session.execute(query)
+        submissions = result.scalars().all()
+        
         return list(submissions), total
     
-    async def get_teacher_submissions(self, teacher_id: int, period_id: Optional[int] = None) -> List[RPPSubmission]:
-        """Get all submissions for a specific teacher."""
-        query = select(RPPSubmission).options(
-            selectinload(RPPSubmission.teacher),
-            selectinload(RPPSubmission.reviewer),
-            selectinload(RPPSubmission.file),
-            selectinload(RPPSubmission.period)
-        ).where(
-            and_(
-                RPPSubmission.teacher_id == teacher_id,
-                RPPSubmission.deleted_at.is_(None)
-            )
+    async def get_submission_items_by_filter(
+        self, filters: RPPSubmissionItemFilter, limit: int = 100, offset: int = 0
+    ) -> Tuple[List[RPPSubmissionItem], int]:
+        """Get submission items with filtering and pagination."""
+        # Build base query
+        query = select(RPPSubmissionItem).options(
+            selectinload(RPPSubmissionItem.teacher),
+            selectinload(RPPSubmissionItem.period),
+            selectinload(RPPSubmissionItem.file)
         )
+        
+        # Build where conditions
+        conditions = [RPPSubmissionItem.deleted_at.is_(None)]
+        
+        if filters.teacher_id:
+            conditions.append(RPPSubmissionItem.teacher_id == filters.teacher_id)
+        if filters.period_id:
+            conditions.append(RPPSubmissionItem.period_id == filters.period_id)
+        if filters.rpp_type:
+            conditions.append(RPPSubmissionItem.rpp_type == filters.rpp_type)
+        if filters.is_uploaded is not None:
+            if filters.is_uploaded:
+                conditions.append(RPPSubmissionItem.file_id.is_not(None))
+            else:
+                conditions.append(RPPSubmissionItem.file_id.is_(None))
+        
+        # Organization filter via teacher
+        if filters.organization_id:
+            query = query.join(User, RPPSubmissionItem.teacher_id == User.id)
+            conditions.append(User.organization_id == filters.organization_id)
+        
+        # Apply conditions
+        if conditions:
+            query = query.where(and_(*conditions))
+        
+        # Get total count
+        count_query = select(func.count(distinct(RPPSubmissionItem.id))).where(and_(*conditions))
+        if filters.organization_id:
+            count_query = count_query.join(User, RPPSubmissionItem.teacher_id == User.id)
+        
+        count_result = await self.session.execute(count_query)
+        total = count_result.scalar()
+        
+        # Apply pagination
+        query = query.offset(offset).limit(limit)
+        
+        result = await self.session.execute(query)
+        items = result.scalars().all()
+        
+        return list(items), total
+    
+    # ===== GENERATION OPERATIONS =====
+    
+    async def generate_submissions_for_period(self, period_id: int) -> Tuple[int, int, int]:
+        """Generate submissions and items for all teachers in a period.
+        
+        Returns:
+            Tuple of (generated_count, skipped_count, total_teachers)
+        """
+        # Get all active teachers
+        teachers_query = select(User).join(
+            User.user_roles.and_(UserRole.role_name == "guru", UserRole.is_active == True)
+        ).where(User.status == "active", User.deleted_at.is_(None))
+        
+        teachers_result = await self.session.execute(teachers_query)
+        teachers = teachers_result.scalars().all()
+        
+        total_teachers = len(teachers)
+        generated_count = 0
+        skipped_count = 0
+        
+        for teacher in teachers:
+            # Check if submission already exists
+            existing_submission = await self.get_submission_by_teacher_period(teacher.id, period_id)
+            
+            if existing_submission:
+                skipped_count += 1
+                continue
+            
+            # Create submission
+            submission = RPPSubmission(
+                teacher_id=teacher.id,
+                period_id=period_id,
+                status=RPPSubmissionStatus.DRAFT
+            )
+            self.session.add(submission)
+            
+            # Create items for all 3 RPP types
+            for rpp_type in RPPType.get_all_values():
+                item = RPPSubmissionItem(
+                    teacher_id=teacher.id,
+                    period_id=period_id,
+                    rpp_type=RPPType(rpp_type),
+                    file_id=None  # Initially null
+                )
+                self.session.add(item)
+            
+            generated_count += 1
+        
+        await self.session.commit()
+        return generated_count, skipped_count, total_teachers
+    
+    # ===== STATISTICS OPERATIONS =====
+    
+    async def get_submission_stats(
+        self, period_id: Optional[int] = None, organization_id: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Get submission statistics."""
+        query = select(
+            func.count(RPPSubmission.id).label('total'),
+            func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.DRAFT, 1), else_=0)).label('draft'),
+            func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.PENDING, 1), else_=0)).label('pending'),
+            func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.APPROVED, 1), else_=0)).label('approved'),
+            func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.REJECTED, 1), else_=0)).label('rejected'),
+            func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.REVISION_NEEDED, 1), else_=0)).label('revision_needed'),
+        ).where(RPPSubmission.deleted_at.is_(None))
         
         if period_id:
             query = query.where(RPPSubmission.period_id == period_id)
         
-        query = query.order_by(desc(RPPSubmission.submitted_at))
-        result = await self.session.execute(query)
-        return list(result.scalars().all())
-    
-    async def get_pending_reviews(self, reviewer_id: Optional[int] = None) -> List[RPPSubmission]:
-        """Get all pending review submissions."""
-        query = select(RPPSubmission).options(
-            selectinload(RPPSubmission.teacher),
-            selectinload(RPPSubmission.reviewer),
-            selectinload(RPPSubmission.file),
-            selectinload(RPPSubmission.period)
-        ).where(
-            and_(
-                RPPSubmission.status == RPPStatus.PENDING,
-                RPPSubmission.deleted_at.is_(None)
+        if organization_id:
+            query = query.join(User, RPPSubmission.teacher_id == User.id).where(
+                User.organization_id == organization_id
             )
-        )
-        
-        if reviewer_id:
-            query = query.where(RPPSubmission.reviewer_id == reviewer_id)
-        
-        query = query.order_by(RPPSubmission.submitted_at.asc())
-        result = await self.session.execute(query)
-        return list(result.scalars().all())
-    
-    async def get_submissions_by_period(self, period_id: int) -> List[RPPSubmission]:
-        """Get all submissions for a specific academic period."""
-        query = select(RPPSubmission).options(
-            selectinload(RPPSubmission.teacher),
-            selectinload(RPPSubmission.reviewer),
-            selectinload(RPPSubmission.file),
-            selectinload(RPPSubmission.period)
-        ).where(RPPSubmission.period_id == period_id).order_by(desc(RPPSubmission.submitted_at))
         
         result = await self.session.execute(query)
-        return list(result.scalars().all())
-    
-    # ===== LOOKUP METHODS =====
-    
-    async def find_existing_submission(
-        self,
-        teacher_id: int,
-        period_id: int,
-        rpp_type: str
-    ) -> Optional[RPPSubmission]:
-        """Find existing submission for teacher in period and type."""
-        query = select(RPPSubmission).where(
-            and_(
-                RPPSubmission.teacher_id == teacher_id,
-                RPPSubmission.period_id == period_id,
-                RPPSubmission.rpp_type == rpp_type,
-                RPPSubmission.deleted_at.is_(None)
-            )
-        )
-        result = await self.session.execute(query)
-        return result.scalar_one_or_none()
-    
-    
-    # ===== BULK OPERATIONS =====
-    
-    async def bulk_approve(self, submission_ids: List[int], reviewer_id: int, notes: Optional[str] = None) -> int:
-        """Bulk approve submissions."""
-        query = (
-            update(RPPSubmission)
-            .where(
-                and_(
-                    RPPSubmission.id.in_(submission_ids),
-                    RPPSubmission.status == RPPStatus.PENDING
-                )
-            )
-            .values(
-                status=RPPStatus.APPROVED,
-                reviewer_id=reviewer_id,
-                review_notes=notes,
-                reviewed_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
-            )
-        )
-        result = await self.session.execute(query)
-        await self.session.commit()
-        return result.rowcount
-    
-    async def bulk_reject(self, submission_ids: List[int], reviewer_id: int, notes: Optional[str] = None) -> int:
-        """Bulk reject submissions."""
-        query = (
-            update(RPPSubmission)
-            .where(
-                and_(
-                    RPPSubmission.id.in_(submission_ids),
-                    RPPSubmission.status == RPPStatus.PENDING
-                )
-            )
-            .values(
-                status=RPPStatus.REJECTED,
-                reviewer_id=reviewer_id,
-                review_notes=notes,
-                reviewed_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
-            )
-        )
-        result = await self.session.execute(query)
-        await self.session.commit()
-        return result.rowcount
-    
-    async def bulk_assign_reviewer(self, submission_ids: List[int], reviewer_id: int) -> int:
-        """Bulk assign reviewer to submissions."""
-        query = (
-            update(RPPSubmission)
-            .where(RPPSubmission.id.in_(submission_ids))
-            .values(
-                reviewer_id=reviewer_id,
-                updated_at=datetime.utcnow()
-            )
-        )
-        result = await self.session.execute(query)
-        await self.session.commit()
-        return result.rowcount
-    
-    # ===== ANALYTICS AND STATISTICS =====
-    
-    async def get_submissions_analytics(self, organization_id: Optional[int] = None) -> Dict[str, Any]:
-        """Get comprehensive submissions analytics."""
-        base_filter = RPPSubmission.deleted_at.is_(None)
+        stats = result.one()
         
-        # Total submissions
-        total_query = select(func.count(RPPSubmission.id)).where(base_filter)
-        total_result = await self.session.execute(total_query)
-        total_submissions = total_result.scalar()
-        
-        # Status distribution
-        status_query = (
-            select(RPPSubmission.status, func.count(RPPSubmission.id))
-            .where(base_filter)
-            .group_by(RPPSubmission.status)
-        )
-        status_result = await self.session.execute(status_query)
-        by_status = {status.value: count for status, count in status_result.fetchall()}
-        
-        # Period distribution (replacing academic year)
-        period_query = (
-            select(RPPSubmission.period_id, func.count(RPPSubmission.id))
-            .where(base_filter)
-            .group_by(RPPSubmission.period_id)
-            .order_by(RPPSubmission.period_id.desc())
-        )
-        period_result = await self.session.execute(period_query)
-        by_period = dict(period_result.fetchall())
-        
-        # RPP type distribution (replacing semester)
-        type_query = (
-            select(RPPSubmission.rpp_type, func.count(RPPSubmission.id))
-            .where(base_filter)
-            .group_by(RPPSubmission.rpp_type)
-            .order_by(func.count(RPPSubmission.id).desc())
-        )
-        type_result = await self.session.execute(type_query)
-        by_rpp_type = dict(type_result.fetchall())
-        
-        # Average revision count
-        avg_revision_query = select(func.avg(RPPSubmission.revision_count)).where(base_filter)
-        avg_revision_result = await self.session.execute(avg_revision_query)
-        avg_revision_count = avg_revision_result.scalar() or 0
-        
-        # Average review time (for reviewed submissions)
-        avg_review_time = None
-        reviewed_submissions = await self.session.execute(
-            select(
-                func.avg(
-                    func.extract('epoch', RPPSubmission.reviewed_at - RPPSubmission.submitted_at) / 3600
-                )
-            ).where(
-                and_(
-                    base_filter,
-                    RPPSubmission.reviewed_at.is_not(None)
-                )
-            )
-        )
-        avg_review_time_result = reviewed_submissions.scalar()
-        if avg_review_time_result:
-            avg_review_time = float(avg_review_time_result)
-        
-        # Pending and overdue counts
-        pending_count = by_status.get(RPPStatus.PENDING.value, 0)
-        
-        overdue_threshold = datetime.utcnow() - timedelta(days=7)
-        overdue_query = select(func.count(RPPSubmission.id)).where(
-            and_(
-                base_filter,
-                RPPSubmission.status == RPPStatus.PENDING,
-                RPPSubmission.submitted_at <= overdue_threshold
-            )
-        )
-        overdue_result = await self.session.execute(overdue_query)
-        overdue_count = overdue_result.scalar()
+        # Calculate completion rate
+        total = stats.total or 0
+        completed = (stats.approved or 0) + (stats.rejected or 0)
+        completion_rate = (completed / total * 100) if total > 0 else 0
         
         return {
-            "total_submissions": total_submissions,
-            "by_status": by_status,
-            "by_period": by_period,
-            "by_rpp_type": by_rpp_type,
-            "avg_review_time_hours": avg_review_time,
-            "avg_revision_count": float(avg_revision_count),
-            "pending_reviews": pending_count,
-            "overdue_reviews": overdue_count
+            'total_submissions': total,
+            'draft_count': stats.draft or 0,
+            'pending_count': stats.pending or 0,
+            'approved_count': stats.approved or 0,
+            'rejected_count': stats.rejected or 0,
+            'revision_needed_count': stats.revision_needed or 0,
+            'completion_rate': completion_rate
         }
     
-    async def get_teacher_progress(self, teacher_id: int) -> Dict[str, Any]:
-        """Get progress statistics for a specific teacher."""
-        base_filter = and_(
-            RPPSubmission.teacher_id == teacher_id,
-            RPPSubmission.deleted_at.is_(None)
-        )
+    async def can_submission_be_submitted(self, submission_id: int) -> bool:
+        """Check if submission can be submitted for approval."""
+        # Get submission with items
+        submission = await self.get_submission_by_id(submission_id)
+        if not submission or submission.status != RPPSubmissionStatus.DRAFT:
+            return False
         
-        # Total submitted
-        total_query = select(func.count(RPPSubmission.id)).where(base_filter)
-        total_result = await self.session.execute(total_query)
-        total_submitted = total_result.scalar()
+        # Check if all 3 RPP types have uploaded files
+        uploaded_types = {item.rpp_type for item in submission.items if item.file_id is not None}
+        required_types = set(RPPType.get_all_values())
         
-        # Status counts
-        status_counts = {}
-        for status in RPPStatus:
-            status_query = select(func.count(RPPSubmission.id)).where(
-                and_(base_filter, RPPSubmission.status == status)
-            )
-            status_result = await self.session.execute(status_query)
-            status_counts[status.value.lower()] = status_result.scalar()
-        
-        # Completion rate (approved / total)
-        completion_rate = 0.0
-        if total_submitted > 0:
-            completion_rate = (status_counts.get('approved', 0) / total_submitted) * 100
-        
-        # Average revision count
-        avg_revision_query = select(func.avg(RPPSubmission.revision_count)).where(base_filter)
-        avg_revision_result = await self.session.execute(avg_revision_query)
-        avg_revision_count = avg_revision_result.scalar() or 0
-        
-        # Last submission date
-        last_submission_query = select(func.max(RPPSubmission.submitted_at)).where(base_filter)
-        last_submission_result = await self.session.execute(last_submission_query)
-        last_submission = last_submission_result.scalar()
-        
-        return {
-            "total_submitted": total_submitted,
-            "approved": status_counts.get('approved', 0),
-            "rejected": status_counts.get('rejected', 0),
-            "pending": status_counts.get('pending', 0),
-            "revision_needed": status_counts.get('revision_needed', 0),
-            "completion_rate": completion_rate,
-            "avg_revision_count": float(avg_revision_count),
-            "last_submission": last_submission
-        }
-    
-    async def get_reviewer_workload(self, reviewer_id: int) -> Dict[str, Any]:
-        """Get workload statistics for a reviewer."""
-        base_filter = and_(
-            RPPSubmission.reviewer_id == reviewer_id,
-            RPPSubmission.deleted_at.is_(None)
-        )
-        
-        # Total assigned
-        total_query = select(func.count(RPPSubmission.id)).where(base_filter)
-        total_result = await self.session.execute(total_query)
-        total_assigned = total_result.scalar()
-        
-        # Pending reviews
-        pending_query = select(func.count(RPPSubmission.id)).where(
-            and_(base_filter, RPPSubmission.status == RPPStatus.PENDING)
-        )
-        pending_result = await self.session.execute(pending_query)
-        pending_reviews = pending_result.scalar()
-        
-        # Completed reviews
-        completed_query = select(func.count(RPPSubmission.id)).where(
-            and_(
-                base_filter,
-                RPPSubmission.status.in_([RPPStatus.APPROVED, RPPStatus.REJECTED, RPPStatus.REVISION_NEEDED])
-            )
-        )
-        completed_result = await self.session.execute(completed_query)
-        completed_reviews = completed_result.scalar()
-        
-        # Average review time
-        avg_review_time_query = select(
-            func.avg(
-                func.extract('epoch', RPPSubmission.reviewed_at - RPPSubmission.submitted_at) / 3600
-            )
-        ).where(
-            and_(base_filter, RPPSubmission.reviewed_at.is_not(None))
-        )
-        avg_review_time_result = await self.session.execute(avg_review_time_query)
-        avg_review_time = avg_review_time_result.scalar()
-        
-        return {
-            "total_assigned": total_assigned,
-            "pending_reviews": pending_reviews,
-            "completed_reviews": completed_reviews,
-            "avg_review_time_hours": float(avg_review_time) if avg_review_time else 0.0
-        }
+        return len(uploaded_types) == len(required_types) and uploaded_types == required_types

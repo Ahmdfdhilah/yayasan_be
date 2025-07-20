@@ -1,235 +1,203 @@
-"""RPP Submission schemas for PKG System API endpoints."""
+"""RPP Submission schemas for request/response handling."""
 
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import datetime
 
-from src.models.enums import RPPStatus
-from src.schemas.shared import BaseListResponse
-from typing import Optional
-from datetime import date
-from pydantic import Field
+from src.models.enums import RPPType, RPPSubmissionStatus
+from src.schemas.shared import BaseListResponse, MessageResponse
+from src.schemas.common import BaseSchema, TimestampSchema
 
 
-# ===== BASE SCHEMAS =====
+# ===== RPP SUBMISSION ITEM SCHEMAS =====
 
-class RPPSubmissionBase(BaseModel):
-    """Base RPP submission schema - updated to use periods."""
-    period_id: int = Field(..., description="Period ID for this submission")
-    rpp_type: str = Field(..., min_length=1, max_length=100, description="Type of RPP")
-    file_id: int = Field(..., description="Associated media file ID")
-
-
-# ===== REQUEST SCHEMAS =====
-
-class RPPSubmissionCreate(RPPSubmissionBase):
-    """Schema for creating an RPP submission."""
+class RPPSubmissionItemBase(BaseModel):
+    """Base schema for RPP submission item."""
     teacher_id: int = Field(..., description="Teacher user ID")
-
-
-class RPPSubmissionUpdate(BaseModel):
-    """Schema for updating an RPP submission."""
-    rpp_type: Optional[str] = Field(None, min_length=1, max_length=100)
-    file_id: Optional[int] = None
-
-
-class RPPSubmissionReview(BaseModel):
-    """Schema for reviewing an RPP submission."""
-    action: str = Field(..., pattern="^(approve|reject|revision)$", description="Review action")
-    review_notes: Optional[str] = Field(None, description="Review notes/feedback")
-
-
-class RPPSubmissionResubmit(BaseModel):
-    """Schema for resubmitting an RPP."""
-    file_id: int = Field(..., description="New file ID for resubmission")
-    notes: Optional[str] = Field(None, description="Notes about the resubmission")
-
-
-# ===== RESPONSE SCHEMAS =====
-
-class RPPSubmissionResponse(BaseModel):
-    """Schema for RPP submission response - updated for periods."""
-    id: int
-    teacher_id: int
-    period_id: int
-    rpp_type: str
-    file_id: int
-    status: RPPStatus
-    reviewer_id: Optional[int] = None
-    review_notes: Optional[str] = None
-    revision_count: int
-    submitted_at: datetime
-    reviewed_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: Optional[datetime] = None
+    period_id: int = Field(..., description="Period ID")
+    rpp_type: RPPType = Field(..., description="Type of RPP")
+    file_id: Optional[int] = Field(None, description="Uploaded file ID")
     
-    # Computed fields
-    is_pending: bool = Field(..., description="Whether submission is pending")
-    is_approved: bool = Field(..., description="Whether submission is approved")
-    is_rejected: bool = Field(..., description="Whether submission is rejected")
-    needs_revision: bool = Field(..., description="Whether submission needs revision")
-    
-    # Related data
-    teacher_name: Optional[str] = Field(None, description="Teacher name")
-    teacher_email: Optional[str] = Field(None, description="Teacher email")
-    reviewer_name: Optional[str] = Field(None, description="Reviewer name")
-    file_name: Optional[str] = Field(None, description="Associated file name")
-    file_url: Optional[str] = Field(None, description="File download URL")
-    period_name: Optional[str] = Field(None, description="Period name")
-    academic_year: Optional[str] = Field(None, description="Academic year from period")
-    semester: Optional[str] = Field(None, description="Semester from period")
-    
-    @classmethod
-    def from_rpp_submission_model(cls, submission, include_relations: bool = False, base_url: str = "") -> "RPPSubmissionResponse":
-        """Create RPPSubmissionResponse from RPPSubmission model - updated for periods."""
-        data = {
-            "id": submission.id,
-            "teacher_id": submission.teacher_id,
-            "period_id": submission.period_id,
-            "rpp_type": submission.rpp_type,
-            "file_id": submission.file_id,
-            "status": submission.status,
-            "reviewer_id": submission.reviewer_id,
-            "review_notes": submission.review_notes,
-            "revision_count": submission.revision_count,
-            "submitted_at": submission.submitted_at,
-            "reviewed_at": submission.reviewed_at,
-            "created_at": submission.created_at,
-            "updated_at": submission.updated_at,
-            "is_pending": submission.is_pending,
-            "is_approved": submission.is_approved,
-            "is_rejected": submission.is_rejected,
-            "needs_revision": submission.needs_revision
-        }
-        
-        if include_relations:
-            # Use SQLAlchemy inspection to check if attributes are loaded without triggering lazy loading
-            from sqlalchemy.inspection import inspect
-            from sqlalchemy.orm.attributes import PASSIVE_NO_RESULT
-            
-            state = inspect(submission)
-            
-            # Safely check if relationships are loaded
-            teacher = state.attrs.teacher.loaded_value if state.attrs.teacher.loaded_value is not PASSIVE_NO_RESULT else None
-            reviewer = state.attrs.reviewer.loaded_value if state.attrs.reviewer.loaded_value is not PASSIVE_NO_RESULT else None
-            file = state.attrs.file.loaded_value if state.attrs.file.loaded_value is not PASSIVE_NO_RESULT else None
-            period = state.attrs.period.loaded_value if state.attrs.period.loaded_value is not PASSIVE_NO_RESULT else None
-            
-            data.update({
-                "teacher_name": teacher.display_name if teacher else None,
-                "teacher_email": teacher.email if teacher else None,
-                "reviewer_name": reviewer.display_name if reviewer else None,
-                "file_name": file.file_name if file else None,
-                "file_url": file.get_url(base_url) if file else None,
-                "period_name": f"{period.academic_year} - {period.semester}" if period else None,
-                "academic_year": period.academic_year if period else None,
-                "semester": period.semester if period else None
-            })
-        
-        return cls(**data)
-    
-    model_config = {"from_attributes": True}
 
-
-class RPPSubmissionListResponse(BaseListResponse[RPPSubmissionResponse]):
-    """Standardized RPP submission list response."""
+class RPPSubmissionItemCreate(RPPSubmissionItemBase):
+    """Schema for creating RPP submission item."""
     pass
 
 
-class RPPSubmissionSummary(BaseModel):
-    """Schema for RPP submission summary (lighter response) - updated for periods."""
+class RPPSubmissionItemUpdate(BaseModel):
+    """Schema for updating RPP submission item (file upload)."""
+    file_id: int = Field(..., description="Uploaded file ID")
+
+
+class RPPSubmissionItemResponse(RPPSubmissionItemBase, TimestampSchema):
+    """Schema for RPP submission item response."""
     id: int
-    teacher_id: int
-    period_id: int
-    rpp_type: str
-    status: RPPStatus
-    revision_count: int
-    submitted_at: datetime
+    uploaded_at: Optional[datetime] = None
+    is_uploaded: bool = Field(..., description="Whether file has been uploaded")
+    rpp_type_display_name: str = Field(..., description="Display name for RPP type")
     
-    # Related data
-    teacher_name: Optional[str] = None
-    period_name: Optional[str] = None
+    # Nested data
+    teacher_name: Optional[str] = Field(None, description="Teacher name")
+    period_name: Optional[str] = Field(None, description="Period name")
+    file_name: Optional[str] = Field(None, description="Uploaded file name")
     
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ===== RPP SUBMISSION SCHEMAS =====
+
+class RPPSubmissionBase(BaseModel):
+    """Base schema for RPP submission."""
+    teacher_id: int = Field(..., description="Teacher user ID")
+    period_id: int = Field(..., description="Period ID")
+    
+
+class RPPSubmissionCreate(RPPSubmissionBase):
+    """Schema for creating RPP submission."""
+    pass
+
+
+class RPPSubmissionUpdate(BaseModel):
+    """Schema for updating RPP submission status."""
+    status: RPPSubmissionStatus = Field(..., description="Submission status")
+    review_notes: Optional[str] = Field(None, max_length=1000, description="Review notes")
+
+
+class RPPSubmissionSubmitRequest(BaseModel):
+    """Schema for submitting RPP for approval."""
+    pass  # No additional fields needed
+
+
+class RPPSubmissionReviewRequest(BaseModel):
+    """Schema for reviewing RPP submission."""
+    status: RPPSubmissionStatus = Field(..., description="Review decision")
+    review_notes: Optional[str] = Field(None, max_length=1000, description="Review notes")
+    
+    @field_validator('status')
     @classmethod
-    def from_rpp_submission_model(cls, submission) -> "RPPSubmissionSummary":
-        """Create RPPSubmissionSummary from RPPSubmission model."""
-        return cls(
-            id=submission.id,
-            teacher_id=submission.teacher_id,
-            period_id=submission.period_id,
-            rpp_type=submission.rpp_type,
-            status=submission.status,
-            revision_count=submission.revision_count,
-            submitted_at=submission.submitted_at,
-            teacher_name=submission.teacher.display_name if hasattr(submission, 'teacher') and submission.teacher else None,
-            period_name=submission.period.period_name if hasattr(submission, 'period') and submission.period else None
-        )
+    def validate_review_status(cls, status: RPPSubmissionStatus) -> RPPSubmissionStatus:
+        """Validate that status is a valid review decision."""
+        valid_statuses = [
+            RPPSubmissionStatus.APPROVED,
+            RPPSubmissionStatus.REJECTED,
+            RPPSubmissionStatus.REVISION_NEEDED
+        ]
+        if status not in valid_statuses:
+            raise ValueError(f"Status must be one of: {[s.value for s in valid_statuses]}")
+        return status
+
+
+class RPPSubmissionResponse(RPPSubmissionBase, TimestampSchema):
+    """Schema for RPP submission response."""
+    id: int
+    status: RPPSubmissionStatus
+    reviewer_id: Optional[int] = None
+    review_notes: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    reviewed_at: Optional[datetime] = None
+    completion_percentage: float = Field(..., description="Completion percentage (0-100)")
+    can_be_submitted: bool = Field(..., description="Whether submission can be submitted for approval")
     
-    model_config = {"from_attributes": True}
-
-
-# ===== BASE FILTER SCHEMAS =====
-
-class PaginationParams(BaseModel):
-    """Base pagination parameters."""
+    # Nested data
+    teacher_name: Optional[str] = Field(None, description="Teacher name")
+    reviewer_name: Optional[str] = Field(None, description="Reviewer name")
+    period_name: Optional[str] = Field(None, description="Period name")
+    items: List[RPPSubmissionItemResponse] = Field(default_factory=list, description="RPP submission items")
     
-    page: int = Field(default=1, ge=1, description="Page number")
-    size: int = Field(default=10, ge=1, le=100, description="Items per page")
+    model_config = ConfigDict(from_attributes=True)
 
 
-class SearchParams(BaseModel):
-    """Base search parameters."""
-    
-    q: Optional[str] = Field(default=None, description="Search query")
-    sort_by: str = Field(default="created_at", description="Sort field")
-    sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sort order")
+class RPPSubmissionDetailResponse(RPPSubmissionResponse):
+    """Detailed schema for RPP submission with full item details."""
+    pass  # Already includes items
 
 
-class DateRangeFilter(BaseModel):
-    """Date range filter parameters."""
-    
-    start_date: Optional[date] = Field(default=None, description="Start date")
-    end_date: Optional[date] = Field(default=None, description="End date")
+# ===== ADMIN SCHEMAS =====
+
+class GenerateRPPSubmissionsRequest(BaseModel):
+    """Schema for admin request to generate RPP submissions."""
+    period_id: int = Field(..., description="Period ID to generate submissions for")
 
 
-# ===== FILTER SCHEMAS =====
+class GenerateRPPSubmissionsResponse(MessageResponse):
+    """Schema for admin generation response."""
+    generated_count: int = Field(..., description="Number of submissions generated")
+    skipped_count: int = Field(..., description="Number of submissions skipped (already exist)")
+    total_teachers: int = Field(..., description="Total number of teachers processed")
 
-class RPPSubmissionFilterParams(PaginationParams, SearchParams, DateRangeFilter):
-    """Filter parameters for RPP submission listing - updated for periods."""
-    
-    # Submission-specific filters
-    teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
-    reviewer_id: Optional[int] = Field(None, description="Filter by reviewer ID")
-    period_id: Optional[int] = Field(None, description="Filter by period ID")
-    rpp_type: Optional[str] = Field(None, description="Filter by RPP type")
-    status: Optional[RPPStatus] = Field(None, description="Filter by submission status")
-    has_reviewer: Optional[bool] = Field(None, description="Filter submissions with/without reviewer")
-    needs_review: Optional[bool] = Field(None, description="Filter submissions needing review")
-    high_revision_count: Optional[int] = Field(None, ge=1, description="Filter submissions with revision count >= N")
+
+# ===== LIST RESPONSES =====
+
+class RPPSubmissionItemListResponse(BaseListResponse):
+    """List response for RPP submission items."""
+    data: List[RPPSubmissionItemResponse]
+
+
+class RPPSubmissionListResponse(BaseListResponse):
+    """List response for RPP submissions."""
+    data: List[RPPSubmissionResponse]
+
+
+# ===== FILTER AND QUERY SCHEMAS =====
+
+class RPPSubmissionFilter(BaseModel):
+    """Filter schema for RPP submissions."""
+    teacher_id: Optional[int] = None
+    period_id: Optional[int] = None
+    status: Optional[RPPSubmissionStatus] = None
+    reviewer_id: Optional[int] = None
+    organization_id: Optional[int] = None  # For filtering by organization
     
     # Date filters
-    submitted_after: Optional[datetime] = Field(None, description="Filter submissions after this date")
-    submitted_before: Optional[datetime] = Field(None, description="Filter submissions before this date")
-    reviewed_after: Optional[datetime] = Field(None, description="Filter reviewed after this date")
-    reviewed_before: Optional[datetime] = Field(None, description="Filter reviewed before this date")
-    
-    # Date filtering for creation date
-    created_after: Optional[date] = Field(None, description="Filter submissions created after this date")
-    created_before: Optional[date] = Field(None, description="Filter submissions created before this date")
-    
-    # Override search field description
-    q: Optional[str] = Field(None, description="Search in RPP type, teacher name, or review notes")
-    
-    # Override default sort
-    sort_by: str = Field(default="submitted_at", description="Sort field")
+    submitted_after: Optional[datetime] = None
+    submitted_before: Optional[datetime] = None
+    reviewed_after: Optional[datetime] = None
+    reviewed_before: Optional[datetime] = None
 
 
-# ===== BULK OPERATIONS =====
+class RPPSubmissionItemFilter(BaseModel):
+    """Filter schema for RPP submission items."""
+    teacher_id: Optional[int] = None
+    period_id: Optional[int] = None
+    rpp_type: Optional[RPPType] = None
+    is_uploaded: Optional[bool] = None
+    organization_id: Optional[int] = None  # For filtering by organization
 
-class RPPSubmissionBulkReview(BaseModel):
-    """Schema for bulk RPP submission review."""
-    submission_ids: List[int] = Field(..., min_items=1, description="List of submission IDs")
-    action: str = Field(..., pattern="^(approve|reject)$", description="Bulk review action")
-    review_notes: Optional[str] = Field(None, description="Bulk review notes")
+
+# ===== STATISTICS SCHEMAS =====
+
+class RPPSubmissionStats(BaseModel):
+    """Statistics schema for RPP submissions."""
+    total_submissions: int = Field(..., description="Total number of submissions")
+    draft_count: int = Field(..., description="Number of draft submissions")
+    pending_count: int = Field(..., description="Number of pending submissions")
+    approved_count: int = Field(..., description="Number of approved submissions")
+    rejected_count: int = Field(..., description="Number of rejected submissions")
+    revision_needed_count: int = Field(..., description="Number of submissions needing revision")
+    completion_rate: float = Field(..., description="Overall completion rate percentage")
 
 
+class RPPSubmissionPeriodStats(BaseModel):
+    """Period-specific statistics for RPP submissions."""
+    period_id: int
+    period_name: str
+    stats: RPPSubmissionStats
+
+
+class RPPSubmissionOrganizationStats(BaseModel):
+    """Organization-specific statistics for RPP submissions."""
+    organization_id: int
+    organization_name: str
+    stats: RPPSubmissionStats
+    periods: List[RPPSubmissionPeriodStats] = Field(default_factory=list)
+
+
+# ===== DASHBOARD SCHEMAS =====
+
+class RPPSubmissionDashboard(BaseModel):
+    """Dashboard data for RPP submissions."""
+    current_period_stats: Optional[RPPSubmissionPeriodStats] = None
+    recent_submissions: List[RPPSubmissionResponse] = Field(default_factory=list)
+    pending_reviews: List[RPPSubmissionResponse] = Field(default_factory=list)
+    my_submissions: List[RPPSubmissionResponse] = Field(default_factory=list)  # For teachers
+    overall_stats: RPPSubmissionStats

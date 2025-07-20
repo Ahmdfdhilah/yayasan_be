@@ -1,48 +1,54 @@
-"""RPP Submission model for PKG System - Updated to use periods."""
+"""RPP Submission model for main submission approval process."""
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
-from sqlmodel import Field, SQLModel, Column, Relationship
-from sqlalchemy import Enum as SQLEnum
+from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
+from sqlalchemy import Enum as SQLEnum, Column
 
 from .base import BaseModel
-from .enums import RPPStatus
+from .enums import RPPSubmissionStatus
 
 if TYPE_CHECKING:
     from .user import User
-    from .media_file import MediaFile
     from .period import Period
+    from .rpp_submission_item import RPPSubmissionItem
 
 
 class RPPSubmission(BaseModel, SQLModel, table=True):
-    """RPP Submission model for teacher evaluations - using universal periods."""
+    """RPP Submission model for main submission approval process."""
     
     __tablename__ = "rpp_submissions"
+    __table_args__ = (
+        UniqueConstraint('teacher_id', 'period_id', name='uq_teacher_period_submission'),
+    )
     
     id: int = Field(primary_key=True)
-    teacher_id: int = Field(foreign_key="users.id", nullable=False, index=True)
-    period_id: int = Field(foreign_key="periods.id", nullable=False, index=True)
-    rpp_type: str = Field(max_length=100, nullable=False)
-    file_id: int = Field(foreign_key="media_files.id", nullable=False)
-    
-    # Status and review
-    status: RPPStatus = Field(
-        sa_column=Column(SQLEnum(RPPStatus), nullable=False, default=RPPStatus.PENDING),
-        description="RPP submission status"
+    teacher_id: int = Field(foreign_key="users.id", index=True, nullable=False)
+    period_id: int = Field(foreign_key="periods.id", index=True, nullable=False)
+    status: RPPSubmissionStatus = Field(
+        sa_column=Column(SQLEnum(RPPSubmissionStatus), nullable=False, default=RPPSubmissionStatus.DRAFT),
+        description="Submission status: draft, pending, approved, rejected, revision_needed"
     )
     reviewer_id: Optional[int] = Field(
         default=None,
         foreign_key="users.id",
-        index=True
+        description="User ID of reviewer (kepala sekolah)"
     )
-    review_notes: Optional[str] = Field(default=None)
-    revision_count: int = Field(default=0)
+    review_notes: Optional[str] = Field(
+        default=None,
+        max_length=1000,
+        description="Review notes from kepala sekolah"
+    )
+    submitted_at: Optional[datetime] = Field(
+        default=None,
+        description="Timestamp when submitted for approval"
+    )
+    reviewed_at: Optional[datetime] = Field(
+        default=None,
+        description="Timestamp when reviewed"
+    )
     
-    # Timestamps
-    submitted_at: datetime = Field(default_factory=datetime.utcnow)
-    reviewed_at: Optional[datetime] = Field(default=None)
-    
-    # Relationships - with explicit foreign_keys for SQLAlchemy
+    # Relationships
     teacher: "User" = Relationship(
         back_populates="submitted_rpps",
         sa_relationship_kwargs={"foreign_keys": "RPPSubmission.teacher_id"}
@@ -51,57 +57,101 @@ class RPPSubmission(BaseModel, SQLModel, table=True):
         back_populates="reviewed_rpps",
         sa_relationship_kwargs={"foreign_keys": "RPPSubmission.reviewer_id"}
     )
-    file: "MediaFile" = Relationship(back_populates="rpp_submissions")
-    period: "Period" = Relationship(back_populates="rpp_submissions")
+    period: "Period" = Relationship(
+        back_populates="rpp_submissions"
+    )
+    items: List["RPPSubmissionItem"] = Relationship(
+        back_populates="rpp_submission",
+        sa_relationship_kwargs={
+            "primaryjoin": "and_(RPPSubmission.teacher_id==RPPSubmissionItem.teacher_id, RPPSubmission.period_id==RPPSubmissionItem.period_id)"
+        }
+    )
     
     def __repr__(self) -> str:
-        return f"<RPPSubmission(id={self.id}, teacher_id={self.teacher_id}, status={self.status.value})>"
+        return f"<RPPSubmission(id={self.id}, teacher_id={self.teacher_id}, period_id={self.period_id}, status={self.status.value})>"
+    
+    @property
+    def is_draft(self) -> bool:
+        """Check if submission is in draft status."""
+        return self.status == RPPSubmissionStatus.DRAFT
     
     @property
     def is_pending(self) -> bool:
         """Check if submission is pending review."""
-        return self.status == RPPStatus.PENDING
+        return self.status == RPPSubmissionStatus.PENDING
     
     @property
     def is_approved(self) -> bool:
         """Check if submission is approved."""
-        return self.status == RPPStatus.APPROVED
+        return self.status == RPPSubmissionStatus.APPROVED
     
     @property
     def is_rejected(self) -> bool:
         """Check if submission is rejected."""
-        return self.status == RPPStatus.REJECTED
+        return self.status == RPPSubmissionStatus.REJECTED
     
     @property
     def needs_revision(self) -> bool:
         """Check if submission needs revision."""
-        return self.status == RPPStatus.REVISION_NEEDED
+        return self.status == RPPSubmissionStatus.REVISION_NEEDED
+    
+    @property
+    def can_be_submitted(self) -> bool:
+        """Check if submission can be submitted for approval."""
+        if self.status != RPPSubmissionStatus.DRAFT:
+            return False
+        
+        # Check if all 3 RPP types have been uploaded
+        uploaded_types = {item.rpp_type for item in self.items if item.is_uploaded}
+        required_types = set(RPPType.get_all_values())
+        return uploaded_types == required_types
+    
+    @property
+    def completion_percentage(self) -> float:
+        """Get completion percentage based on uploaded items."""
+        if not self.items:
+            return 0.0
+        
+        uploaded_count = sum(1 for item in self.items if item.is_uploaded)
+        total_count = len(self.items)
+        return (uploaded_count / total_count) * 100 if total_count > 0 else 0.0
+    
+    def submit_for_review(self) -> bool:
+        """Submit for review if all requirements are met."""
+        if not self.can_be_submitted:
+            return False
+        
+        self.status = RPPSubmissionStatus.PENDING
+        self.submitted_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
+        return True
     
     def approve(self, reviewer_id: int, notes: Optional[str] = None) -> None:
-        """Approve the RPP submission."""
-        self.status = RPPStatus.APPROVED
+        """Approve submission."""
+        self.status = RPPSubmissionStatus.APPROVED
         self.reviewer_id = reviewer_id
         self.review_notes = notes
         self.reviewed_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
     
     def reject(self, reviewer_id: int, notes: str) -> None:
-        """Reject the RPP submission."""
-        self.status = RPPStatus.REJECTED
+        """Reject submission."""
+        self.status = RPPSubmissionStatus.REJECTED
         self.reviewer_id = reviewer_id
         self.review_notes = notes
         self.reviewed_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
     
     def request_revision(self, reviewer_id: int, notes: str) -> None:
-        """Request revision for the RPP submission."""
-        self.status = RPPStatus.REVISION_NEEDED
+        """Request revision."""
+        self.status = RPPSubmissionStatus.REVISION_NEEDED
         self.reviewer_id = reviewer_id
         self.review_notes = notes
         self.reviewed_at = datetime.utcnow()
-        self.revision_count += 1
+        self.updated_at = datetime.utcnow()
     
-    def resubmit(self) -> None:
-        """Mark as resubmitted (back to pending)."""
-        self.status = RPPStatus.PENDING
-        self.submitted_at = datetime.utcnow()
-        self.reviewed_at = None
-        self.review_notes = None
+    def reset_to_draft(self) -> None:
+        """Reset submission back to draft for revision."""
+        self.status = RPPSubmissionStatus.DRAFT
+        self.submitted_at = None
+        self.updated_at = datetime.utcnow()

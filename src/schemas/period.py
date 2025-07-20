@@ -4,7 +4,6 @@ from typing import Optional
 from datetime import date, datetime
 from pydantic import BaseModel, validator, Field
 
-from ..models.enums import PeriodType
 from .shared import BaseListResponse
 
 
@@ -12,7 +11,6 @@ class PeriodBase(BaseModel):
     """Base period schema."""
     academic_year: str = Field(..., max_length=20, description="Academic year (e.g., '2023/2024')")
     semester: str = Field(..., max_length=20, description="Semester (e.g., 'Ganjil', 'Genap')")
-    period_type: PeriodType = Field(..., description="Type of period")
     start_date: date = Field(..., description="Period start date")
     end_date: date = Field(..., description="Period end date")
     description: Optional[str] = Field(None, description="Optional period description")
@@ -34,7 +32,6 @@ class PeriodUpdate(BaseModel):
     """Schema for updating an existing period."""
     academic_year: Optional[str] = Field(None, max_length=20)
     semester: Optional[str] = Field(None, max_length=20)
-    period_type: Optional[PeriodType] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     description: Optional[str] = None
@@ -79,7 +76,6 @@ class PeriodFilter(BaseModel):
     """Schema for filtering periods."""
     academic_year: Optional[str] = None
     semester: Optional[str] = None
-    period_type: Optional[PeriodType] = None
     is_active: Optional[bool] = None
     start_date_from: Optional[date] = None
     start_date_to: Optional[date] = None

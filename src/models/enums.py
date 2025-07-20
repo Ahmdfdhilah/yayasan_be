@@ -65,12 +65,6 @@ class EvaluationGrade(str, Enum):
         return desc_map.get(grade, "Unknown")
 
 
-class PeriodType(str, Enum):
-    """Period type enum for universal period management."""
-    EVALUATION = "evaluation"
-    RPP_SUBMISSION = "rpp_submission"
-    ACADEMIC = "academic"
-
 
 class ContentStatus(str, Enum):
     """Content status enum."""

@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.models.period import Period
-from src.models.enums import PeriodType
 from src.schemas.period import PeriodCreate, PeriodUpdate, PeriodFilter
 
 
@@ -22,7 +21,6 @@ class PeriodRepository:
         period = Period(
             academic_year=period_data.academic_year,
             semester=period_data.semester,
-            period_type=period_data.period_type,
             start_date=period_data.start_date,
             end_date=period_data.end_date,
             description=period_data.description,
@@ -68,8 +66,6 @@ class PeriodRepository:
             if filter_params.semester:
                 conditions.append(Period.semester == filter_params.semester)
             
-            if filter_params.period_type:
-                conditions.append(Period.period_type == filter_params.period_type)
             
             if filter_params.is_active is not None:
                 conditions.append(Period.is_active == filter_params.is_active)
@@ -101,18 +97,14 @@ class PeriodRepository:
         
         return list(periods), total
     
-    async def get_active_periods(self, period_type: Optional[PeriodType] = None) -> List[Period]:
-        """Get all active periods, optionally filtered by type."""
+    async def get_active_periods(self) -> List[Period]:
+        """Get all active periods."""
         query = select(Period).where(Period.is_active == True)
-        
-        if period_type:
-            query = query.where(Period.period_type == period_type)
-        
         query = query.order_by(Period.start_date.desc())
         result = await self.session.execute(query)
         return list(result.scalars().all())
     
-    async def get_current_periods(self, period_type: Optional[PeriodType] = None) -> List[Period]:
+    async def get_current_periods(self) -> List[Period]:
         """Get periods that are currently active based on dates."""
         today = date.today()
         query = select(Period).where(
@@ -121,9 +113,6 @@ class PeriodRepository:
                 Period.end_date >= today
             )
         )
-        
-        if period_type:
-            query = query.where(Period.period_type == period_type)
         
         result = await self.session.execute(query)
         return list(result.scalars().all())
@@ -187,13 +176,12 @@ class PeriodRepository:
         await self.session.commit()
         return True
     
-    async def exists_by_academic_period(self, academic_year: str, semester: str, period_type: PeriodType) -> bool:
-        """Check if a period exists for given academic year, semester and type."""
+    async def exists_by_academic_period(self, academic_year: str, semester: str) -> bool:
+        """Check if a period exists for given academic year and semester."""
         query = select(Period).where(
             and_(
                 Period.academic_year == academic_year,
-                Period.semester == semester,
-                Period.period_type == period_type
+                Period.semester == semester
             )
         )
         result = await self.session.execute(query)

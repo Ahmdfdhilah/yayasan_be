@@ -9,7 +9,6 @@ from src.schemas.period import (
     PeriodFilter, PeriodActivate, PeriodListResponse
 )
 from src.schemas.shared import MessageResponse
-from src.models.enums import PeriodType
 
 
 class PeriodService:
@@ -23,14 +22,13 @@ class PeriodService:
         # Validate that period doesn't already exist
         exists = await self.period_repo.exists_by_academic_period(
             period_data.academic_year,
-            period_data.semester,
-            period_data.period_type
+            period_data.semester
         )
         
         if exists:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Period already exists for {period_data.academic_year} - {period_data.semester} ({period_data.period_type})"
+                detail=f"Period already exists for {period_data.academic_year} - {period_data.semester}"
             )
         
         # Create period
@@ -88,14 +86,14 @@ class PeriodService:
             pages=(total + limit - 1) // limit
         )
     
-    async def get_active_periods(self, period_type: Optional[PeriodType] = None) -> List[PeriodResponse]:
+    async def get_active_periods(self) -> List[PeriodResponse]:
         """Get all active periods."""
-        periods = await self.period_repo.get_active_periods(period_type)
+        periods = await self.period_repo.get_active_periods()
         return [PeriodResponse.from_orm(period) for period in periods]
     
-    async def get_current_periods(self, period_type: Optional[PeriodType] = None) -> List[PeriodResponse]:
+    async def get_current_periods(self) -> List[PeriodResponse]:
         """Get periods that are currently active based on dates."""
-        periods = await self.period_repo.get_current_periods(period_type)
+        periods = await self.period_repo.get_current_periods()
         return [PeriodResponse.from_orm(period) for period in periods]
     
     async def update_period(

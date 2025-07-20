@@ -13,7 +13,6 @@ from src.schemas.period import (
 )
 from src.schemas.shared import MessageResponse
 from src.auth.permissions import get_current_active_user, require_roles
-from src.models.enums import PeriodType
 
 router = APIRouter()
 
@@ -46,7 +45,6 @@ async def create_period(
 async def get_periods(
     academic_year: Optional[str] = Query(None),
     semester: Optional[str] = Query(None),
-    period_type: Optional[PeriodType] = Query(None),
     is_active: Optional[bool] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -61,7 +59,6 @@ async def get_periods(
     filter_params = PeriodFilter(
         academic_year=academic_year,
         semester=semester,
-        period_type=period_type,
         is_active=is_active
     )
     
@@ -70,21 +67,19 @@ async def get_periods(
 
 @router.get("/active", response_model=List[PeriodResponse], summary="Get active periods")
 async def get_active_periods(
-    period_type: Optional[PeriodType] = Query(None),
     current_user: dict = Depends(get_current_active_user),
     period_service: PeriodService = Depends(get_period_service)
 ):
     """
-    Get all active periods, optionally filtered by type.
+    Get all active periods.
     
     All authenticated users can view active periods.
     """
-    return await period_service.get_active_periods(period_type)
+    return await period_service.get_active_periods()
 
 
 @router.get("/current", response_model=List[PeriodResponse], summary="Get current periods")
 async def get_current_periods(
-    period_type: Optional[PeriodType] = Query(None),
     current_user: dict = Depends(get_current_active_user),
     period_service: PeriodService = Depends(get_period_service)
 ):
@@ -93,7 +88,7 @@ async def get_current_periods(
     
     All authenticated users can view current periods.
     """
-    return await period_service.get_current_periods(period_type)
+    return await period_service.get_current_periods()
 
 
 @router.get("/{period_id}", response_model=PeriodResponse, summary="Get period by ID")

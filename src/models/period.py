@@ -5,7 +5,6 @@ from datetime import date
 from sqlmodel import Field, SQLModel, Relationship
 
 from .base import BaseModel
-from .enums import PeriodType
 
 if TYPE_CHECKING:
     from .teacher_evaluation import TeacherEvaluation
@@ -20,7 +19,6 @@ class Period(BaseModel, SQLModel, table=True):
     id: int = Field(primary_key=True)
     academic_year: str = Field(max_length=20, nullable=False, index=True)
     semester: str = Field(max_length=20, nullable=False, index=True)
-    period_type: PeriodType = Field(nullable=False, index=True)
     start_date: date = Field(nullable=False)
     end_date: date = Field(nullable=False)
     is_active: bool = Field(default=False, index=True)
@@ -30,13 +28,13 @@ class Period(BaseModel, SQLModel, table=True):
     teacher_evaluations: List["TeacherEvaluation"] = Relationship(back_populates="period")
     rpp_submissions: List["RPPSubmission"] = Relationship(back_populates="period")
     
-    # Unique constraint for academic_year + semester + period_type
+    # Unique constraint for academic_year + semester
     __table_args__ = (
         {"sqlite_autoincrement": True},
     )
     
     def __repr__(self) -> str:
-        return f"<Period(id={self.id}, {self.academic_year}-{self.semester}, type={self.period_type})>"
+        return f"<Period(id={self.id}, {self.academic_year}-{self.semester})>"
     
     @property
     def period_name(self) -> str:

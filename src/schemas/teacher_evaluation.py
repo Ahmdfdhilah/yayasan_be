@@ -146,8 +146,8 @@ class TeacherEvaluationResponse(BaseModel):
             period = state.attrs.period.loaded_value if state.attrs.period.loaded_value is not PASSIVE_NO_RESULT else None
             
             data.update({
-                "evaluator_name": getattr(evaluator, 'profile', {}).get('full_name') if evaluator else None,
-                "teacher_name": getattr(teacher, 'profile', {}).get('full_name') if teacher else None,
+                "evaluator_name": getattr(evaluator, 'profile', {}).get('name') if evaluator else None,
+                "teacher_name": getattr(teacher, 'profile', {}).get('name') if teacher else None,
                 "teacher_email": getattr(teacher, 'email') if teacher else None,
                 "aspect_name": getattr(aspect, 'aspect_name') if aspect else None,
                 "aspect_category": getattr(aspect, 'category') if aspect else None,

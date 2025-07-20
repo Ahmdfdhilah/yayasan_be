@@ -6,8 +6,8 @@ from sqlalchemy import select, and_, or_, func, update, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.user import User, PasswordResetToken
-from src.models.user_role import UserRole
-from src.models.enums import UserStatus
+from src.models.user_role import UserRole as UserRoleModel
+from src.models.enums import UserStatus, UserRole as UserRoleEnum
 from src.schemas.user import UserCreate, UserUpdate
 from src.schemas.user import UserFilterParams
 from src.auth.jwt import get_password_hash
@@ -165,6 +165,21 @@ class UserRepository:
             query = query.where(User.organization_id == filters.organization_id)
             count_query = count_query.where(User.organization_id == filters.organization_id)
         
+        if filters.role:
+            # Join with UserRole table to filter by role
+            role_subquery = (
+                select(UserRoleModel.user_id)
+                .where(
+                    and_(
+                        UserRoleModel.role_name == filters.role.value,
+                        UserRoleModel.is_active == True,
+                        UserRoleModel.deleted_at.is_(None)
+                    )
+                )
+            )
+            query = query.where(User.id.in_(role_subquery))
+            count_query = count_query.where(User.id.in_(role_subquery))
+        
         if filters.is_active is not None:
             if filters.is_active:
                 query = query.where(User.status == UserStatus.ACTIVE)
@@ -215,11 +230,11 @@ class UserRepository:
         """Get users by role name."""
         query = (
             select(User)
-            .join(UserRole)
+            .join(UserRoleModel)
             .where(
                 and_(
-                    UserRole.role_name == role_name,
-                    UserRole.is_active == True,
+                    UserRoleModel.role_name == role_name,
+                    UserRoleModel.is_active == True,
                     User.deleted_at.is_(None)
                 )
             )
@@ -231,11 +246,11 @@ class UserRepository:
         """Count users with specific role."""
         query = (
             select(func.count(User.id))
-            .join(UserRole)
+            .join(UserRoleModel)
             .where(
                 and_(
-                    UserRole.role_name == role_name,
-                    UserRole.is_active == True,
+                    UserRoleModel.role_name == role_name,
+                    UserRoleModel.is_active == True,
                     User.deleted_at.is_(None),
                     User.status == UserStatus.ACTIVE
                 )
@@ -335,9 +350,9 @@ class UserRepository:
     # ===== USER ROLE OPERATIONS =====
     
     async def add_user_role(self, user_id: int, role_name: str, permissions: Optional[Dict[str, Any]] = None, 
-                           organization_id: Optional[int] = None, expires_at: Optional[datetime] = None) -> UserRole:
+                           organization_id: Optional[int] = None, expires_at: Optional[datetime] = None) -> UserRoleModel:
         """Add role to user."""
-        user_role = UserRole(
+        user_role = UserRoleModel(
             user_id=user_id,
             role_name=role_name,
             permissions=permissions,
@@ -354,12 +369,12 @@ class UserRepository:
     async def remove_user_role(self, user_id: int, role_name: str, organization_id: Optional[int] = None) -> bool:
         """Remove role from user."""
         query = (
-            update(UserRole)
+            update(UserRoleModel)
             .where(
                 and_(
-                    UserRole.user_id == user_id,
-                    UserRole.role_name == role_name,
-                    UserRole.organization_id == organization_id if organization_id else True
+                    UserRoleModel.user_id == user_id,
+                    UserRoleModel.role_name == role_name,
+                    UserRoleModel.organization_id == organization_id if organization_id else True
                 )
             )
             .values(
@@ -371,13 +386,13 @@ class UserRepository:
         await self.session.commit()
         return result.rowcount > 0
     
-    async def get_user_roles(self, user_id: int) -> List[UserRole]:
+    async def get_user_roles(self, user_id: int) -> List[UserRoleModel]:
         """Get all active roles for user."""
-        query = select(UserRole).where(
+        query = select(UserRoleModel).where(
             and_(
-                UserRole.user_id == user_id,
-                UserRole.is_active == True,
-                UserRole.deleted_at.is_(None)
+                UserRoleModel.user_id == user_id,
+                UserRoleModel.is_active == True,
+                UserRoleModel.deleted_at.is_(None)
             )
         )
         result = await self.session.execute(query)
@@ -400,12 +415,12 @@ class UserRepository:
         """Get all teachers (guru) in a specific organization."""
         query = (
             select(User)
-            .join(UserRole)
+            .join(UserRoleModel)
             .where(
                 and_(
                     User.organization_id == organization_id,
-                    UserRole.role_name == "guru",
-                    UserRole.is_active == True,
+                    UserRoleModel.role_name == "guru",
+                    UserRoleModel.is_active == True,
                     User.deleted_at.is_(None),
                     User.status == UserStatus.ACTIVE
                 )
@@ -441,12 +456,12 @@ class UserRepository:
         """Get count of teachers in a specific organization."""
         query = (
             select(func.count(User.id))
-            .join(UserRole)
+            .join(UserRoleModel)
             .where(
                 and_(
                     User.organization_id == organization_id,
-                    UserRole.role_name == "guru",
-                    UserRole.is_active == True,
+                    UserRoleModel.role_name == "guru",
+                    UserRoleModel.is_active == True,
                     User.deleted_at.is_(None),
                     User.status == UserStatus.ACTIVE
                 )

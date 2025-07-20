@@ -594,6 +594,7 @@ class TeacherEvaluationRepository:
     ) -> List[TeacherEvaluation]:
         """Get all evaluations for a teacher in a specific period."""
         query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.evaluator),
             selectinload(TeacherEvaluation.teacher),
             selectinload(TeacherEvaluation.aspect),
             selectinload(TeacherEvaluation.period)

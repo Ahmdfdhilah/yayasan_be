@@ -20,6 +20,7 @@ from src.schemas.shared import MessageResponse
 from src.models.enums import RPPType, RPPSubmissionStatus
 from src.models.rpp_submission import RPPSubmission
 from src.models.rpp_submission_item import RPPSubmissionItem
+from src.utils.messages import get_message
 
 
 class RPPSubmissionService:
@@ -84,14 +85,14 @@ class RPPSubmissionService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher not found"
+                detail=get_message("user", "not_found")
             )
         
         # Check if user has guru role
         if not user.has_role("guru"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User is not a teacher"
+                detail="Pengguna bukan seorang guru"
             )
     
     async def _validate_period_exists(self, period_id: int) -> None:
@@ -100,7 +101,7 @@ class RPPSubmissionService:
         if not period:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Period not found"
+                detail=get_message("period", "not_found")
             )
     
     async def _validate_file_exists(self, file_id: int) -> None:
@@ -109,7 +110,7 @@ class RPPSubmissionService:
         if not file:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="File not found"
+                detail=get_message("file", "file_not_found")
             )
     
     async def _validate_reviewer_exists(self, reviewer_id: int) -> None:
@@ -118,14 +119,14 @@ class RPPSubmissionService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Reviewer not found"
+                detail=get_message("user", "not_found")
             )
         
         # Check if user has kepala_sekolah role
         if not user.has_role("kepala_sekolah"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User is not authorized to review submissions"
+                detail="Pengguna tidak memiliki otorisasi untuk meninjau pengajuan"
             )
     
     # ===== SUBMISSION OPERATIONS =====
@@ -143,7 +144,7 @@ class RPPSubmissionService:
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Submission already exists for this teacher and period"
+                detail=get_message("submission", "submission_exists")
             )
         
         # Create submission
@@ -169,7 +170,7 @@ class RPPSubmissionService:
         if not submission:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Submission not found"
+                detail=get_message("submission", "submission_not_found")
             )
         
         return self._convert_submission_to_response(submission)
@@ -182,7 +183,7 @@ class RPPSubmissionService:
         if not submission:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Submission not found for this teacher and period"
+                detail="Pengajuan tidak ditemukan untuk guru dan periode ini"
             )
         
         return self._convert_submission_to_response(submission)
@@ -196,14 +197,14 @@ class RPPSubmissionService:
         if not submission:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Submission not found"
+                detail=get_message("submission", "submission_not_found")
             )
         
         # Validate ownership
         if submission.teacher_id != teacher_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only submit your own submissions"
+                detail=get_message("submission", "own_submissions_only")
             )
         
         # Check if can be submitted
@@ -211,7 +212,7 @@ class RPPSubmissionService:
         if not can_submit:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot submit: ensure all 3 RPP types are uploaded and submission is in draft status"
+                detail="Tidak dapat mengajukan: pastikan semua 3 jenis RPP telah diunggah dan pengajuan dalam status draft"
             )
         
         # Submit for review
@@ -219,7 +220,7 @@ class RPPSubmissionService:
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to submit for review"
+                detail="Gagal mengajukan untuk ditinjau"
             )
         
         return MessageResponse(message="Submission successfully submitted for review")
@@ -236,14 +237,14 @@ class RPPSubmissionService:
         if not submission:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Submission not found"
+                detail=get_message("submission", "submission_not_found")
             )
         
         # Validate submission is pending
         if submission.status != RPPSubmissionStatus.PENDING:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Submission is not pending review"
+                detail="Pengajuan tidak dalam status menunggu tinjauan"
             )
         
         # Review submission

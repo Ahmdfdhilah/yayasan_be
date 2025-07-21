@@ -1,6 +1,7 @@
 """Custom exceptions for the application."""
 
 from fastapi import HTTPException, status
+from ..utils.messages import get_message
 
 
 class PeriodInactiveError(HTTPException):
@@ -9,9 +10,9 @@ class PeriodInactiveError(HTTPException):
     def __init__(self, period_id: int = None, message: str = None):
         if message is None:
             if period_id:
-                message = f"Period {period_id} is not active. Operations are only allowed on active periods."
+                message = get_message("period", "not_active_with_id", period_id=period_id)
             else:
-                message = "Period is not active. Operations are only allowed on active periods."
+                message = get_message("period", "not_active")
         
         super().__init__(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -23,7 +24,7 @@ class PeriodNotFoundError(HTTPException):
     """Exception raised when period is not found."""
     
     def __init__(self, period_id: int = None):
-        message = f"Period {period_id} not found." if period_id else "Period not found."
+        message = get_message("period", "not_found_with_id", period_id=period_id) if period_id else get_message("period", "not_found")
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=message

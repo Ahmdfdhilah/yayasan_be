@@ -9,6 +9,7 @@ from src.schemas.period import (
     PeriodFilter, PeriodActivate, PeriodListResponse
 )
 from src.schemas.shared import MessageResponse
+from src.utils.messages import get_message
 
 
 class PeriodService:
@@ -28,7 +29,7 @@ class PeriodService:
         if exists:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Period already exists for {period_data.academic_year} - {period_data.semester}"
+                detail=f"Periode sudah ada untuk {period_data.academic_year} - {period_data.semester}"
             )
         
         # Create period
@@ -41,7 +42,7 @@ class PeriodService:
         if not period:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Period not found"
+                detail=get_message("period", "not_found")
             )
         
         return PeriodResponse.from_orm(period)
@@ -52,7 +53,7 @@ class PeriodService:
         if not period:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Period not found"
+                detail=get_message("period", "not_found")
             )
         
         # Get statistics
@@ -107,7 +108,7 @@ class PeriodService:
         if not period:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Period not found"
+                detail=get_message("period", "not_found")
             )
         
         return PeriodResponse.from_orm(period)
@@ -158,7 +159,7 @@ class PeriodService:
         if not period:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Period not found"
+                detail=get_message("period", "not_found")
             )
         
         return PeriodResponse.from_orm(period)

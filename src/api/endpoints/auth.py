@@ -13,6 +13,7 @@ from src.schemas.user import (
 )
 from src.schemas.shared import MessageResponse
 from src.auth.permissions import get_current_active_user
+from src.utils.messages import get_message
 
 router = APIRouter()
 
@@ -133,7 +134,7 @@ async def check_password_reset_eligibility(
     if current_user["id"] != user_id and "admin" not in current_user.get("roles", []):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to check password reset eligibility for other users"
+            detail=get_message("auth", "not_authorized_check_password_reset")
         )
     
     return await auth_service.check_password_reset_eligibility(user_id)
@@ -152,7 +153,7 @@ async def get_default_password_info(
     if "admin" not in current_user.get("roles", []):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role required"
+            detail=get_message("auth", "admin_role_required")
         )
     
     return await auth_service.get_default_password_info()

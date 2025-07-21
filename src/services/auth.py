@@ -15,6 +15,7 @@ from src.auth.jwt import create_access_token, create_refresh_token, verify_token
 from src.services.email import EmailService
 from src.utils.password import generate_password_reset_token, mask_email
 from src.core.config import settings
+from src.utils.messages import get_message
 
 
 class AuthService:
@@ -36,7 +37,7 @@ class AuthService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password",
+                detail=get_message("auth", "invalid_credentials"),
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
@@ -88,14 +89,14 @@ class AuthService:
             if payload.get("type") != "refresh":
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token type"
+                    detail=get_message("auth", "invalid_token")
                 )
             
             user_id = payload.get("sub")
             if not user_id:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token payload"
+                    detail=get_message("auth", "invalid_token")
                 )
             
             # Get user
@@ -103,7 +104,7 @@ class AuthService:
             if not user or not user.is_active():
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User not found or inactive"
+                    detail=get_message("user", "not_found")
                 )
             
             # Get user roles
@@ -141,7 +142,7 @@ class AuthService:
                 raise e
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token"
+                detail=get_message("auth", "refresh_token_expired")
             )
     
     async def request_password_reset(self, reset_data: PasswordReset) -> MessageResponse:

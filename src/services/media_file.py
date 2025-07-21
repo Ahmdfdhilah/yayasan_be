@@ -15,6 +15,7 @@ from src.schemas.media_file import (
 from src.schemas.shared import MessageResponse
 from src.schemas.media_file import MediaFileFilterParams
 from src.models.media_file import MediaFile
+from src.utils.messages import get_message
 
 
 class MediaFileService:
@@ -37,7 +38,7 @@ class MediaFileService:
         if not file.filename:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No file provided"
+                detail=get_message("file", "upload_failed")
             )
         
         # Generate unique filename
@@ -98,7 +99,7 @@ class MediaFileService:
                 mime_type=media_file.mime_type,
                 is_public=media_file.is_public,
                 upload_url=f"/api/media-files/{media_file.id}/download",
-                message="File uploaded successfully"
+                message="File berhasil diunggah"
             )
             
         except Exception as e:
@@ -107,7 +108,7 @@ class MediaFileService:
                 file_path.unlink()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload file: {str(e)}"
+                detail=get_message("file", "upload_failed")
             )
     
     async def get_file(self, file_id: int, user_id: Optional[int] = None) -> MediaFileResponse:
@@ -116,7 +117,7 @@ class MediaFileService:
         if not media_file:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Media file not found"
+                detail=get_message("file", "file_not_found")
             )
         
         # Check access permissions
@@ -125,12 +126,12 @@ class MediaFileService:
             if user_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication required to access private file"
+                    detail="Autentikasi diperlukan untuk mengakses file pribadi"
                 )
             if user_id != media_file.uploader_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Not authorized to access this file"
+                    detail="Tidak memiliki otorisasi untuk mengakses file ini"
                 )
         
         return MediaFileResponse.from_media_file_model(media_file, include_relations=True)
@@ -175,7 +176,7 @@ class MediaFileService:
         if not media_file:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Media file not found"
+                detail=get_message("file", "file_not_found")
             )
         
         # Check permission (only uploader or admin can update)
@@ -199,7 +200,7 @@ class MediaFileService:
         if not media_file:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Media file not found"
+                detail=get_message("file", "file_not_found")
             )
         
         # Check permission (only uploader or admin can delete)
@@ -231,7 +232,7 @@ class MediaFileService:
         if not media_file:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Media file not found"
+                detail=get_message("file", "file_not_found")
             )
         
         # Check access permissions
@@ -240,12 +241,12 @@ class MediaFileService:
             if user_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication required to access private file"
+                    detail="Autentikasi diperlukan untuk mengakses file pribadi"
                 )
             if user_id != media_file.uploader_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Not authorized to access this file"
+                    detail="Tidak memiliki otorisasi untuk mengakses file ini"
                 )
         
         # Read file content
@@ -295,7 +296,7 @@ class MediaFileService:
         if not media_file:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Media file not found"
+                detail=get_message("file", "file_not_found")
             )
         
         # Check access permissions
@@ -304,12 +305,12 @@ class MediaFileService:
             if user_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication required to access private file"
+                    detail="Autentikasi diperlukan untuk mengakses file pribadi"
                 )
             if user_id != media_file.uploader_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Not authorized to access this file"
+                    detail="Tidak memiliki otorisasi untuk mengakses file ini"
                 )
         
         # Check if physical file exists

@@ -11,6 +11,7 @@ from src.models.evaluation_aspect import EvaluationAspect
 from src.models.period import Period
 from src.models.user import User
 from src.models.enums import EvaluationGrade
+from src.utils.messages import get_message
 from src.schemas.teacher_evaluation import (
     TeacherEvaluationCreate, TeacherEvaluationUpdate, TeacherEvaluationFilterParams
 )
@@ -624,7 +625,7 @@ class TeacherEvaluationRepository:
             
             evaluation = await self.get_by_id(evaluation_id)
             if not evaluation:
-                errors.append(f"Evaluation {evaluation_id} not found")
+                errors.append(f"Evaluasi {evaluation_id} tidak ditemukan")
                 continue
             
             try:
@@ -633,7 +634,7 @@ class TeacherEvaluationRepository:
                     evaluation.updated_by = updated_by
                 updated_count += 1
             except Exception as e:
-                errors.append(f"Failed to update evaluation {evaluation_id}: {str(e)}")
+                errors.append(f"Gagal memperbarui evaluasi {evaluation_id}: {str(e)}")
         
         await self.session.commit()
         return updated_count, errors

@@ -15,6 +15,7 @@ from src.schemas.user_role import (
 from src.schemas.shared import MessageResponse
 from src.schemas.user_role import UserRoleFilterParams
 from src.models.user_role import UserRole
+from src.utils.messages import get_message
 
 
 class UserRoleService:
@@ -32,7 +33,7 @@ class UserRoleService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail=get_message("user", "not_found")
             )
         
         # Validate organization exists if provided
@@ -41,7 +42,7 @@ class UserRoleService:
             if not organization:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Organization not found"
+                    detail=get_message("organization", "not_found")
                 )
         
         # Check if role already exists
@@ -53,7 +54,7 @@ class UserRoleService:
         if existing_role:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User already has this role in the specified organization"
+                detail="Pengguna sudah memiliki peran ini dalam organisasi yang ditentukan"
             )
         
         # Create role in database
@@ -68,7 +69,7 @@ class UserRoleService:
         if not user_role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User role not found"
+                detail="Peran pengguna tidak ditemukan"
             )
         
         return UserRoleResponse.from_user_role_model(user_role, include_relations=True)
@@ -80,7 +81,7 @@ class UserRoleService:
         if not existing_role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User role not found"
+                detail="Peran pengguna tidak ditemukan"
             )
         
         # Update role in database
@@ -100,7 +101,7 @@ class UserRoleService:
         if not user_role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User role not found"
+                detail="Peran pengguna tidak ditemukan"
             )
         
         # Soft delete role
@@ -141,7 +142,7 @@ class UserRoleService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail=get_message("user", "not_found")
             )
         
         user_roles = await self.role_repo.get_user_roles(user_id, active_only)
@@ -159,7 +160,7 @@ class UserRoleService:
             if not organization:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Organization not found"
+                    detail=get_message("organization", "not_found")
                 )
         
         user_roles = await self.role_repo.get_users_with_role(role_name, organization_id, active_only)
@@ -199,7 +200,7 @@ class UserRoleService:
         if not user_role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User role not found"
+                detail="Peran pengguna tidak ditemukan"
             )
         
         # Delete the role
@@ -212,7 +213,7 @@ class UserRoleService:
         if not user_role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User role not found"
+                detail="Peran pengguna tidak ditemukan"
             )
         
         success = await self.role_repo.activate_role(role_id)
@@ -231,7 +232,7 @@ class UserRoleService:
         if not user_role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User role not found"
+                detail="Peran pengguna tidak ditemukan"
             )
         
         success = await self.role_repo.deactivate_role(role_id)
@@ -262,7 +263,7 @@ class UserRoleService:
             if not organization:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Organization not found"
+                    detail=get_message("organization", "not_found")
                 )
         
         # Perform bulk assignment
@@ -350,7 +351,7 @@ class UserRoleService:
         if not user_role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User role not found"
+                detail="Peran pengguna tidak ditemukan"
             )
         
         # Update permissions
@@ -371,7 +372,7 @@ class UserRoleService:
         if not user_role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User role not found"
+                detail="Peran pengguna tidak ditemukan"
             )
         
         # Add permission
@@ -392,7 +393,7 @@ class UserRoleService:
         if not user_role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User role not found"
+                detail="Peran pengguna tidak ditemukan"
             )
         
         # Remove permission
@@ -464,6 +465,6 @@ class UserRoleService:
         if not user_role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User role not found"
+                detail="Peran pengguna tidak ditemukan"
             )
         return user_role

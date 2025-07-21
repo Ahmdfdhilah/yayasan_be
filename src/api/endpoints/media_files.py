@@ -16,6 +16,7 @@ from src.schemas.media_file import (
 )
 from src.schemas.shared import MessageResponse
 from src.schemas.media_file import MediaFileFilterParams
+from src.utils.messages import get_message
 
 router = APIRouter(prefix="/media-files", tags=["Media Files"])
 
@@ -125,7 +126,7 @@ async def get_files_by_uploader(
     if not is_admin and current_user["id"] != uploader_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view files for this user"
+            detail=get_message("access", "not_authorized_view_files")
         )
     
     return await service.get_files_by_uploader(

@@ -23,6 +23,7 @@ from src.schemas.shared import MessageResponse
 from src.models.enums import EvaluationGrade
 from src.utils.period_validation import validate_period_is_active
 from src.core.exceptions import PeriodInactiveError
+from src.utils.messages import get_message
 
 
 class TeacherEvaluationService:
@@ -52,7 +53,7 @@ class TeacherEvaluationService:
         if not evaluation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher evaluation not found"
+                detail=get_message("evaluation", "not_found")
             )
         
         # Organization-based access control
@@ -66,7 +67,7 @@ class TeacherEvaluationService:
                 if not teacher:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Teacher being evaluated not found"
+                        detail="Guru yang dievaluasi tidak ditemukan"
                     )
                 
                 # Teachers can only view their own evaluations
@@ -75,7 +76,7 @@ class TeacherEvaluationService:
                     if teacher.organization_id != current_user_obj.organization_id:
                         raise HTTPException(
                             status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You can only view evaluations of teachers in your organization or your own evaluations"
+                            detail="Anda hanya dapat melihat evaluasi guru dalam organisasi Anda atau evaluasi Anda sendiri"
                         )
         
         return TeacherEvaluationResponse.from_teacher_evaluation_model(evaluation, include_relations=True)
@@ -93,7 +94,7 @@ class TeacherEvaluationService:
         if not evaluation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher evaluation not found"
+                detail=get_message("evaluation", "not_found")
             )
         
         # Validate period is active
@@ -111,7 +112,7 @@ class TeacherEvaluationService:
                 if not teacher:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Teacher being evaluated not found"
+                        detail="Guru yang dievaluasi tidak ditemukan"
                     )
                 
                 # Only principals can update evaluations of teachers in their organization
@@ -127,7 +128,7 @@ class TeacherEvaluationService:
         if not updated_evaluation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher evaluation not found"
+                detail=get_message("evaluation", "not_found")
             )
         
         return TeacherEvaluationResponse.from_teacher_evaluation_model(updated_evaluation, include_relations=True)
@@ -138,7 +139,7 @@ class TeacherEvaluationService:
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher evaluation not found"
+                detail=get_message("evaluation", "not_found")
             )
         
         return MessageResponse(message="Teacher evaluation deleted successfully")
@@ -229,7 +230,7 @@ class TeacherEvaluationService:
                     if teacher.organization_id != current_user_obj.organization_id:
                         raise HTTPException(
                             status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You can only view evaluations of teachers in your organization or your own evaluations"
+                            detail="Anda hanya dapat melihat evaluasi guru dalam organisasi Anda atau evaluasi Anda sendiri"
                         )
         
         evaluations = await self.evaluation_repo.get_teacher_evaluations_in_period(teacher_id, period_id)

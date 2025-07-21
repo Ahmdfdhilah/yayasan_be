@@ -19,6 +19,7 @@ from src.schemas.dashboard import (
     PrincipalDashboard,
     AdminDashboard
 )
+from src.utils.messages import get_message
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -106,7 +107,7 @@ async def get_teacher_dashboard(
     if not isinstance(result, TeacherDashboard):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. This endpoint is only available for teachers (guru)."
+            detail=get_message("access", "teacher_only")
         )
     
     return result
@@ -142,7 +143,7 @@ async def get_principal_dashboard(
     if not isinstance(result, PrincipalDashboard):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. This endpoint is only available for principals (kepala_sekolah)."
+            detail=get_message("access", "principal_only")
         )
     
     return result
@@ -181,7 +182,7 @@ async def get_admin_dashboard(
     if not isinstance(result, AdminDashboard):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. This endpoint is only available for administrators (admin)."
+            detail=get_message("access", "admin_only")
         )
     
     return result

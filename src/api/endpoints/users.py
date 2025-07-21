@@ -21,6 +21,7 @@ from src.schemas.user import (
 from src.schemas.shared import MessageResponse
 from src.schemas.user import UserFilterParams
 from src.auth.permissions import get_current_active_user, require_roles
+from src.utils.messages import get_message
 
 router = APIRouter()
 
@@ -391,6 +392,6 @@ async def find_user_by_email(
     user = await user_service.get_user_by_email(email)
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=get_message("user", "not_found")
         )
     return user

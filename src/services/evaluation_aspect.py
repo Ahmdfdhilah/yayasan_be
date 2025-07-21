@@ -19,6 +19,7 @@ from src.schemas.evaluation_aspect import (
     EvaluationAspectStats
 )
 from src.schemas.evaluation_aspect import EvaluationAspectFilterParams
+from src.utils.messages import get_message
 
 
 class EvaluationAspectService:
@@ -40,7 +41,7 @@ class EvaluationAspectService:
         if not aspect:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Evaluation aspect not found"
+                detail="Aspek evaluasi tidak ditemukan"
             )
         
         # Get statistics
@@ -66,7 +67,7 @@ class EvaluationAspectService:
         if not existing_aspect:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Evaluation aspect not found"
+                detail="Aspek evaluasi tidak ditemukan"
             )
         
         # Check if name change conflicts with existing aspect
@@ -90,7 +91,7 @@ class EvaluationAspectService:
         if not aspect:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Evaluation aspect not found"
+                detail="Aspek evaluasi tidak ditemukan"
             )
         
         # Check if aspect has evaluations
@@ -115,7 +116,7 @@ class EvaluationAspectService:
         if not aspect:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Evaluation aspect not found"
+                detail="Aspek evaluasi tidak ditemukan"
             )
         
         success = await self.aspect_repo.activate(aspect_id)
@@ -136,7 +137,7 @@ class EvaluationAspectService:
         if not aspect:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Evaluation aspect not found"
+                detail="Aspek evaluasi tidak ditemukan"
             )
         
         success = await self.aspect_repo.deactivate(aspect_id)
@@ -335,7 +336,7 @@ class EvaluationAspectService:
         if not aspect:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Evaluation aspect not found"
+                detail="Aspek evaluasi tidak ditemukan"
             )
         
         analysis_data = await self.aspect_repo.get_aspect_performance_analysis(aspect_id)

@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from src.models.period import Period
 from src.schemas.period import PeriodCreate, PeriodUpdate, PeriodFilter
+from src.utils.messages import get_message
 
 
 class PeriodRepository:
@@ -156,17 +157,17 @@ class PeriodRepository:
         """Check if period can be activated. Returns (can_activate, reason)."""
         period = await self.get_by_id(period_id)
         if not period:
-            return False, "Period not found"
+            return False, get_message("period", "not_found")
         
         if period.is_active:
-            return True, "Period is already active"
+            return True, "Periode sudah aktif"
         
         has_active = await self.has_active_period()
         if has_active:
             active_period = await self.get_active_period()
-            return False, f"Another period is already active: {active_period.period_name if active_period else 'Unknown'}"
+            return False, f"Periode lain sudah aktif: {active_period.period_name if active_period else 'Tidak diketahui'}"
         
-        return True, "Can activate"
+        return True, "Dapat diaktifkan"
     
     async def activate(self, period_id: int, updated_by: Optional[int] = None) -> Optional[Period]:
         """Activate a period. Business rule: only one period can be active at a time."""

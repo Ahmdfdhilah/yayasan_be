@@ -22,6 +22,7 @@ from src.schemas.dashboard import (
     AdminDashboard
 )
 from src.models.enums import RPPSubmissionStatus, EvaluationGrade
+from src.utils.messages import get_message
 
 
 class DashboardService:
@@ -52,7 +53,7 @@ class DashboardService:
         if not user_obj:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail=get_message("user", "not_found")
             )
         
         # Determine user role and organization - prioritize JWT roles

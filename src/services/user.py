@@ -13,6 +13,7 @@ from src.schemas.user import UserFilterParams
 from src.auth.jwt import get_password_hash, verify_password
 from src.models.user import User
 from src.models.enums import UserStatus
+from src.utils.messages import get_message
 
 
 class UserService:
@@ -32,7 +33,7 @@ class UserService:
         if await self.user_repo.email_exists(user_data.email):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail=get_message("user", "email_exists")
             )
         
         # Create user in database
@@ -48,7 +49,7 @@ class UserService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail=get_message("user", "not_found")
             )
         user_roles = await self._get_user_roles(user.id)
         return UserResponse.from_user_model(user, user_roles)
@@ -68,14 +69,14 @@ class UserService:
         if not existing_user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail=get_message("user", "not_found")
             )
         
         # Validate email uniqueness if being updated
         if hasattr(user_data, 'email') and user_data.email and await self.user_repo.email_exists(user_data.email, exclude_user_id=user_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail=get_message("user", "email_exists")
             )
         
         # Update user in database
@@ -95,7 +96,7 @@ class UserService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail=get_message("user", "not_found")
             )
         
         # Verify current password
@@ -131,7 +132,7 @@ class UserService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail=get_message("user", "not_found")
             )
         
         # Reset to default password
@@ -154,7 +155,7 @@ class UserService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail=get_message("user", "not_found")
             )
         
         # Check if user has admin role (prevent deleting last admin)
@@ -268,7 +269,7 @@ class UserService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail=get_message("user", "not_found")
             )
         
         return user.get_profile_field(field_name)
@@ -279,7 +280,7 @@ class UserService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail=get_message("user", "not_found")
             )
         
         # Update the specific field

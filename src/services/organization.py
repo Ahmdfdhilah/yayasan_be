@@ -11,6 +11,7 @@ from src.schemas.organization import (
 from src.schemas.shared import MessageResponse
 from src.schemas.organization import OrganizationFilterParams
 from src.models.organization import Organization
+from src.utils.messages import get_message
 # Remove OrganizationType import as it's no longer used
 
 
@@ -26,7 +27,7 @@ class OrganizationService:
         if await self.org_repo.name_exists(org_data.name):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Organization name already exists"
+                detail=get_message("organization", "name_exists")
             )
         
         # Validate head_id if provided
@@ -35,7 +36,7 @@ class OrganizationService:
             if not head_user:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Head user not found"
+                    detail=get_message("user", "not_found")
                 )
         
         # Create organization in database
@@ -57,7 +58,7 @@ class OrganizationService:
         if not organization:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found"
+                detail=get_message("organization", "not_found")
             )
         
         # Get user count and head name
@@ -77,7 +78,7 @@ class OrganizationService:
         if not existing_org:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found"
+                detail=get_message("organization", "not_found")
             )
         
         # Validate name uniqueness if being updated
@@ -93,7 +94,7 @@ class OrganizationService:
             if not head_user:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Head user not found"
+                    detail=get_message("user", "not_found")
                 )
             # Ensure head user belongs to this organization
             if head_user.organization_id != org_id:
@@ -126,7 +127,7 @@ class OrganizationService:
         if not organization:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found"
+                detail=get_message("organization", "not_found")
             )
         
         # Check if organization has users
@@ -221,7 +222,7 @@ class OrganizationService:
         if not organization:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found"
+                detail=get_message("organization", "not_found")
             )
         
         # Validate user exists
@@ -272,7 +273,7 @@ class OrganizationService:
         if not organization:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found"
+                detail=get_message("organization", "not_found")
             )
         
         if not organization.head_id:
@@ -337,7 +338,7 @@ class OrganizationService:
         if not organization:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found"
+                detail=get_message("organization", "not_found")
             )
         return organization
     

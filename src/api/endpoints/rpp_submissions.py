@@ -30,6 +30,7 @@ from src.schemas.rpp_submission import (
 from src.schemas.shared import MessageResponse
 from src.models.enums import RPPType, RPPSubmissionStatus
 from src.auth.permissions import get_current_active_user, require_roles
+from src.utils.messages import get_message
 
 router = APIRouter()
 
@@ -306,7 +307,7 @@ async def get_submission(
             if submission.teacher_id != current_user["id"]:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You can only view your own submissions",
+                    detail=get_message("submission", "own_submissions_only"),
                 )
         elif "kepala_sekolah" in user_roles:
             # Kepala sekolah can see submissions in their organization

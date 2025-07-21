@@ -29,7 +29,7 @@ class MediaFileService:
         uploader_id: int,
         organization_id: Optional[int] = None,
         is_public: bool = False,
-        upload_path: str = "static/uploads"
+        upload_path: str = None
     ) -> MediaFileUploadResponse:
         """Upload file and create media file record."""
         
@@ -44,12 +44,20 @@ class MediaFileService:
         file_extension = Path(file.filename).suffix
         unique_filename = f"{uuid.uuid4()}{file_extension}"
         
+        # Use consistent upload path from settings
+        if upload_path is None:
+            from src.core.config import settings
+            upload_path = settings.UPLOADS_PATH
+        
         # Create upload directory if not exists
         upload_dir = Path(upload_path)
         upload_dir.mkdir(parents=True, exist_ok=True)
         
-        # Full file path
+        # Full file path for storage
         file_path = upload_dir / unique_filename
+        
+        # Web-compatible path for database (always forward slashes)
+        web_path = f"{upload_path}/{unique_filename}".replace("\\", "/")
         
         try:
             # Save file
@@ -65,7 +73,7 @@ class MediaFileService:
             # Create media file record
             media_file_data = MediaFileCreate(
                 file_name=file.filename,
-                file_path=str(file_path),
+                file_path=web_path,
                 file_type=file_type,
                 mime_type=mime_type,
                 file_size=file_size,
@@ -73,7 +81,7 @@ class MediaFileService:
                 organization_id=organization_id,
                 is_public=is_public,
                 file_metadata={
-                    "upload_path": str(upload_path),
+                    "upload_path": upload_path.replace("\\", "/"),
                     "unique_filename": unique_filename
                 }
             )

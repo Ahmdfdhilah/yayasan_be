@@ -125,20 +125,7 @@ class MediaFileService:
                     detail="Not authorized to access this file"
                 )
         
-        return MediaFileResponse(
-            id=media_file.id,
-            file_name=media_file.file_name,
-            file_path=media_file.file_path,
-            file_size=media_file.file_size,
-            file_type=media_file.file_type,
-            mime_type=media_file.mime_type,
-            uploader_id=media_file.uploader_id,
-            organization_id=media_file.organization_id,
-            is_public=media_file.is_public,
-            file_metadata=media_file.file_metadata,
-            created_at=media_file.created_at,
-            updated_at=media_file.updated_at
-        )
+        return MediaFileResponse.from_media_file_model(media_file, include_relations=True)
     
     async def list_files(
         self, 
@@ -152,25 +139,12 @@ class MediaFileService:
         if organization_id:
             filters.organization_id = organization_id
         
-        media_files, total_count = await self.media_file_repo.list_with_filters(filters)
+        media_files, total_count = await self.media_file_repo.get_all_files_filtered(filters)
         
         # Convert to response format
         files_response = []
         for media_file in media_files:
-            files_response.append(MediaFileResponse(
-                id=media_file.id,
-                file_name=media_file.file_name,
-                file_path=media_file.file_path,
-                file_size=media_file.file_size,
-                file_type=media_file.file_type,
-                mime_type=media_file.mime_type,
-                uploader_id=media_file.uploader_id,
-                organization_id=media_file.organization_id,
-                is_public=media_file.is_public,
-                file_metadata=media_file.file_metadata,
-                created_at=media_file.created_at,
-                updated_at=media_file.updated_at
-            ))
+            files_response.append(MediaFileResponse.from_media_file_model(media_file, include_relations=True))
         
         return MediaFileListResponse(
             items=files_response,
@@ -207,20 +181,7 @@ class MediaFileService:
             file_data.model_dump(exclude_unset=True)
         )
         
-        return MediaFileResponse(
-            id=updated_media_file.id,
-            file_name=updated_media_file.file_name,
-            file_path=updated_media_file.file_path,
-            file_size=updated_media_file.file_size,
-            file_type=updated_media_file.file_type,
-            mime_type=updated_media_file.mime_type,
-            uploader_id=updated_media_file.uploader_id,
-            organization_id=updated_media_file.organization_id,
-            is_public=updated_media_file.is_public,
-            file_metadata=updated_media_file.file_metadata,
-            created_at=updated_media_file.created_at,
-            updated_at=updated_media_file.updated_at
-        )
+        return MediaFileResponse.from_media_file_model(updated_media_file, include_relations=True)
     
     async def delete_file(self, file_id: int, user_id: int) -> MessageResponse:
         """Delete media file and remove from filesystem."""

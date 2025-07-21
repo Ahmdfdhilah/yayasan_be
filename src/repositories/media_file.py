@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 from sqlalchemy import select, and_, or_, func, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from src.models.media_file import MediaFile
 from src.models.user import User
@@ -41,7 +42,10 @@ class MediaFileRepository:
     
     async def get_by_id(self, file_id: int) -> Optional[MediaFile]:
         """Get media file by ID."""
-        query = select(MediaFile).where(
+        query = select(MediaFile).options(
+            joinedload(MediaFile.uploader),
+            joinedload(MediaFile.organization)
+        ).where(
             and_(MediaFile.id == file_id, MediaFile.deleted_at.is_(None))
         )
         result = await self.session.execute(query)
@@ -49,7 +53,10 @@ class MediaFileRepository:
     
     async def get_by_path(self, file_path: str) -> Optional[MediaFile]:
         """Get media file by path."""
-        query = select(MediaFile).where(
+        query = select(MediaFile).options(
+            joinedload(MediaFile.uploader),
+            joinedload(MediaFile.organization)
+        ).where(
             and_(MediaFile.file_path == file_path, MediaFile.deleted_at.is_(None))
         )
         result = await self.session.execute(query)
@@ -111,8 +118,11 @@ class MediaFileRepository:
     
     async def get_all_files_filtered(self, filters: MediaFileFilterParams) -> Tuple[List[MediaFile], int]:
         """Get media files with filters and pagination."""
-        # Base query
-        query = select(MediaFile).where(MediaFile.deleted_at.is_(None))
+        # Base query with relationships
+        query = select(MediaFile).options(
+            joinedload(MediaFile.uploader),
+            joinedload(MediaFile.organization)
+        ).where(MediaFile.deleted_at.is_(None))
         count_query = select(func.count(MediaFile.id)).where(MediaFile.deleted_at.is_(None))
         
         # Apply filters
@@ -197,7 +207,10 @@ class MediaFileRepository:
     async def get_by_uploader(self, uploader_id: int, limit: int = 10) -> List[MediaFile]:
         """Get files uploaded by specific user."""
         query = (
-            select(MediaFile)
+            select(MediaFile).options(
+                joinedload(MediaFile.uploader),
+                joinedload(MediaFile.organization)
+            )
             .where(
                 and_(
                     MediaFile.uploader_id == uploader_id,
@@ -214,7 +227,10 @@ class MediaFileRepository:
     async def get_by_organization(self, organization_id: int, limit: int = 10) -> List[MediaFile]:
         """Get files in specific organization."""
         query = (
-            select(MediaFile)
+            select(MediaFile).options(
+                joinedload(MediaFile.uploader),
+                joinedload(MediaFile.organization)
+            )
             .where(
                 and_(
                     MediaFile.organization_id == organization_id,
@@ -231,7 +247,10 @@ class MediaFileRepository:
     async def get_public_files(self, limit: int = 10) -> List[MediaFile]:
         """Get public files."""
         query = (
-            select(MediaFile)
+            select(MediaFile).options(
+                joinedload(MediaFile.uploader),
+                joinedload(MediaFile.organization)
+            )
             .where(
                 and_(
                     MediaFile.is_public == True,
@@ -248,7 +267,10 @@ class MediaFileRepository:
     async def get_by_file_type(self, file_type: str, limit: int = 10) -> List[MediaFile]:
         """Get files by type."""
         query = (
-            select(MediaFile)
+            select(MediaFile).options(
+                joinedload(MediaFile.uploader),
+                joinedload(MediaFile.organization)
+            )
             .where(
                 and_(
                     MediaFile.file_type == file_type,
@@ -267,7 +289,10 @@ class MediaFileRepository:
         search_filter = MediaFile.file_name.ilike(f"%{search_term}%")
         
         query = (
-            select(MediaFile)
+            select(MediaFile).options(
+                joinedload(MediaFile.uploader),
+                joinedload(MediaFile.organization)
+            )
             .where(
                 and_(
                     search_filter,

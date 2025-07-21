@@ -2,7 +2,7 @@
 
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
-from sqlalchemy import select, and_, or_, func, update, delete, distinct
+from sqlalchemy import select, and_, or_, func, update, delete, case, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
@@ -402,10 +402,10 @@ class RPPSubmissionRepository:
         """Get submission statistics."""
         query = select(
             func.count(RPPSubmission.id).label('total'),
-            func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.DRAFT, 1), else_=0)).label('draft'),
-            func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.PENDING, 1), else_=0)).label('pending'),
-            func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.APPROVED, 1), else_=0)).label('approved'),
-            func.sum(func.case((RPPSubmission.status == RPPSubmissionStatus.REJECTED, 1), else_=0)).label('rejected'),
+            func.sum(case((RPPSubmission.status == RPPSubmissionStatus.DRAFT, 1), else_=0)).label('draft'),
+            func.sum(case((RPPSubmission.status == RPPSubmissionStatus.PENDING, 1), else_=0)).label('pending'),
+            func.sum(case((RPPSubmission.status == RPPSubmissionStatus.APPROVED, 1), else_=0)).label('approved'),
+            func.sum(case((RPPSubmission.status == RPPSubmissionStatus.REJECTED, 1), else_=0)).label('rejected'),
         ).where(RPPSubmission.deleted_at.is_(None))
         
         if period_id:
@@ -445,3 +445,119 @@ class RPPSubmissionRepository:
         required_types = set(RPPType.get_all_values())
         
         return len(uploaded_types) == len(required_types) and uploaded_types == required_types
+
+    # Dashboard-specific methods
+    
+    async def get_teacher_progress(self, teacher_id: int) -> Dict[str, Any]:
+        """Get RPP progress for a specific teacher."""
+        query = select(
+            func.count(RPPSubmission.id).label('total_submitted'),
+            func.sum(case((RPPSubmission.status == RPPSubmissionStatus.PENDING, 1), else_=0)).label('pending'),
+            func.sum(case((RPPSubmission.status == RPPSubmissionStatus.APPROVED, 1), else_=0)).label('approved'),
+            func.sum(case((RPPSubmission.status == RPPSubmissionStatus.REJECTED, 1), else_=0)).label('rejected'),
+        ).where(
+            and_(
+                RPPSubmission.teacher_id == teacher_id,
+                RPPSubmission.deleted_at.is_(None)
+            )
+        )
+        
+        result = await self.session.execute(query)
+        stats = result.one()
+        
+        total = stats.total_submitted or 0
+        approved = stats.approved or 0
+        completion_rate = (approved / total * 100) if total > 0 else 0
+        
+        return {
+            'total_submitted': total,
+            'pending': stats.pending or 0,
+            'approved': approved,
+            'rejected': stats.rejected or 0,
+            'completion_rate': completion_rate
+        }
+    
+    async def get_submissions_analytics(self, organization_id: Optional[int] = None) -> Dict[str, Any]:
+        """Get submissions analytics for organization or system-wide."""
+        # Base query for submission counts
+        query = select(
+            func.count(RPPSubmission.id).label('total'),
+            func.sum(case((RPPSubmission.status == RPPSubmissionStatus.PENDING, 1), else_=0)).label('pending'),
+            func.sum(case((RPPSubmission.status == RPPSubmissionStatus.APPROVED, 1), else_=0)).label('approved'),
+            func.sum(case((RPPSubmission.status == RPPSubmissionStatus.REJECTED, 1), else_=0)).label('rejected'),
+        ).where(RPPSubmission.deleted_at.is_(None))
+        
+        if organization_id:
+            query = query.join(User, RPPSubmission.teacher_id == User.id).where(
+                User.organization_id == organization_id
+            )
+        
+        result = await self.session.execute(query)
+        stats = result.one()
+        
+        # Count pending reviews (submissions with PENDING status)
+        pending_reviews_query = select(func.count(RPPSubmission.id)).where(
+            and_(
+                RPPSubmission.status == RPPSubmissionStatus.PENDING,
+                RPPSubmission.deleted_at.is_(None)
+            )
+        )
+        
+        if organization_id:
+            pending_reviews_query = pending_reviews_query.join(
+                User, RPPSubmission.teacher_id == User.id
+            ).where(User.organization_id == organization_id)
+        
+        pending_reviews_result = await self.session.execute(pending_reviews_query)
+        pending_reviews = pending_reviews_result.scalar() or 0
+        
+        return {
+            'total_submissions': stats.total or 0,
+            'by_status': {
+                'pending': stats.pending or 0,
+                'approved': stats.approved or 0,
+                'rejected': stats.rejected or 0
+            },
+            'pending_reviews': pending_reviews,
+            'avg_review_time_hours': None  # Could be calculated if we track review timestamps
+        }
+    
+    async def get_teacher_submissions(self, teacher_id: int, period_id: Optional[int] = None) -> List[RPPSubmission]:
+        """Get all submissions for a teacher, optionally filtered by period."""
+        query = select(RPPSubmission).where(
+            and_(
+                RPPSubmission.teacher_id == teacher_id,
+                RPPSubmission.deleted_at.is_(None)
+            )
+        )
+        
+        if period_id:
+            query = query.where(RPPSubmission.period_id == period_id)
+        
+        query = query.order_by(RPPSubmission.created_at.desc())
+        
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+    
+    async def get_pending_reviews(self, reviewer_id: int) -> List[RPPSubmission]:
+        """Get submissions pending review by a specific reviewer (principal)."""
+        # Get submissions with PENDING status from teachers in the same organization as reviewer
+        reviewer_query = select(User.organization_id).where(User.id == reviewer_id)
+        reviewer_result = await self.session.execute(reviewer_query)
+        reviewer_org_id = reviewer_result.scalar()
+        
+        if not reviewer_org_id:
+            return []
+        
+        query = select(RPPSubmission).join(
+            User, RPPSubmission.teacher_id == User.id
+        ).where(
+            and_(
+                RPPSubmission.status == RPPSubmissionStatus.PENDING,
+                User.organization_id == reviewer_org_id,
+                RPPSubmission.deleted_at.is_(None)
+            )
+        ).order_by(RPPSubmission.created_at.asc())
+        
+        result = await self.session.execute(query)
+        return list(result.scalars().all())

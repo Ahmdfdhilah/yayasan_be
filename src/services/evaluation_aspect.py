@@ -484,7 +484,7 @@ class EvaluationAspectService:
         ]
     
     async def update_category_order(self, order_data: CategoryOrderUpdate) -> MessageResponse:
-        """Update category display order."""
+        """Update category display order with automatic gap fixing."""
         # Check if category exists
         category = await self.aspect_repo.get_category_by_id(order_data.category_id)
         if not category:
@@ -504,6 +504,9 @@ class EvaluationAspectService:
                 detail="Failed to update category order"
             )
         
+        # Automatically fix any gaps after the update
+        await self.aspect_repo.fix_category_ordering_gaps()
+        
         return MessageResponse(
             message=f"Successfully updated category '{category.name}' order to {order_data.new_order}"
         )
@@ -511,7 +514,7 @@ class EvaluationAspectService:
     # ===== ORDERING METHODS =====
     
     async def update_aspect_order(self, order_data: AspectOrderUpdate) -> MessageResponse:
-        """Update aspect order."""
+        """Update aspect order with automatic gap fixing."""
         # Check if aspect exists
         aspect = await self.aspect_repo.get_by_id(order_data.aspect_id)
         if not aspect:
@@ -531,12 +534,15 @@ class EvaluationAspectService:
                 detail="Failed to update aspect order"
             )
         
+        # Automatically fix any gaps within the category after the update
+        await self.aspect_repo.fix_aspect_ordering_gaps_in_category(aspect.category_id)
+        
         return MessageResponse(
             message=f"Successfully updated aspect order for '{aspect.aspect_name}' to {order_data.new_order}"
         )
     
     async def reorder_aspects_in_category(self, reorder_data: CategoryAspectsReorder) -> MessageResponse:
-        """Reorder multiple aspects within a category."""
+        """Reorder multiple aspects within a category with automatic gap fixing."""
         # Check if category exists
         category = await self.aspect_repo.get_category_by_id(reorder_data.category_id)
         if not category:
@@ -569,6 +575,9 @@ class EvaluationAspectService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to reorder aspects in category"
             )
+        
+        # Automatically fix any gaps after bulk reordering
+        await self.aspect_repo.fix_aspect_ordering_gaps_in_category(reorder_data.category_id)
         
         return MessageResponse(
             message=f"Successfully reordered {len(reorder_data.aspect_orders)} aspects in category '{category.name}'"
@@ -628,7 +637,7 @@ class EvaluationAspectService:
         )
     
     async def auto_assign_orders(self) -> MessageResponse:
-        """Auto-assign orders to categories and aspects that don't have them."""
+        """Auto-assign orders to categories and aspects with automatic gap fixing."""
         success = await self.aspect_repo.auto_assign_orders()
         
         if not success:
@@ -637,6 +646,15 @@ class EvaluationAspectService:
                 detail="Failed to auto-assign orders"
             )
         
+        # Automatically fix gaps after auto-assignment
+        await self.aspect_repo.fix_category_ordering_gaps()
+        
+        # Fix aspect ordering gaps for all categories
+        categories = await self.aspect_repo.get_all_categories(include_inactive=True)
+        for category in categories:
+            await self.aspect_repo.fix_aspect_ordering_gaps_in_category(category.id)
+        
         return MessageResponse(
             message="Successfully auto-assigned orders to all categories and aspects"
         )
+    

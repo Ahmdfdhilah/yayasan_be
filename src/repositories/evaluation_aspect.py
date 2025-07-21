@@ -24,11 +24,17 @@ class EvaluationAspectRepository:
     
     async def create(self, aspect_data: EvaluationAspectCreate, created_by: Optional[int] = None) -> EvaluationAspect:
         """Create new evaluation aspect."""
+        # If no display_order provided, append to end of category
+        display_order = aspect_data.display_order
+        if display_order is None:
+            max_order = await self.get_max_aspect_order_in_category(aspect_data.category_id)
+            display_order = max_order + 1
+        
         aspect = EvaluationAspect(
             aspect_name=aspect_data.aspect_name,
             category_id=aspect_data.category_id,
             description=aspect_data.description,
-            display_order=aspect_data.display_order,
+            display_order=display_order,
             is_active=aspect_data.is_active,
             created_by=created_by
         )
@@ -458,8 +464,13 @@ class EvaluationAspectRepository:
     
     # ===== CATEGORY MANAGEMENT METHODS =====
     
-    async def create_category(self, name: str, description: Optional[str] = None, display_order: int = 1, created_by: Optional[int] = None) -> EvaluationCategory:
+    async def create_category(self, name: str, description: Optional[str] = None, display_order: Optional[int] = None, created_by: Optional[int] = None) -> EvaluationCategory:
         """Create new evaluation category."""
+        # If no display_order provided, append to end
+        if display_order is None:
+            max_order = await self.get_max_category_order()
+            display_order = max_order + 1
+        
         category = EvaluationCategory(
             name=name,
             description=description,
@@ -493,32 +504,147 @@ class EvaluationAspectRepository:
         return list(result.scalars().all())
     
     async def update_category_order(self, category_id: int, new_order: int) -> bool:
-        """Update category display order."""
-        query = (
-            update(EvaluationCategory)
-            .where(EvaluationCategory.id == category_id)
-            .values(
-                display_order=new_order,
-                updated_at=datetime.utcnow()
+        """Update category display order with auto-shifting."""
+        try:
+            # Get current category
+            current_category = await self.get_category_by_id(category_id)
+            if not current_category:
+                return False
+            
+            current_order = current_category.display_order
+            
+            # If same order, no change needed
+            if current_order == new_order:
+                return True
+            
+            # If moving up (to lower number), shift others down
+            if new_order < current_order:
+                # Shift categories at new_order and above up by 1
+                shift_query = (
+                    update(EvaluationCategory)
+                    .where(
+                        and_(
+                            EvaluationCategory.display_order >= new_order,
+                            EvaluationCategory.display_order < current_order,
+                            EvaluationCategory.deleted_at.is_(None)
+                        )
+                    )
+                    .values(
+                        display_order=EvaluationCategory.display_order + 1,
+                        updated_at=datetime.utcnow()
+                    )
+                )
+                await self.session.execute(shift_query)
+            
+            # If moving down (to higher number), shift others up
+            elif new_order > current_order:
+                # Shift categories between current and new down by 1
+                shift_query = (
+                    update(EvaluationCategory)
+                    .where(
+                        and_(
+                            EvaluationCategory.display_order > current_order,
+                            EvaluationCategory.display_order <= new_order,
+                            EvaluationCategory.deleted_at.is_(None)
+                        )
+                    )
+                    .values(
+                        display_order=EvaluationCategory.display_order - 1,
+                        updated_at=datetime.utcnow()
+                    )
+                )
+                await self.session.execute(shift_query)
+            
+            # Update target category to new position
+            update_query = (
+                update(EvaluationCategory)
+                .where(EvaluationCategory.id == category_id)
+                .values(
+                    display_order=new_order,
+                    updated_at=datetime.utcnow()
+                )
             )
-        )
-        result = await self.session.execute(query)
-        await self.session.commit()
-        return result.rowcount > 0
+            result = await self.session.execute(update_query)
+            
+            await self.session.commit()
+            return result.rowcount > 0
+            
+        except Exception:
+            await self.session.rollback()
+            return False
     
     async def update_aspect_order(self, aspect_id: int, new_order: int) -> bool:
-        """Update aspect display order within its category."""
-        query = (
-            update(EvaluationAspect)
-            .where(EvaluationAspect.id == aspect_id)
-            .values(
-                display_order=new_order,
-                updated_at=datetime.utcnow()
+        """Update aspect display order within its category with auto-shifting."""
+        try:
+            # Get current aspect
+            current_aspect = await self.get_by_id(aspect_id)
+            if not current_aspect:
+                return False
+            
+            category_id = current_aspect.category_id
+            current_order = current_aspect.display_order
+            
+            # If same order, no change needed
+            if current_order == new_order:
+                return True
+            
+            # If moving up (to lower number), shift others down
+            if new_order < current_order:
+                # Shift aspects in same category at new_order and above up by 1
+                shift_query = (
+                    update(EvaluationAspect)
+                    .where(
+                        and_(
+                            EvaluationAspect.category_id == category_id,
+                            EvaluationAspect.display_order >= new_order,
+                            EvaluationAspect.display_order < current_order,
+                            EvaluationAspect.deleted_at.is_(None)
+                        )
+                    )
+                    .values(
+                        display_order=EvaluationAspect.display_order + 1,
+                        updated_at=datetime.utcnow()
+                    )
+                )
+                await self.session.execute(shift_query)
+            
+            # If moving down (to higher number), shift others up
+            elif new_order > current_order:
+                # Shift aspects in same category between current and new down by 1
+                shift_query = (
+                    update(EvaluationAspect)
+                    .where(
+                        and_(
+                            EvaluationAspect.category_id == category_id,
+                            EvaluationAspect.display_order > current_order,
+                            EvaluationAspect.display_order <= new_order,
+                            EvaluationAspect.deleted_at.is_(None)
+                        )
+                    )
+                    .values(
+                        display_order=EvaluationAspect.display_order - 1,
+                        updated_at=datetime.utcnow()
+                    )
+                )
+                await self.session.execute(shift_query)
+            
+            # Update target aspect to new position
+            update_query = (
+                update(EvaluationAspect)
+                .where(EvaluationAspect.id == aspect_id)
+                .values(
+                    display_order=new_order,
+                    updated_at=datetime.utcnow()
+                )
             )
-        )
-        result = await self.session.execute(query)
-        await self.session.commit()
-        return result.rowcount > 0
+            result = await self.session.execute(update_query)
+            
+            await self.session.commit()
+            return result.rowcount > 0
+            
+        except Exception:
+            await self.session.rollback()
+            return False
     
     async def reorder_aspects_in_category(self, category_id: int, aspect_order_map: Dict[int, int]) -> bool:
         """Reorder multiple aspects within a category."""
@@ -610,9 +736,17 @@ class EvaluationAspectRepository:
             # Get all categories and assign orders
             categories = await self.get_all_categories(include_inactive=True)
             
-            # Assign category orders
+            # Assign category orders sequentially (simple update without shifting)
             for i, category in enumerate(categories, 1):
-                await self.update_category_order(category.id, i)
+                simple_update = (
+                    update(EvaluationCategory)
+                    .where(EvaluationCategory.id == category.id)
+                    .values(
+                        display_order=i,
+                        updated_at=datetime.utcnow()
+                    )
+                )
+                await self.session.execute(simple_update)
             
             # Assign aspect orders within each category
             for category in categories:
@@ -626,9 +760,101 @@ class EvaluationAspectRepository:
                 aspects_result = await self.session.execute(aspects_query)
                 aspects = aspects_result.scalars().all()
                 
+                # Simple sequential update for aspects in each category
                 for i, aspect in enumerate(aspects, 1):
-                    await self.update_aspect_order(aspect.id, i)
+                    simple_update = (
+                        update(EvaluationAspect)
+                        .where(EvaluationAspect.id == aspect.id)
+                        .values(
+                            display_order=i,
+                            updated_at=datetime.utcnow()
+                        )
+                    )
+                    await self.session.execute(simple_update)
             
+            await self.session.commit()
+            return True
+        except Exception:
+            await self.session.rollback()
+            return False
+    
+    # ===== HELPER METHODS FOR ORDERING =====
+    
+    async def get_max_category_order(self) -> int:
+        """Get maximum category display order."""
+        query = select(func.max(EvaluationCategory.display_order)).where(
+            EvaluationCategory.deleted_at.is_(None)
+        )
+        result = await self.session.execute(query)
+        max_order = result.scalar() or 0
+        return max_order
+    
+    async def get_max_aspect_order_in_category(self, category_id: int) -> int:
+        """Get maximum aspect display order in a category."""
+        query = select(func.max(EvaluationAspect.display_order)).where(
+            and_(
+                EvaluationAspect.category_id == category_id,
+                EvaluationAspect.deleted_at.is_(None)
+            )
+        )
+        result = await self.session.execute(query)
+        max_order = result.scalar() or 0
+        return max_order
+    
+    async def fix_category_ordering_gaps(self) -> bool:
+        """Fix any gaps in category ordering (e.g., 1,2,4,6 -> 1,2,3,4)."""
+        try:
+            categories_query = select(EvaluationCategory).where(
+                EvaluationCategory.deleted_at.is_(None)
+            ).order_by(EvaluationCategory.display_order.asc(), EvaluationCategory.name.asc())
+            
+            result = await self.session.execute(categories_query)
+            categories = result.scalars().all()
+            
+            for i, category in enumerate(categories, 1):
+                if category.display_order != i:
+                    update_query = (
+                        update(EvaluationCategory)
+                        .where(EvaluationCategory.id == category.id)
+                        .values(
+                            display_order=i,
+                            updated_at=datetime.utcnow()
+                        )
+                    )
+                    await self.session.execute(update_query)
+            
+            await self.session.commit()
+            return True
+        except Exception:
+            await self.session.rollback()
+            return False
+    
+    async def fix_aspect_ordering_gaps_in_category(self, category_id: int) -> bool:
+        """Fix any gaps in aspect ordering within a category."""
+        try:
+            aspects_query = select(EvaluationAspect).where(
+                and_(
+                    EvaluationAspect.category_id == category_id,
+                    EvaluationAspect.deleted_at.is_(None)
+                )
+            ).order_by(EvaluationAspect.display_order.asc(), EvaluationAspect.aspect_name.asc())
+            
+            result = await self.session.execute(aspects_query)
+            aspects = result.scalars().all()
+            
+            for i, aspect in enumerate(aspects, 1):
+                if aspect.display_order != i:
+                    update_query = (
+                        update(EvaluationAspect)
+                        .where(EvaluationAspect.id == aspect.id)
+                        .values(
+                            display_order=i,
+                            updated_at=datetime.utcnow()
+                        )
+                    )
+                    await self.session.execute(update_query)
+            
+            await self.session.commit()
             return True
         except Exception:
             await self.session.rollback()

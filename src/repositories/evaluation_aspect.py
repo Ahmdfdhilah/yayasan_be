@@ -313,3 +313,108 @@ class EvaluationAspectRepository:
         result = await self.session.execute(query)
         count = result.scalar()
         return count > 0
+    
+    # ===== SYNC METHODS =====
+    
+    async def sync_aspect_to_all_evaluations(self, aspect_id: int, created_by: Optional[int] = None) -> int:
+        """Add aspect to all existing teacher evaluations."""
+        from src.models.teacher_evaluation import TeacherEvaluation
+        from src.models.teacher_evaluation_item import TeacherEvaluationItem
+        from src.models.enums import EvaluationGrade
+        from sqlalchemy.orm import selectinload
+        
+        # Get all existing teacher evaluations with items preloaded
+        evaluations_query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.items)
+        )
+        evaluations_result = await self.session.execute(evaluations_query)
+        evaluations = evaluations_result.scalars().all()
+        
+        items_created = 0
+        for evaluation in evaluations:
+            # Check if item already exists for this aspect (using preloaded items)
+            existing_item = None
+            for item in evaluation.items:
+                if item.aspect_id == aspect_id:
+                    existing_item = item
+                    break
+            
+            if not existing_item:
+                # Create new item with default grade C
+                new_item = TeacherEvaluationItem(
+                    teacher_evaluation_id=evaluation.id,
+                    aspect_id=aspect_id,
+                    grade=EvaluationGrade.C,  # Default grade
+                    created_by=created_by
+                )
+                from datetime import datetime
+                new_item.updated_at = datetime.utcnow()
+                self.session.add(new_item)
+                items_created += 1
+        
+        if items_created > 0:
+            await self.session.commit()
+            
+        return items_created
+    
+    async def remove_aspect_from_all_evaluations(self, aspect_id: int) -> int:
+        """Remove aspect from all teacher evaluations."""
+        from src.models.teacher_evaluation_item import TeacherEvaluationItem
+        
+        # Delete all items with this aspect_id
+        delete_query = delete(TeacherEvaluationItem).where(
+            TeacherEvaluationItem.aspect_id == aspect_id
+        )
+        result = await self.session.execute(delete_query)
+        items_deleted = result.rowcount
+        
+        if items_deleted > 0:
+            await self.session.commit()
+            
+        return items_deleted
+    
+    async def sync_all_active_aspects_to_evaluations(self) -> int:
+        """Ensure all active aspects are in all evaluations."""
+        from src.models.teacher_evaluation import TeacherEvaluation
+        from src.models.teacher_evaluation_item import TeacherEvaluationItem
+        from src.models.enums import EvaluationGrade
+        from sqlalchemy.orm import selectinload
+        
+        # Get all active aspects
+        active_aspects = await self.get_active_aspects()
+        
+        # Get all evaluations with items preloaded
+        evaluations_query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.items)
+        )
+        evaluations_result = await self.session.execute(evaluations_query)
+        evaluations = evaluations_result.scalars().all()
+        
+        total_items_created = 0
+        
+        for aspect in active_aspects:
+            for evaluation in evaluations:
+                # Check if item exists (using preloaded items)
+                existing_item = None
+                for item in evaluation.items:
+                    if item.aspect_id == aspect.id:
+                        existing_item = item
+                        break
+                
+                if not existing_item:
+                    # Create missing item
+                    new_item = TeacherEvaluationItem(
+                        teacher_evaluation_id=evaluation.id,
+                        aspect_id=aspect.id,
+                        grade=EvaluationGrade.C,
+                        created_by=1  # System user
+                    )
+                    from datetime import datetime
+                    new_item.updated_at = datetime.utcnow()
+                    self.session.add(new_item)
+                    total_items_created += 1
+        
+        if total_items_created > 0:
+            await self.session.commit()
+        
+        return total_items_created

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db
 from src.auth.permissions import get_current_active_user, admin_required
 from src.repositories.evaluation_aspect import EvaluationAspectRepository
+from src.repositories.teacher_evaluation import TeacherEvaluationRepository
 from src.services.evaluation_aspect import EvaluationAspectService
 from src.schemas.evaluation_aspect import (
     EvaluationAspectCreate,
@@ -30,7 +31,8 @@ router = APIRouter(prefix="/evaluation-aspects", tags=["Evaluation Aspects"])
 def get_aspect_service(db: AsyncSession = Depends(get_db)) -> EvaluationAspectService:
     """Get evaluation aspect service with auto-sync functionality."""
     aspect_repo = EvaluationAspectRepository(db)
-    return EvaluationAspectService(aspect_repo, db)
+    evaluation_repo = TeacherEvaluationRepository(db)
+    return EvaluationAspectService(aspect_repo, evaluation_repo, db)
 
 
 # ===== BASIC CRUD OPERATIONS =====

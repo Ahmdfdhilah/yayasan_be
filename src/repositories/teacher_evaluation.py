@@ -494,3 +494,21 @@ class TeacherEvaluationRepository:
         await self.session.commit()
         await self._recalculate_evaluation_aggregates(evaluation_id)
     
+    async def recalculate_all_aggregates(self) -> int:
+        """Recalculate aggregates for all teacher evaluations."""
+        from sqlalchemy.orm import selectinload
+        
+        # Load evaluations with items using eager loading
+        evaluations_query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.items)
+        )
+        evaluations_result = await self.session.execute(evaluations_query)
+        evaluations = evaluations_result.scalars().all()
+        
+        for evaluation in evaluations:
+            # Recalculate aggregates - items are already loaded
+            evaluation.recalculate_aggregates()
+        
+        await self.session.commit()
+        return len(evaluations)
+    

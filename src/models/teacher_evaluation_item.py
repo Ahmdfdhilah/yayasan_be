@@ -3,7 +3,7 @@
 from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint, Column
-from sqlalchemy import Enum as SQLAlchemyEnum
+from sqlalchemy import Enum as SQLAlchemyEnum, Integer, ForeignKey
 
 from .base import BaseModel
 from .enums import EvaluationGrade
@@ -24,10 +24,13 @@ class TeacherEvaluationItem(BaseModel, SQLModel, table=True):
     
     id: int = Field(primary_key=True)
     teacher_evaluation_id: int = Field(
-        foreign_key="teacher_evaluations.id", 
-        nullable=False, 
-        index=True,
-        description="Reference to parent teacher evaluation"
+        description="Reference to parent teacher evaluation",
+        sa_column=Column(
+            Integer, 
+            ForeignKey("teacher_evaluations.id", ondelete="CASCADE"), 
+            nullable=False,
+            index=True
+        )
     )
     aspect_id: int = Field(
         foreign_key="evaluation_aspects.id", 

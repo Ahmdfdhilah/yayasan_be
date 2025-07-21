@@ -39,7 +39,7 @@ class EvaluationAspectRepository:
     async def get_by_id(self, aspect_id: int) -> Optional[EvaluationAspect]:
         """Get evaluation aspect by ID with relationships."""
         query = select(EvaluationAspect).options(
-            selectinload(EvaluationAspect.teacher_evaluations)
+            selectinload(EvaluationAspect.teacher_evaluation_items)
         ).where(
             and_(EvaluationAspect.id == aspect_id, EvaluationAspect.deleted_at.is_(None))
         )
@@ -242,19 +242,25 @@ class EvaluationAspectRepository:
     
     async def get_aspect_statistics(self, aspect_id: int) -> Dict[str, Any]:
         """Get statistics for a specific aspect."""
-        # Count evaluations using this aspect
-        eval_count_query = select(func.count(TeacherEvaluation.id)).where(
-            and_(
-                TeacherEvaluation.aspect_id == aspect_id,
-                TeacherEvaluation.deleted_at.is_(None)
-            )
+        from src.models.teacher_evaluation_item import TeacherEvaluationItem
+        
+        # Count evaluation items using this aspect
+        eval_count_query = select(func.count(TeacherEvaluationItem.id)).where(
+            TeacherEvaluationItem.aspect_id == aspect_id
         )
         eval_count_result = await self.session.execute(eval_count_query)
         evaluation_count = eval_count_result.scalar()
         
+        # Calculate average score
+        avg_score_query = select(func.avg(TeacherEvaluationItem.score)).where(
+            TeacherEvaluationItem.aspect_id == aspect_id
+        )
+        avg_score_result = await self.session.execute(avg_score_query)
+        avg_score = avg_score_result.scalar() or 0.0
+        
         return {
             "evaluation_count": evaluation_count,
-            "avg_score": 0.0  # Simplified - no scores in this version
+            "avg_score": round(float(avg_score), 2)
         }
     
     async def get_aspects_analytics(self) -> Dict[str, Any]:
@@ -298,12 +304,11 @@ class EvaluationAspectRepository:
         return result.scalar_one_or_none() is not None
     
     async def has_evaluations(self, aspect_id: int) -> bool:
-        """Check if aspect has any evaluations."""
-        query = select(func.count(TeacherEvaluation.id)).where(
-            and_(
-                TeacherEvaluation.aspect_id == aspect_id,
-                TeacherEvaluation.deleted_at.is_(None)
-            )
+        """Check if aspect has any evaluation items."""
+        from src.models.teacher_evaluation_item import TeacherEvaluationItem
+        
+        query = select(func.count(TeacherEvaluationItem.id)).where(
+            TeacherEvaluationItem.aspect_id == aspect_id
         )
         result = await self.session.execute(query)
         count = result.scalar()

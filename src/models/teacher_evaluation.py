@@ -48,7 +48,8 @@ class TeacherEvaluation(BaseModel, SQLModel, table=True):
     )
     period: "Period" = Relationship(back_populates="teacher_evaluations")
     items: List["TeacherEvaluationItem"] = Relationship(
-        back_populates="teacher_evaluation"
+        back_populates="teacher_evaluation",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     
     def __repr__(self) -> str:

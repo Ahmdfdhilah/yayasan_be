@@ -28,9 +28,9 @@ router = APIRouter(prefix="/evaluation-aspects", tags=["Evaluation Aspects"])
 
 
 def get_aspect_service(db: AsyncSession = Depends(get_db)) -> EvaluationAspectService:
-    """Get evaluation aspect service."""
+    """Get evaluation aspect service with auto-sync functionality."""
     aspect_repo = EvaluationAspectRepository(db)
-    return EvaluationAspectService(aspect_repo)
+    return EvaluationAspectService(aspect_repo, db)
 
 
 # ===== BASIC CRUD OPERATIONS =====
@@ -39,7 +39,7 @@ def get_aspect_service(db: AsyncSession = Depends(get_db)) -> EvaluationAspectSe
     "/",
     response_model=EvaluationAspectResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create evaluation aspect"
+    summary="Create evaluation aspect with auto-sync"
 )
 async def create_aspect(
     aspect_data: EvaluationAspectCreate,
@@ -47,11 +47,11 @@ async def create_aspect(
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
     """
-    Create a new evaluation aspect.
+    Create a new evaluation aspect with automatic sync to existing teacher evaluations.
     
     Requires admin role.
     """
-    return await aspect_service.create_aspect(aspect_data, current_user.get("user_id"))
+    return await aspect_service.create_aspect(aspect_data, current_user.get("id"))
 
 
 @router.get(
@@ -71,7 +71,7 @@ async def get_aspect(
 @router.put(
     "/{aspect_id}",
     response_model=EvaluationAspectResponse,
-    summary="Update evaluation aspect"
+    summary="Update evaluation aspect with auto-sync"
 )
 async def update_aspect(
     aspect_id: int,
@@ -80,36 +80,35 @@ async def update_aspect(
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
     """
-    Update evaluation aspect.
+    Update evaluation aspect with automatic sync to teacher evaluations.
     
     Requires admin role.
     """
-    return await aspect_service.update_aspect(aspect_id, aspect_data)
+    return await aspect_service.update_aspect(aspect_id, aspect_data, current_user.get("id"))
 
 
 @router.delete(
     "/{aspect_id}",
     response_model=MessageResponse,
-    summary="Delete evaluation aspect"
+    summary="Delete evaluation aspect with auto-sync"
 )
 async def delete_aspect(
     aspect_id: int,
-    force: bool = Query(False, description="Force delete even if aspect has evaluations"),
     current_user: dict = Depends(admin_required),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
     """
-    Delete evaluation aspect.
+    Delete evaluation aspect and automatically remove from all teacher evaluations.
     
-    Requires admin role. Use force=true to delete aspects with existing evaluations.
+    Requires admin role.
     """
-    return await aspect_service.delete_aspect(aspect_id, force)
+    return await aspect_service.delete_aspect(aspect_id)
 
 
 @router.patch(
     "/{aspect_id}/activate",
     response_model=EvaluationAspectResponse,
-    summary="Activate evaluation aspect"
+    summary="Activate evaluation aspect with auto-sync"
 )
 async def activate_aspect(
     aspect_id: int,
@@ -117,17 +116,17 @@ async def activate_aspect(
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
     """
-    Activate evaluation aspect.
+    Activate evaluation aspect and automatically add to all existing teacher evaluations.
     
     Requires admin role.
     """
-    return await aspect_service.activate_aspect(aspect_id)
+    return await aspect_service.activate_aspect(aspect_id, current_user.get("id"))
 
 
 @router.patch(
     "/{aspect_id}/deactivate",
     response_model=EvaluationAspectResponse,
-    summary="Deactivate evaluation aspect"
+    summary="Deactivate evaluation aspect with auto-sync"
 )
 async def deactivate_aspect(
     aspect_id: int,
@@ -135,11 +134,11 @@ async def deactivate_aspect(
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
     """
-    Deactivate evaluation aspect.
+    Deactivate evaluation aspect and automatically remove from all teacher evaluations.
     
     Requires admin role.
     """
-    return await aspect_service.deactivate_aspect(aspect_id)
+    return await aspect_service.deactivate_aspect(aspect_id, current_user.get("id"))
 
 
 # ===== LISTING AND FILTERING =====
@@ -240,6 +239,29 @@ async def bulk_delete_aspects(
     Requires admin role.
     """
     return await aspect_service.bulk_delete_aspects(bulk_data)
+
+
+# ===== SYNCHRONIZATION ENDPOINTS =====
+
+@router.post(
+    "/sync/manual",
+    response_model=MessageResponse,
+    summary="Manual sync all active aspects to teacher evaluations"
+)
+async def manual_sync_aspects(
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """
+    Manually synchronize all active evaluation aspects to all existing teacher evaluations.
+    
+    This will:
+    - Add missing evaluation items for any active aspects
+    - Recalculate aggregates for all affected evaluations
+    
+    Requires admin role.
+    """
+    return await aspect_service.sync_all_active_aspects()
 
 
 

@@ -3,8 +3,13 @@
 from typing import List, Optional, Dict, Any
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
+from datetime import datetime
 
 from src.repositories.evaluation_aspect import EvaluationAspectRepository
+from src.models.teacher_evaluation import TeacherEvaluation
+from src.models.teacher_evaluation_item import TeacherEvaluationItem
+from src.models.enums import EvaluationGrade
 from src.schemas.evaluation_aspect import (
     EvaluationAspectCreate,
     EvaluationAspectUpdate,
@@ -19,20 +24,27 @@ from src.schemas.evaluation_aspect import (
     EvaluationAspectStats
 )
 from src.schemas.evaluation_aspect import EvaluationAspectFilterParams
+from src.schemas.shared import MessageResponse
 from src.utils.messages import get_message
 
 
 class EvaluationAspectService:
-    """Service for evaluation aspect operations."""
+    """Service for evaluation aspect operations with auto-sync."""
     
-    def __init__(self, aspect_repo: EvaluationAspectRepository):
+    def __init__(self, aspect_repo: EvaluationAspectRepository, session: AsyncSession = None):
         self.aspect_repo = aspect_repo
+        self.session = session or aspect_repo.session
     
     # ===== BASIC CRUD OPERATIONS =====
     
     async def create_aspect(self, aspect_data: EvaluationAspectCreate, created_by: Optional[int] = None) -> EvaluationAspectResponse:
-        """Create new evaluation aspect - simplified."""
+        """Create new evaluation aspect with auto-sync."""
         aspect = await self.aspect_repo.create(aspect_data, created_by)
+        
+        # If aspect is active, sync to all existing evaluations
+        if aspect.is_active:
+            await self._sync_new_aspect_to_evaluations(aspect.id, created_by)
+        
         return EvaluationAspectResponse.from_evaluation_aspect_model(aspect, include_stats=True)
     
     async def get_aspect_by_id(self, aspect_id: int) -> EvaluationAspectResponse:
@@ -59,9 +71,10 @@ class EvaluationAspectService:
     async def update_aspect(
         self, 
         aspect_id: int, 
-        aspect_data: EvaluationAspectUpdate
+        aspect_data: EvaluationAspectUpdate,
+        updated_by: Optional[int] = None
     ) -> EvaluationAspectResponse:
-        """Update evaluation aspect."""
+        """Update evaluation aspect with auto-sync."""
         # Check if aspect exists
         existing_aspect = await self.aspect_repo.get_by_id(aspect_id)
         if not existing_aspect:
@@ -81,11 +94,22 @@ class EvaluationAspectService:
                     detail=f"Evaluation aspect '{aspect_data.aspect_name}' already exists"
                 )
         
-        updated_aspect = await self.aspect_repo.update(aspect_id, aspect_data)
+        was_active = existing_aspect.is_active
+        updated_aspect = await self.aspect_repo.update(aspect_id, aspect_data, updated_by)
+        
+        # Handle activation/deactivation synchronization
+        if aspect_data.is_active is not None:
+            if not was_active and aspect_data.is_active:
+                # Aspect was activated - add to all existing evaluations
+                await self._sync_new_aspect_to_evaluations(aspect_id, updated_by)
+            elif was_active and not aspect_data.is_active:
+                # Aspect was deactivated - remove from all evaluations
+                await self._sync_removed_aspect_from_evaluations(aspect_id)
+        
         return EvaluationAspectResponse.from_evaluation_aspect_model(updated_aspect, include_stats=True)
     
-    async def delete_aspect(self, aspect_id: int, force: bool = False) -> Dict[str, str]:
-        """Delete evaluation aspect."""
+    async def delete_aspect(self, aspect_id: int) -> MessageResponse:
+        """Delete evaluation aspect with auto-sync."""
         # Check if aspect exists
         aspect = await self.aspect_repo.get_by_id(aspect_id)
         if not aspect:
@@ -94,13 +118,10 @@ class EvaluationAspectService:
                 detail="Aspek evaluasi tidak ditemukan"
             )
         
-        # Check if aspect has evaluations
-        if not force and await self.aspect_repo.has_evaluations(aspect_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot delete aspect with existing evaluations. Use force=true to override."
-            )
+        # Remove from all teacher evaluations first
+        await self._sync_removed_aspect_from_evaluations(aspect_id)
         
+        # Then delete the aspect
         success = await self.aspect_repo.soft_delete(aspect_id)
         if not success:
             raise HTTPException(
@@ -108,10 +129,10 @@ class EvaluationAspectService:
                 detail="Failed to delete evaluation aspect"
             )
         
-        return {"message": "Evaluation aspect deleted successfully"}
+        return MessageResponse(message="Evaluation aspect deleted and removed from all evaluations")
     
-    async def activate_aspect(self, aspect_id: int) -> EvaluationAspectResponse:
-        """Activate evaluation aspect."""
+    async def activate_aspect(self, aspect_id: int, activated_by: Optional[int] = None) -> EvaluationAspectResponse:
+        """Activate evaluation aspect with auto-sync."""
         aspect = await self.aspect_repo.get_by_id(aspect_id)
         if not aspect:
             raise HTTPException(
@@ -126,13 +147,16 @@ class EvaluationAspectService:
                 detail="Failed to activate evaluation aspect"
             )
         
+        # Sync to all existing evaluations
+        await self._sync_new_aspect_to_evaluations(aspect_id, activated_by)
+        
         updated_aspect = await self.aspect_repo.get_by_id(aspect_id)
         return EvaluationAspectResponse.from_evaluation_aspect_model(
             updated_aspect
         )
     
-    async def deactivate_aspect(self, aspect_id: int) -> EvaluationAspectResponse:
-        """Deactivate evaluation aspect."""
+    async def deactivate_aspect(self, aspect_id: int, deactivated_by: Optional[int] = None) -> EvaluationAspectResponse:
+        """Deactivate evaluation aspect with auto-sync."""
         aspect = await self.aspect_repo.get_by_id(aspect_id)
         if not aspect:
             raise HTTPException(
@@ -146,6 +170,10 @@ class EvaluationAspectService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to deactivate evaluation aspect"
             )
+        
+        # Remove from all evaluations
+        await self._sync_removed_aspect_from_evaluations(aspect_id)
+            
         
         updated_aspect = await self.aspect_repo.get_by_id(aspect_id)
         return EvaluationAspectResponse.from_evaluation_aspect_model(
@@ -383,3 +411,128 @@ class EvaluationAspectService:
             usage_trends={},  # Would need historical data
             recommendations=recommendations
         )
+    
+    # ===== SYNC METHODS =====
+    
+    async def sync_all_active_aspects(self) -> MessageResponse:
+        """Manual sync - ensure all active aspects are in all evaluations."""
+        from sqlalchemy.orm import selectinload
+        
+        # Get all active aspects
+        active_aspects = await self.aspect_repo.get_active_aspects()
+        
+        # Get all evaluations with items preloaded
+        evaluations_query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.items)
+        )
+        evaluations_result = await self.session.execute(evaluations_query)
+        evaluations = evaluations_result.scalars().all()
+        
+        total_items_created = 0
+        
+        for aspect in active_aspects:
+            for evaluation in evaluations:
+                # Check if item exists (using preloaded items)
+                existing_item = None
+                for item in evaluation.items:
+                    if item.aspect_id == aspect.id:
+                        existing_item = item
+                        break
+                
+                if not existing_item:
+                    # Create missing item
+                    new_item = TeacherEvaluationItem(
+                        teacher_evaluation_id=evaluation.id,
+                        aspect_id=aspect.id,
+                        grade=EvaluationGrade.C,
+                        created_by=1  # System user
+                    )
+                    new_item.updated_at = datetime.utcnow()
+                    self.session.add(new_item)
+                    total_items_created += 1
+        
+        if total_items_created > 0:
+            await self.session.commit()
+            await self._recalculate_all_evaluation_aggregates()
+        
+        return MessageResponse(
+            message=f"Manual sync completed. Created {total_items_created} missing evaluation items."
+        )
+    
+    # ===== PRIVATE SYNC METHODS =====
+
+    async def _sync_new_aspect_to_evaluations(self, aspect_id: int, created_by: Optional[int] = None) -> None:
+        """Add new aspect to all existing teacher evaluations."""
+        from sqlalchemy.orm import selectinload
+        
+        # Get all existing teacher evaluations with items preloaded
+        evaluations_query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.items)
+        )
+        evaluations_result = await self.session.execute(evaluations_query)
+        evaluations = evaluations_result.scalars().all()
+        
+        items_created = 0
+        for evaluation in evaluations:
+            # Check if item already exists for this aspect (using preloaded items)
+            existing_item = None
+            for item in evaluation.items:
+                if item.aspect_id == aspect_id:
+                    existing_item = item
+                    break
+            
+            if not existing_item:
+                # Create new item with default grade C
+                new_item = TeacherEvaluationItem(
+                    teacher_evaluation_id=evaluation.id,
+                    aspect_id=aspect_id,
+                    grade=EvaluationGrade.C,  # Default grade
+                    created_by=created_by
+                )
+                new_item.updated_at = datetime.utcnow()
+                self.session.add(new_item)
+                items_created += 1
+        
+        if items_created > 0:
+            await self.session.commit()
+            
+            # Recalculate aggregates for all affected evaluations
+            await self._recalculate_all_evaluation_aggregates()
+            
+        print(f"✅ Synced new aspect {aspect_id} to {items_created} evaluations")
+
+    async def _sync_removed_aspect_from_evaluations(self, aspect_id: int) -> None:
+        """Remove aspect from all teacher evaluations."""
+        
+        # Delete all items with this aspect_id
+        delete_query = delete(TeacherEvaluationItem).where(
+            TeacherEvaluationItem.aspect_id == aspect_id
+        )
+        result = await self.session.execute(delete_query)
+        items_deleted = result.rowcount
+        
+        if items_deleted > 0:
+            await self.session.commit()
+            
+            # Recalculate aggregates for all evaluations
+            await self._recalculate_all_evaluation_aggregates()
+            
+        print(f"✅ Removed aspect {aspect_id} from {items_deleted} evaluation items")
+
+    async def _recalculate_all_evaluation_aggregates(self) -> None:
+        """Recalculate aggregates for all teacher evaluations."""
+        from sqlalchemy.orm import selectinload
+        
+        # Load evaluations with items using eager loading
+        evaluations_query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.items)
+        )
+        evaluations_result = await self.session.execute(evaluations_query)
+        evaluations = evaluations_result.scalars().all()
+        
+        for evaluation in evaluations:
+            # Recalculate aggregates - items are already loaded
+            evaluation.recalculate_aggregates()
+        
+        await self.session.commit()
+        print(f"✅ Recalculated aggregates for {len(evaluations)} evaluations")

@@ -493,3 +493,4 @@ class TeacherEvaluationRepository:
         
         await self.session.commit()
         await self._recalculate_evaluation_aggregates(evaluation_id)
+    

@@ -90,7 +90,7 @@ class RPPSubmission(BaseModel, SQLModel, table=True):
     @property
     def can_be_submitted(self) -> bool:
         """Check if submission can be submitted for approval."""
-        if self.status != RPPSubmissionStatus.DRAFT:
+        if self.status not in [RPPSubmissionStatus.DRAFT, RPPSubmissionStatus.REJECTED]:
             return False
         
         # Check if all 3 RPP types have been uploaded

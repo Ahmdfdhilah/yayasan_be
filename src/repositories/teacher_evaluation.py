@@ -269,7 +269,12 @@ class TeacherEvaluationRepository:
     # ===== BULK OPERATIONS =====
     
     async def assign_teachers_to_period(self, period_id: int) -> List[TeacherEvaluation]:
-        """Auto-assign all teachers to evaluation period with auto evaluators and items."""
+        """Auto-assign all teachers and kepala sekolah to evaluation period.
+        
+        Logic:
+        - Teachers (guru) are evaluated by their kepala sekolah
+        - Kepala sekolah are evaluated by any admin
+        """
         evaluations = []
         
         # Get all organizations that have kepala sekolah
@@ -294,7 +299,7 @@ class TeacherEvaluationRepository:
             if not evaluator:
                 continue  # Skip if no kepala sekolah found
             
-            # Get all teachers in this organization
+            # 1. Get all teachers in this organization and assign kepala sekolah as evaluator
             teachers_query = select(User).join(User.user_roles).where(
                 and_(
                     User.organization_id == org_id,
@@ -325,6 +330,41 @@ class TeacherEvaluationRepository:
                 await self._create_items_for_all_aspects(evaluation.id, created_by=evaluator.id)
                 
                 evaluations.append(evaluation)
+            
+            # 2. Also create evaluation for kepala sekolah (evaluated by admin)
+            # Get first admin as default evaluator for kepala sekolah
+            admin_query = select(User).join(User.user_roles).where(
+                User.user_roles.any(UserRole.role_name == UserRoleEnum.ADMIN.value)
+            ).limit(1)
+            
+            admin_result = await self.session.execute(admin_query)
+            admin_evaluator = admin_result.scalar_one_or_none()
+            
+            if admin_evaluator:
+                # Check if kepala sekolah evaluation already exists
+                existing_ks = await self.get_teacher_evaluation_by_period(
+                    evaluator.id, period_id, admin_evaluator.id
+                )
+                if not existing_ks:
+                    # Create evaluation for kepala sekolah
+                    ks_evaluation_data = TeacherEvaluationCreate(
+                        teacher_id=evaluator.id,  # kepala sekolah as teacher
+                        evaluator_id=admin_evaluator.id,  # admin as evaluator
+                        period_id=period_id
+                    )
+                    
+                    ks_evaluation = await self.create_evaluation(
+                        ks_evaluation_data, created_by=admin_evaluator.id
+                    )
+                    
+                    # Create items for all active aspects
+                    await self._create_items_for_all_aspects(
+                        ks_evaluation.id, created_by=admin_evaluator.id
+                    )
+                    
+                    evaluations.append(ks_evaluation)
+                else:
+                    evaluations.append(existing_ks)
         
         return evaluations
     

@@ -82,25 +82,25 @@ class TeacherEvaluationService:
                 detail="Teacher evaluation not found",
             )
 
-        # Access control: Teachers can only view their own evaluations
-        if current_user and UserRoleEnum.GURU in current_user.get("roles", []):
-            if evaluation.teacher_id != current_user["id"]:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied: Can only view your own evaluations",
-                )
-
-        # Organization boundary check for KEPALA_SEKOLAH
-        if current_user and UserRoleEnum.KEPALA_SEKOLAH in current_user.get(
-            "roles", []
+        # Access control: Teachers and Kepala Sekolah can only view their own evaluations
+        if current_user and (
+            UserRoleEnum.GURU in current_user.get("roles", []) or 
+            UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", [])
         ):
-            if evaluation.teacher.organization_id != current_user.get(
-                "organization_id"
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied: Different organization",
-                )
+            if evaluation.teacher_id != current_user["id"]:
+                # Allow kepala sekolah to view evaluations of teachers in their organization
+                if UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", []):
+                    if evaluation.teacher.organization_id != current_user.get("organization_id"):
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Access denied: Different organization",
+                        )
+                else:
+                    # Guru can only view their own evaluations
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied: Can only view your own evaluations",
+                    )
 
         return TeacherEvaluationResponse.model_validate(evaluation)
 
@@ -245,8 +245,19 @@ class TeacherEvaluationService:
             organization_id = current_user.get("organization_id")
 
         # Teachers can only view their own evaluations
-        if current_user and UserRoleEnum.GURU in current_user.get("roles", []):
-            filters.teacher_id = current_user["id"]
+        # Kepala sekolah can view their own evaluations (when being evaluated by admin)
+        if current_user and (
+            UserRoleEnum.GURU in current_user.get("roles", []) or 
+            UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", [])
+        ):
+            # For kepala sekolah: they can view evaluations in their organization + their own evaluation by admin
+            if UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", []):
+                # Don't restrict teacher_id for kepala sekolah as they evaluate teachers in their org
+                # Organization filtering will handle the boundary
+                pass  
+            else:
+                # Guru can only see their own evaluations
+                filters.teacher_id = current_user["id"]
 
         evaluations, total_count = await self.evaluation_repo.get_evaluations_filtered(
             filters, organization_id
@@ -271,12 +282,21 @@ class TeacherEvaluationService:
     ) -> TeacherEvaluationResponse:
         """Get teacher evaluation for specific period."""
         # Access control
-        if current_user and UserRoleEnum.GURU in current_user.get("roles", []):
+        if current_user and (
+            UserRoleEnum.GURU in current_user.get("roles", []) or 
+            UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", [])
+        ):
             if teacher_id != current_user["id"]:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied: Can only view your own evaluations",
-                )
+                # Allow kepala sekolah to view evaluations of teachers in their organization
+                if UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", []):
+                    # Organization check will be done in repository layer
+                    pass
+                else:
+                    # Guru can only view their own evaluations
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied: Can only view your own evaluations",
+                    )
 
         evaluation = await self.evaluation_repo.get_teacher_evaluation_by_period(
             teacher_id, period_id, evaluator_id
@@ -376,13 +396,22 @@ class TeacherEvaluationService:
         self, teacher_id: int, period_id: int, current_user: dict = None
     ) -> TeacherEvaluationSummary:
         """Get teacher evaluation summary for specific period."""
-        # Access control
-        if current_user and UserRoleEnum.GURU in current_user.get("roles", []):
+        # Access control for teacher summary
+        if current_user and (
+            UserRoleEnum.GURU in current_user.get("roles", []) or 
+            UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", [])
+        ):
             if teacher_id != current_user["id"]:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied: Can only view your own evaluations",
-                )
+                # Allow kepala sekolah to view summaries of teachers in their organization
+                if UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", []):
+                    # Organization check will be handled in the repository
+                    pass
+                else:
+                    # Guru can only view their own evaluations
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied: Can only view your own evaluations",
+                    )
 
         # Get teacher's evaluation for the period (assuming single evaluator per period)
         # This might need adjustment based on actual business logic

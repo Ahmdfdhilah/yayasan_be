@@ -241,8 +241,12 @@ def is_guru(user: Dict) -> bool:
 
 
 def is_evaluator(user: Dict) -> bool:
-    """Check if user can perform evaluations."""
-    return has_any_role(user, ["admin"])
+    """Check if user can perform evaluations.
+    
+    - Admins can evaluate kepala sekolah
+    - Kepala sekolah can evaluate teachers in their organization
+    """
+    return has_any_role(user, ["admin", "kepala_sekolah"])
 
 
 def is_rpp_reviewer(user: Dict) -> bool:
@@ -331,17 +335,18 @@ def check_evaluation_access(current_user: Dict, teacher_id: int, teacher_org_id:
     Check if user has access to specific teacher evaluation.
     
     Rules:
-    - Kepala Sekolah: Access to evaluations in same organization
+    - Admin: Access to all evaluations (can evaluate kepala sekolah)
+    - Kepala Sekolah: Access to evaluations in same organization + their own evaluation by admin
     - Guru: Access only to own evaluations
     """
-    if  is_admin(current_user):
+    if is_admin(current_user):
         return True
     
-    # Teachers can access their own evaluations
-    if is_guru(current_user) and current_user.get("id") == teacher_id:
+    # Users can access their own evaluations (including kepala sekolah being evaluated by admin)
+    if current_user.get("id") == teacher_id:
         return True
     
-    # Kepala sekolah can access evaluations in same organization
+    # Kepala sekolah can access evaluations of teachers in same organization
     if is_kepala_sekolah(current_user):
         return check_organization_access(current_user, teacher_org_id)
     
@@ -448,22 +453,26 @@ def require_teacher_evaluation_view_permission():
 def require_teacher_evaluation_update_permission():
     """
     Require permission for updating teacher evaluations.
-    Only principals can update evaluations for teachers in their organization.
+    
+    Rules:
+    - Admin can update any evaluation (including kepala sekolah evaluations)
+    - Kepala sekolah can update evaluations for teachers in their organization
     """
     async def _check_evaluation_update_permission(
         current_user: Dict = Depends(get_current_active_user),
     ) -> Dict:
-        #  admin can update any evaluation
+        # Admin can update any evaluation (including kepala sekolah evaluations)
         if is_admin(current_user):
             return current_user
         
-        # Only kepala_sekolah can update evaluations
-        if not is_kepala_sekolah(current_user):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only school principals (kepala_sekolah) can update teacher evaluations",
-            )
-        return current_user
+        # Kepala sekolah can update teacher evaluations in their organization
+        if is_kepala_sekolah(current_user):
+            return current_user
+        
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins or school principals can update teacher evaluations",
+        )
     return _check_evaluation_update_permission
 
 

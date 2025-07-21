@@ -1,6 +1,7 @@
 """EvaluationAspect service for PKG system."""
 
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +18,20 @@ from src.schemas.evaluation_aspect import (
     EvaluationAspectBulkDelete,
     EvaluationAspectAnalytics,
     AspectPerformanceAnalysis,
-    EvaluationAspectStats
+    EvaluationAspectStats,
+    AspectOrderUpdate,
+    CategoryAspectsReorder,
+    CategoryWithAspectsResponse
+)
+from src.schemas.evaluation_category import (
+    EvaluationCategoryCreate,
+    EvaluationCategoryUpdate,
+    EvaluationCategoryResponse,
+    EvaluationCategoryListResponse,
+    EvaluationCategorySummary,
+    CategoryOrderUpdate,
+    CategoriesReorder,
+    EvaluationCategoryFilterParams
 )
 from src.schemas.evaluation_aspect import EvaluationAspectFilterParams
 from src.schemas.shared import MessageResponse
@@ -36,6 +50,14 @@ class EvaluationAspectService:
     
     async def create_aspect(self, aspect_data: EvaluationAspectCreate, created_by: Optional[int] = None) -> EvaluationAspectResponse:
         """Create new evaluation aspect with auto-sync."""
+        # Validate category exists
+        category = await self.aspect_repo.get_category_by_id(aspect_data.category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Category with ID {aspect_data.category_id} not found"
+            )
+        
         aspect = await self.aspect_repo.create(aspect_data, created_by)
         
         # If aspect is active, sync to all existing evaluations
@@ -238,10 +260,10 @@ class EvaluationAspectService:
     
     async def get_aspects_by_category(
         self, 
-        category: str
+        category_id: int
     ) -> List[EvaluationAspectSummary]:
-        """Get aspects by category."""
-        aspects = await self.aspect_repo.get_aspects_by_category(category)
+        """Get aspects by category ID."""
+        aspects = await self.aspect_repo.get_aspects_by_category(category_id)
         
         return [
             EvaluationAspectSummary.from_evaluation_aspect_model(aspect)
@@ -373,40 +395,30 @@ class EvaluationAspectService:
             avg_grade_by_aspect=avg_grades
         )
     
-    async def get_aspect_performance_analysis(self, aspect_id: int) -> AspectPerformanceAnalysis:
-        """Get detailed performance analysis for an aspect."""
-        aspect = await self.aspect_repo.get_by_id(aspect_id)
-        if not aspect:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Aspek evaluasi tidak ditemukan"
-            )
-        
-        analysis_data = await self.aspect_repo.get_aspect_performance_analysis(aspect_id)
-        
-        return AspectPerformanceAnalysis(
-            aspect_id=aspect_id,
-            aspect_name=aspect.aspect_name,
-            total_evaluations=analysis_data["total_evaluations"],
-            avg_grade=analysis_data.get("avg_grade", "C"),
-            grade_distribution=analysis_data.get("grade_distribution", {}),
-            trend_data=[],  # Would need time-series data
-            top_performers=analysis_data.get("top_performers", []),
-            improvement_needed=analysis_data.get("improvement_needed", [])
-        )
     
     async def get_comprehensive_stats(self) -> EvaluationAspectStats:
         """Get comprehensive evaluation aspect statistics."""
         # Get main analytics
         analytics = await self.get_aspects_analytics()
         
-        # Get performance analysis for active aspects
+        # Get basic performance data for active aspects
         active_aspects = await self.aspect_repo.get_active_aspects()
         aspect_performance = []
         
         for aspect in active_aspects[:10]:  # Limit to prevent overload
             try:
-                performance = await self.get_aspect_performance_analysis(aspect.id)
+                stats = await self.aspect_repo.get_aspect_statistics(aspect.id)
+                
+                performance = AspectPerformanceAnalysis(
+                    aspect_id=aspect.id,
+                    aspect_name=aspect.aspect_name,
+                    total_evaluations=stats["evaluation_count"],
+                    avg_grade="C",  # Default, would need grade calculation
+                    grade_distribution={},  # Would need grade distribution logic
+                    trend_data=[],  # Would need time-series data
+                    top_performers=[],  # Would need teacher performance data
+                    improvement_needed=[]  # Would need teacher performance data
+                )
                 aspect_performance.append(performance)
             except Exception:
                 continue  # Skip aspects with issues
@@ -439,4 +451,192 @@ class EvaluationAspectService:
         
         return MessageResponse(
             message=f"Manual sync completed. Created {total_items_created} missing evaluation items."
+        )
+    
+    # ===== CATEGORY MANAGEMENT METHODS =====
+    
+    async def create_category(self, category_data: EvaluationCategoryCreate, created_by: Optional[int] = None) -> EvaluationCategoryResponse:
+        """Create new evaluation category."""
+        # Check if category name already exists
+        categories = await self.aspect_repo.get_all_categories(include_inactive=True)
+        if any(cat.name.lower() == category_data.name.lower() for cat in categories):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Category '{category_data.name}' already exists"
+            )
+        
+        category = await self.aspect_repo.create_category(
+            name=category_data.name,
+            description=category_data.description,
+            display_order=category_data.display_order,
+            created_by=created_by
+        )
+        
+        return EvaluationCategoryResponse.from_evaluation_category_model(category, include_stats=True)
+    
+    async def get_all_categories(self, include_inactive: bool = False) -> List[EvaluationCategorySummary]:
+        """Get all evaluation categories."""
+        categories = await self.aspect_repo.get_all_categories(include_inactive)
+        
+        return [
+            EvaluationCategorySummary.from_evaluation_category_model(category)
+            for category in categories
+        ]
+    
+    async def update_category_order(self, order_data: CategoryOrderUpdate) -> MessageResponse:
+        """Update category display order."""
+        # Check if category exists
+        category = await self.aspect_repo.get_category_by_id(order_data.category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Category not found"
+            )
+        
+        success = await self.aspect_repo.update_category_order(
+            order_data.category_id, 
+            order_data.new_order
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update category order"
+            )
+        
+        return MessageResponse(
+            message=f"Successfully updated category '{category.name}' order to {order_data.new_order}"
+        )
+    
+    # ===== ORDERING METHODS =====
+    
+    async def update_aspect_order(self, order_data: AspectOrderUpdate) -> MessageResponse:
+        """Update aspect order."""
+        # Check if aspect exists
+        aspect = await self.aspect_repo.get_by_id(order_data.aspect_id)
+        if not aspect:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Aspek evaluasi tidak ditemukan"
+            )
+        
+        success = await self.aspect_repo.update_aspect_order(
+            order_data.aspect_id, 
+            order_data.new_order
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update aspect order"
+            )
+        
+        return MessageResponse(
+            message=f"Successfully updated aspect order for '{aspect.aspect_name}' to {order_data.new_order}"
+        )
+    
+    async def reorder_aspects_in_category(self, reorder_data: CategoryAspectsReorder) -> MessageResponse:
+        """Reorder multiple aspects within a category."""
+        # Check if category exists
+        category = await self.aspect_repo.get_category_by_id(reorder_data.category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Category with ID {reorder_data.category_id} not found"
+            )
+        
+        # Validate that all aspect IDs belong to the specified category
+        for aspect_id in reorder_data.aspect_orders.keys():
+            aspect = await self.aspect_repo.get_by_id(aspect_id)
+            if not aspect:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Aspect with ID {aspect_id} not found"
+                )
+            if aspect.category_id != reorder_data.category_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Aspect {aspect_id} does not belong to category '{category.name}'"
+                )
+        
+        success = await self.aspect_repo.reorder_aspects_in_category(
+            reorder_data.category_id, 
+            reorder_data.aspect_orders
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to reorder aspects in category"
+            )
+        
+        return MessageResponse(
+            message=f"Successfully reordered {len(reorder_data.aspect_orders)} aspects in category '{category.name}'"
+        )
+    
+    async def get_categories_with_order(self) -> List[EvaluationCategoryResponse]:
+        """Get all categories with their order information and stats."""
+        categories_data = await self.aspect_repo.get_categories_with_order()
+        
+        categories = []
+        for category_data in categories_data:
+            # Create category response with stats
+            category_response = EvaluationCategoryResponse(
+                id=category_data['id'],
+                name=category_data['name'],
+                description=None,  # Would need to fetch from database if needed
+                display_order=category_data['display_order'],
+                is_active=category_data['is_active'],
+                created_at=datetime.now(),  # Would need to fetch from database
+                updated_at=None,
+                aspects_count=category_data['aspect_count'],
+                active_aspects_count=category_data['active_aspects_count']
+            )
+            categories.append(category_response)
+        
+        return categories
+    
+    async def get_aspects_by_category_ordered(self, category_id: int) -> List[EvaluationAspectResponse]:
+        """Get aspects by category with proper ordering."""
+        aspects = await self.aspect_repo.get_aspects_by_category_ordered(category_id)
+        
+        return [
+            EvaluationAspectResponse.from_evaluation_aspect_model(aspect)
+            for aspect in aspects
+        ]
+    
+    async def get_category_with_aspects(self, category_id: int) -> CategoryWithAspectsResponse:
+        """Get category with all its aspects."""
+        category = await self.aspect_repo.get_category_by_id(category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Category with ID {category_id} not found"
+            )
+        
+        aspects = await self.aspect_repo.get_aspects_by_category_ordered(category_id)
+        
+        return CategoryWithAspectsResponse(
+            id=category.id,
+            name=category.name,
+            display_order=category.display_order,
+            is_active=category.is_active,
+            aspects=[
+                EvaluationAspectResponse.from_evaluation_aspect_model(aspect)
+                for aspect in aspects
+            ]
+        )
+    
+    async def auto_assign_orders(self) -> MessageResponse:
+        """Auto-assign orders to categories and aspects that don't have them."""
+        success = await self.aspect_repo.auto_assign_orders()
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to auto-assign orders"
+            )
+        
+        return MessageResponse(
+            message="Successfully auto-assigned orders to all categories and aspects"
         )

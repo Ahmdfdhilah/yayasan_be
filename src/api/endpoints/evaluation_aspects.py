@@ -20,7 +20,17 @@ from src.schemas.evaluation_aspect import (
     EvaluationAspectBulkDelete,
     EvaluationAspectAnalytics,
     AspectPerformanceAnalysis,
-    EvaluationAspectStats
+    EvaluationAspectStats,
+    AspectOrderUpdate,
+    CategoryAspectsReorder,
+    CategoryWithAspectsResponse
+)
+from src.schemas.evaluation_category import (
+    EvaluationCategoryCreate,
+    EvaluationCategoryResponse,
+    EvaluationCategorySummary,
+    CategoryOrderUpdate,
+    EvaluationCategoryListResponse
 )
 from src.schemas.evaluation_aspect import EvaluationAspectFilterParams
 from src.schemas.shared import MessageResponse
@@ -35,7 +45,209 @@ def get_aspect_service(db: AsyncSession = Depends(get_db)) -> EvaluationAspectSe
     return EvaluationAspectService(aspect_repo, evaluation_repo, db)
 
 
-# ===== BASIC CRUD OPERATIONS =====
+# ===== SPECIFIC ENDPOINTS (Must come before generic {id} routes) =====
+
+@router.get(
+    "/active/list",
+    response_model=List[EvaluationAspectSummary],
+    summary="Get active evaluation aspects"
+)
+async def get_active_aspects(
+    current_user: dict = Depends(get_current_active_user),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Get all active evaluation aspects."""
+    return await aspect_service.get_active_aspects()
+
+
+@router.get(
+    "/analytics",
+    response_model=EvaluationAspectStats,
+    summary="Get comprehensive analytics and statistics"
+)
+async def get_comprehensive_analytics(
+    current_user: dict = Depends(get_current_active_user),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Get comprehensive evaluation aspect analytics, statistics and recommendations."""
+    return await aspect_service.get_comprehensive_stats()
+
+
+# ===== CATEGORY MANAGEMENT =====
+
+@router.post(
+    "/categories",
+    response_model=EvaluationCategoryResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create evaluation category"
+)
+async def create_category(
+    category_data: EvaluationCategoryCreate,
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Create a new evaluation category. Requires admin role."""
+    return await aspect_service.create_category(category_data, current_user.get("id"))
+
+
+@router.get(
+    "/categories",
+    response_model=List[EvaluationCategoryResponse],
+    summary="Get all categories"
+)
+async def get_categories(
+    include_inactive: bool = Query(False, description="Include inactive categories"),
+    current_user: dict = Depends(get_current_active_user),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Get all categories with order information and aspect counts."""
+    return await aspect_service.get_categories_with_order()
+
+
+@router.get(
+    "/categories/{category_id}/aspects",
+    response_model=List[EvaluationAspectResponse],
+    summary="Get aspects by category with proper ordering"
+)
+async def get_aspects_by_category_ordered(
+    category_id: int,
+    current_user: dict = Depends(get_current_active_user),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Get evaluation aspects by category ID with proper ordering."""
+    return await aspect_service.get_aspects_by_category_ordered(category_id)
+
+
+@router.get(
+    "/categories/{category_id}/with-aspects",
+    response_model=CategoryWithAspectsResponse,
+    summary="Get category with all its aspects"
+)
+async def get_category_with_aspects(
+    category_id: int,
+    current_user: dict = Depends(get_current_active_user),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Get category with all its aspects ordered properly."""
+    return await aspect_service.get_category_with_aspects(category_id)
+
+
+# ===== ORDERING ENDPOINTS =====
+
+@router.put(
+    "/ordering/category",
+    response_model=MessageResponse,
+    summary="Update category display order"
+)
+async def update_category_order(
+    order_data: CategoryOrderUpdate,
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Update the display order of a category. Requires admin role."""
+    return await aspect_service.update_category_order(order_data)
+
+
+@router.put(
+    "/ordering/aspect",
+    response_model=MessageResponse,
+    summary="Update aspect display order"
+)
+async def update_aspect_order(
+    order_data: AspectOrderUpdate,
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Update the display order of a specific aspect within its category. Requires admin role."""
+    return await aspect_service.update_aspect_order(order_data)
+
+
+@router.put(
+    "/ordering/category/reorder",
+    response_model=MessageResponse,
+    summary="Reorder aspects within a category"
+)
+async def reorder_aspects_in_category(
+    reorder_data: CategoryAspectsReorder,
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Reorder multiple aspects within a category by providing new display orders. Requires admin role."""
+    return await aspect_service.reorder_aspects_in_category(reorder_data)
+
+
+@router.post(
+    "/ordering/auto-assign",
+    response_model=MessageResponse,
+    summary="Auto-assign orders to categories and aspects"
+)
+async def auto_assign_orders(
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Automatically assign display orders to categories and aspects. Requires admin role."""
+    return await aspect_service.auto_assign_orders()
+
+
+# ===== BULK OPERATIONS =====
+
+@router.post(
+    "/bulk/create",
+    response_model=List[EvaluationAspectResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Bulk create evaluation aspects"
+)
+async def bulk_create_aspects(
+    bulk_data: EvaluationAspectBulkCreate,
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Bulk create evaluation aspects. Requires admin role."""
+    return await aspect_service.bulk_create_aspects(bulk_data, current_user.get("id"))
+
+
+@router.patch(
+    "/bulk/update",
+    response_model=MessageResponse,
+    summary="Bulk update evaluation aspects"
+)
+async def bulk_update_aspects(
+    bulk_data: EvaluationAspectBulkUpdate,
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Bulk update evaluation aspects. Requires admin role."""
+    return await aspect_service.bulk_update_aspects(bulk_data)
+
+
+@router.delete(
+    "/bulk/delete",
+    response_model=MessageResponse,
+    summary="Bulk delete evaluation aspects"
+)
+async def bulk_delete_aspects(
+    bulk_data: EvaluationAspectBulkDelete,
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Bulk delete evaluation aspects. Requires admin role."""
+    return await aspect_service.bulk_delete_aspects(bulk_data)
+
+
+@router.post(
+    "/sync/manual",
+    response_model=MessageResponse,
+    summary="Manual sync all active aspects to teacher evaluations"
+)
+async def manual_sync_aspects(
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Manually synchronize all active evaluation aspects to all existing teacher evaluations. Requires admin role."""
+    return await aspect_service.sync_all_active_aspects()
+
+
+# ===== BASIC CRUD OPERATIONS (Generic {id} routes must come LAST) =====
 
 @router.post(
     "/",
@@ -48,12 +260,22 @@ async def create_aspect(
     current_user: dict = Depends(admin_required),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
-    """
-    Create a new evaluation aspect with automatic sync to existing teacher evaluations.
-    
-    Requires admin role.
-    """
+    """Create a new evaluation aspect with automatic sync to existing teacher evaluations. Requires admin role."""
     return await aspect_service.create_aspect(aspect_data, current_user.get("id"))
+
+
+@router.get(
+    "/",
+    response_model=EvaluationAspectListResponse,
+    summary="List evaluation aspects"
+)
+async def list_aspects(
+    filters: EvaluationAspectFilterParams = Depends(),
+    current_user: dict = Depends(get_current_active_user),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """List evaluation aspects with filtering and pagination."""
+    return await aspect_service.get_aspects(filters)
 
 
 @router.get(
@@ -81,11 +303,7 @@ async def update_aspect(
     current_user: dict = Depends(admin_required),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
-    """
-    Update evaluation aspect with automatic sync to teacher evaluations.
-    
-    Requires admin role.
-    """
+    """Update evaluation aspect with automatic sync to teacher evaluations. Requires admin role."""
     return await aspect_service.update_aspect(aspect_id, aspect_data, current_user.get("id"))
 
 
@@ -99,11 +317,7 @@ async def delete_aspect(
     current_user: dict = Depends(admin_required),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
-    """
-    Delete evaluation aspect and automatically remove from all teacher evaluations.
-    
-    Requires admin role.
-    """
+    """Delete evaluation aspect and automatically remove from all teacher evaluations. Requires admin role."""
     return await aspect_service.delete_aspect(aspect_id)
 
 
@@ -117,11 +331,7 @@ async def activate_aspect(
     current_user: dict = Depends(admin_required),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
-    """
-    Activate evaluation aspect and automatically add to all existing teacher evaluations.
-    
-    Requires admin role.
-    """
+    """Activate evaluation aspect and automatically add to all existing teacher evaluations. Requires admin role."""
     return await aspect_service.activate_aspect(aspect_id, current_user.get("id"))
 
 
@@ -135,175 +345,5 @@ async def deactivate_aspect(
     current_user: dict = Depends(admin_required),
     aspect_service: EvaluationAspectService = Depends(get_aspect_service)
 ):
-    """
-    Deactivate evaluation aspect and automatically remove from all teacher evaluations.
-    
-    Requires admin role.
-    """
+    """Deactivate evaluation aspect and automatically remove from all teacher evaluations. Requires admin role."""
     return await aspect_service.deactivate_aspect(aspect_id, current_user.get("id"))
-
-
-# ===== LISTING AND FILTERING =====
-
-@router.get(
-    "/",
-    response_model=EvaluationAspectListResponse,
-    summary="List evaluation aspects"
-)
-async def list_aspects(
-    filters: EvaluationAspectFilterParams = Depends(),
-    current_user: dict = Depends(get_current_active_user),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """List evaluation aspects with filtering and pagination."""
-    return await aspect_service.get_aspects(filters)
-
-
-@router.get(
-    "/active/list",
-    response_model=List[EvaluationAspectSummary],
-    summary="Get active evaluation aspects"
-)
-async def get_active_aspects(
-    current_user: dict = Depends(get_current_active_user),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """Get all active evaluation aspects (universal across all organizations)."""
-    return await aspect_service.get_active_aspects()
-
-
-@router.get(
-    "/category/{category}",
-    response_model=List[EvaluationAspectSummary],
-    summary="Get aspects by category"
-)
-async def get_aspects_by_category(
-    category: str,
-    current_user: dict = Depends(get_current_active_user),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """Get evaluation aspects by category."""
-    return await aspect_service.get_aspects_by_category(category)
-
-
-# ===== BULK OPERATIONS =====
-
-@router.post(
-    "/bulk/create",
-    response_model=List[EvaluationAspectResponse],
-    status_code=status.HTTP_201_CREATED,
-    summary="Bulk create evaluation aspects"
-)
-async def bulk_create_aspects(
-    bulk_data: EvaluationAspectBulkCreate,
-    current_user: dict = Depends(admin_required),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """
-    Bulk create evaluation aspects.
-    
-    Requires admin role.
-    """
-    return await aspect_service.bulk_create_aspects(bulk_data, current_user.get("id"))
-
-
-@router.patch(
-    "/bulk/update",
-    response_model=MessageResponse,
-    summary="Bulk update evaluation aspects"
-)
-async def bulk_update_aspects(
-    bulk_data: EvaluationAspectBulkUpdate,
-    current_user: dict = Depends(admin_required),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """
-    Bulk update evaluation aspects.
-    
-    Requires admin role.
-    """
-    return await aspect_service.bulk_update_aspects(bulk_data)
-
-
-@router.delete(
-    "/bulk/delete",
-    response_model=MessageResponse,
-    summary="Bulk delete evaluation aspects"
-)
-async def bulk_delete_aspects(
-    bulk_data: EvaluationAspectBulkDelete,
-    current_user: dict = Depends(admin_required),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """
-    Bulk delete evaluation aspects.
-    
-    Requires admin role.
-    """
-    return await aspect_service.bulk_delete_aspects(bulk_data)
-
-
-# ===== SYNCHRONIZATION ENDPOINTS =====
-
-@router.post(
-    "/sync/manual",
-    response_model=MessageResponse,
-    summary="Manual sync all active aspects to teacher evaluations"
-)
-async def manual_sync_aspects(
-    current_user: dict = Depends(admin_required),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """
-    Manually synchronize all active evaluation aspects to all existing teacher evaluations.
-    
-    This will:
-    - Add missing evaluation items for any active aspects
-    - Recalculate aggregates for all affected evaluations
-    
-    Requires admin role.
-    """
-    return await aspect_service.sync_all_active_aspects()
-
-
-
-# ===== ANALYTICS =====
-
-@router.get(
-    "/analytics/overview",
-    response_model=EvaluationAspectAnalytics,
-    summary="Get evaluation aspects analytics"
-)
-async def get_aspects_analytics(
-    current_user: dict = Depends(get_current_active_user),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """Get comprehensive evaluation aspects analytics."""
-    return await aspect_service.get_aspects_analytics()
-
-
-@router.get(
-    "/{aspect_id}/analytics/performance",
-    response_model=AspectPerformanceAnalysis,
-    summary="Get aspect performance analysis"
-)
-async def get_aspect_performance_analysis(
-    aspect_id: int,
-    current_user: dict = Depends(get_current_active_user),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """Get detailed performance analysis for a specific aspect."""
-    return await aspect_service.get_aspect_performance_analysis(aspect_id)
-
-
-@router.get(
-    "/analytics/comprehensive",
-    response_model=EvaluationAspectStats,
-    summary="Get comprehensive aspect statistics"
-)
-async def get_comprehensive_stats(
-    current_user: dict = Depends(get_current_active_user),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """Get comprehensive evaluation aspect statistics and recommendations."""
-    return await aspect_service.get_comprehensive_stats()

@@ -14,8 +14,9 @@ from pydantic import Field
 class EvaluationAspectBase(BaseModel):
     """Base evaluation aspect schema - simplified without weights and scores."""
     aspect_name: str = Field(..., min_length=1, max_length=255, description="Name of evaluation aspect")
-    category: str = Field(..., min_length=1, max_length=100, description="Category of evaluation aspect")
+    category_id: int = Field(..., ge=1, description="ID of the evaluation category")
     description: Optional[str] = Field(None, description="Detailed description of the aspect")
+    display_order: int = Field(default=1, ge=1, description="Display order within category")
     is_active: bool = Field(default=True, description="Whether aspect is active")
     
     @field_validator('aspect_name')
@@ -35,8 +36,9 @@ class EvaluationAspectCreate(EvaluationAspectBase):
 class EvaluationAspectUpdate(BaseModel):
     """Schema for updating an evaluation aspect."""
     aspect_name: Optional[str] = Field(None, min_length=1, max_length=255)
-    category: Optional[str] = Field(None, min_length=1, max_length=100)
+    category_id: Optional[int] = Field(None, ge=1)
     description: Optional[str] = None
+    display_order: Optional[int] = Field(None, ge=1)
     is_active: Optional[bool] = None
     
     @field_validator('aspect_name')
@@ -57,8 +59,10 @@ class EvaluationAspectResponse(BaseModel):
     """Schema for evaluation aspect response - simplified."""
     id: int
     aspect_name: str
-    category: str
+    category_id: int
+    category_name: Optional[str] = None
     description: Optional[str] = None
+    display_order: int
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -69,11 +73,21 @@ class EvaluationAspectResponse(BaseModel):
     @classmethod
     def from_evaluation_aspect_model(cls, aspect, include_stats: bool = False) -> "EvaluationAspectResponse":
         """Create EvaluationAspectResponse from EvaluationAspect model."""
+        # Safely get category name
+        category_name = None
+        if hasattr(aspect, 'category') and aspect.category:
+            try:
+                category_name = aspect.category.name
+            except:
+                category_name = None
+        
         data = {
             "id": aspect.id,
             "aspect_name": aspect.aspect_name,
-            "category": aspect.category,
+            "category_id": aspect.category_id,
+            "category_name": category_name,
             "description": aspect.description,
+            "display_order": aspect.display_order,
             "is_active": aspect.is_active,
             "created_at": aspect.created_at,
             "updated_at": aspect.updated_at,
@@ -144,7 +158,7 @@ class EvaluationAspectFilterParams(PaginationParams, SearchParams):
     """Filter parameters for evaluation aspect listing."""
     
     # Aspect-specific filters
-    category: Optional[str] = Field(None, description="Filter by category")
+    category_id: Optional[int] = Field(None, description="Filter by category ID")
     is_active: Optional[bool] = Field(None, description="Filter by active status")
     has_evaluations: Optional[bool] = Field(None, description="Filter aspects with/without evaluations")
     
@@ -153,10 +167,10 @@ class EvaluationAspectFilterParams(PaginationParams, SearchParams):
     created_before: Optional[date] = Field(None, description="Filter aspects created before this date")
     
     # Override search field description
-    q: Optional[str] = Field(None, description="Search in aspect name, description, or category")
+    q: Optional[str] = Field(None, description="Search in aspect name or description")
     
     # Override default sort
-    sort_by: str = Field(default="aspect_name", description="Sort field (aspect_name, category, is_active, created_at, updated_at)")
+    sort_by: str = Field(default="display_order", description="Sort field (aspect_name, display_order, is_active, created_at, updated_at)")
 
 
 # ===== BULK OPERATIONS =====
@@ -171,6 +185,30 @@ class EvaluationAspectBulkDelete(BaseModel):
     """Schema for bulk evaluation aspect deletion."""
     aspect_ids: List[int] = Field(..., min_items=1, description="List of aspect IDs to delete")
     force_delete: bool = Field(default=False, description="Force delete even if aspect has evaluations")
+
+
+# ===== ORDERING SCHEMAS =====
+
+class AspectOrderUpdate(BaseModel):
+    """Schema for updating aspect display order."""
+    aspect_id: int = Field(..., ge=1, description="Aspect ID")
+    new_order: int = Field(..., ge=1, description="New display order")
+
+
+class CategoryAspectsReorder(BaseModel):
+    """Schema for reordering aspects within a category."""
+    category_id: int = Field(..., ge=1, description="Category ID")
+    aspect_orders: Dict[int, int] = Field(..., description="Mapping of aspect_id to new_order")
+
+
+# Import category schemas for combined responses
+class CategoryWithAspectsResponse(BaseModel):
+    """Schema for category with its aspects."""
+    id: int
+    name: str
+    display_order: int
+    is_active: bool
+    aspects: List["EvaluationAspectResponse"] = []
 
 
 # ===== ANALYTICS SCHEMAS =====

@@ -6,6 +6,18 @@ from pydantic import BaseModel, Field
 T = TypeVar('T')
 
 
+class BaseResponse(BaseModel):
+    """Base response schema for all API responses."""
+    pass
+
+
+class PaginationParams(BaseModel):
+    """Base pagination parameters."""
+    
+    skip: int = Field(default=0, ge=0, description="Number of records to skip")
+    limit: int = Field(default=50, ge=1, le=100, description="Number of records to return")
+
+
 class BaseListResponse(BaseModel, Generic[T]):
     """Base list response with pagination."""
     

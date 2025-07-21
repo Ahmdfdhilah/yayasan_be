@@ -6,7 +6,7 @@ from sqlmodel import Field, SQLModel, Relationship
 from .base import BaseModel
 
 if TYPE_CHECKING:
-    from .teacher_evaluation import TeacherEvaluation
+    from .teacher_evaluation_item import TeacherEvaluationItem
 
 
 class EvaluationAspect(BaseModel, SQLModel, table=True):
@@ -23,7 +23,7 @@ class EvaluationAspect(BaseModel, SQLModel, table=True):
     is_active: bool = Field(default=True, index=True)
     
     # Relationships
-    teacher_evaluations: List["TeacherEvaluation"] = Relationship(back_populates="aspect")
+    teacher_evaluation_items: List["TeacherEvaluationItem"] = Relationship(back_populates="aspect")
     
     def __repr__(self) -> str:
         return f"<EvaluationAspect(id={self.id}, name={self.aspect_name}, category={self.category})>"

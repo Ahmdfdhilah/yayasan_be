@@ -1,281 +1,169 @@
-"""Teacher Evaluation schemas for PKG System API endpoints - Refactored for grade-based system."""
+"""Teacher Evaluation schemas for refactored parent-child structure."""
 
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List
 from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
 
-from src.schemas.shared import BaseListResponse
-from typing import Optional
-from datetime import date
-from pydantic import Field
-from src.models.enums import EvaluationGrade
+from .shared import BaseResponse, PaginationParams
+from .user import UserResponse
+from .evaluation_aspect import EvaluationAspectResponse
+from .period import PeriodResponse
+from ..models.enums import EvaluationGrade
 
 
-# ===== BASE SCHEMAS =====
-
+# Base schemas for parent evaluation
 class TeacherEvaluationBase(BaseModel):
-    """Base teacher evaluation schema - grade-based system."""
-    teacher_id: int = Field(..., description="Teacher user ID being evaluated")
-    aspect_id: int = Field(..., description="Evaluation aspect ID")
-    period_id: int = Field(..., description="Period ID for this evaluation")
-    grade: EvaluationGrade = Field(..., description="Grade (A, B, C, D)")
-    notes: Optional[str] = Field(None, description="Evaluation notes or comments")
+    """Base teacher evaluation schema for parent record."""
+    teacher_id: int = Field(..., description="ID of teacher being evaluated")
+    evaluator_id: int = Field(..., description="ID of evaluator")
+    period_id: int = Field(..., description="ID of evaluation period")
+    final_notes: Optional[str] = Field(None, max_length=1000, description="Final evaluation summary notes")
 
 
-# ===== REQUEST SCHEMAS =====
+# Base schemas for evaluation items
+class TeacherEvaluationItemBase(BaseModel):
+    """Base teacher evaluation item schema for individual aspects."""
+    aspect_id: int = Field(..., description="ID of evaluation aspect")
+    grade: EvaluationGrade = Field(..., description="Evaluation grade (A, B, C, D)")
+    notes: Optional[str] = Field(None, max_length=500, description="Notes for this specific aspect")
 
+
+# Create schemas
 class TeacherEvaluationCreate(TeacherEvaluationBase):
-    """Schema for creating a teacher evaluation."""
-    evaluator_id: int = Field(..., description="Evaluator user ID")
-
-
-class TeacherEvaluationUpdate(BaseModel):
-    """Schema for updating a teacher evaluation."""
-    grade: Optional[EvaluationGrade] = None
-    notes: Optional[str] = None
-
-
-class TeacherEvaluationBulkCreate(BaseModel):
-    """Schema for bulk creating teacher evaluations."""
-    evaluator_id: int = Field(..., description="Evaluator user ID")
-    teacher_id: int = Field(..., description="Teacher user ID")
-    period_id: int = Field(..., description="Period ID")
-    evaluations: List[Dict[str, Any]] = Field(..., min_items=1, description="List of aspect evaluations")
-    
-    @field_validator('evaluations')
-    @classmethod
-    def validate_evaluations(cls, evaluations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Validate evaluation data structure."""
-        required_fields = {'aspect_id', 'grade'}
-        for eval_data in evaluations:
-            if not all(field in eval_data for field in required_fields):
-                raise ValueError(f"Each evaluation must contain: {required_fields}")
-            # Validate grade is valid
-            if eval_data['grade'] not in [grade.value for grade in EvaluationGrade]:
-                raise ValueError(f"Grade must be one of: {[grade.value for grade in EvaluationGrade]}")
-        return evaluations
-
-
-class TeacherEvaluationBulkUpdate(BaseModel):
-    """Schema for bulk updating teacher evaluation grades."""
-    evaluations: List[Dict[str, Any]] = Field(..., min_items=1, description="List of evaluation updates")
-    
-    @field_validator('evaluations')
-    @classmethod
-    def validate_evaluations(cls, evaluations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Validate evaluation update data structure."""
-        required_fields = {'evaluation_id', 'grade'}
-        for eval_data in evaluations:
-            if not all(field in eval_data for field in required_fields):
-                raise ValueError(f"Each evaluation update must contain: {required_fields}")
-            # Validate grade is valid
-            if eval_data['grade'] not in [grade.value for grade in EvaluationGrade]:
-                raise ValueError(f"Grade must be one of: {[grade.value for grade in EvaluationGrade]}")
-        return evaluations
-
-
-class AssignTeachersToPeriod(BaseModel):
-    """Schema for automatically assigning all teachers to evaluation period."""
-    period_id: int = Field(..., description="Period ID")
-
-
-class CompleteTeacherEvaluation(BaseModel):
-    """Schema for completing all evaluations for a teacher in a period."""
-    teacher_id: int = Field(..., description="Teacher ID")
-    period_id: int = Field(..., description="Period ID")
-    evaluations: Dict[int, EvaluationGrade] = Field(..., description="Aspect ID to grade mapping")
-
-
-# ===== RESPONSE SCHEMAS =====
-
-class TeacherEvaluationResponse(BaseModel):
-    """Schema for teacher evaluation response - grade-based."""
-    id: int
-    evaluator_id: int
-    teacher_id: int
-    aspect_id: int
-    period_id: int
-    grade: EvaluationGrade
-    score: int = Field(description="Computed score from grade (A=4, B=3, C=2, D=1)")
-    notes: Optional[str] = None
-    evaluation_date: datetime
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    
-    # Computed fields
-    grade_description: str = Field(..., description="Description of the grade")
-    
-    # Related data
-    evaluator_name: Optional[str] = Field(None, description="Evaluator name")
-    teacher_name: Optional[str] = Field(None, description="Teacher name")
-    teacher_email: Optional[str] = Field(None, description="Teacher email")
-    aspect_name: Optional[str] = Field(None, description="Evaluation aspect name")
-    aspect_category: Optional[str] = Field(None, description="Aspect category")
-    period_name: Optional[str] = Field(None, description="Period name")
-    
-    @classmethod
-    def from_teacher_evaluation_model(cls, evaluation, include_relations: bool = False) -> "TeacherEvaluationResponse":
-        """Create TeacherEvaluationResponse from TeacherEvaluation model."""
-        data = {
-            "id": evaluation.id,
-            "evaluator_id": evaluation.evaluator_id,
-            "teacher_id": evaluation.teacher_id,
-            "aspect_id": evaluation.aspect_id,
-            "period_id": evaluation.period_id,
-            "grade": evaluation.grade,
-            "score": evaluation.score,
-            "notes": evaluation.notes,
-            "evaluation_date": evaluation.evaluation_date,
-            "created_at": evaluation.created_at,
-            "updated_at": evaluation.updated_at,
-            "grade_description": evaluation.grade_description,
-        }
-        
-        if include_relations:
-            # These would be populated by joins in the repository/service layer
-            # Use SQLAlchemy inspection to check if attributes are loaded without triggering lazy loading
-            from sqlalchemy.inspection import inspect
-            from sqlalchemy.orm.attributes import PASSIVE_NO_RESULT
-            
-            state = inspect(evaluation)
-            
-            # Safely check if relationships are loaded
-            evaluator = state.attrs.evaluator.loaded_value if state.attrs.evaluator.loaded_value is not PASSIVE_NO_RESULT else None
-            teacher = state.attrs.teacher.loaded_value if state.attrs.teacher.loaded_value is not PASSIVE_NO_RESULT else None
-            aspect = state.attrs.aspect.loaded_value if state.attrs.aspect.loaded_value is not PASSIVE_NO_RESULT else None
-            period = state.attrs.period.loaded_value if state.attrs.period.loaded_value is not PASSIVE_NO_RESULT else None
-            
-            data.update({
-                "evaluator_name": getattr(evaluator, 'profile', {}).get('name') if evaluator else None,
-                "teacher_name": getattr(teacher, 'profile', {}).get('name') if teacher else None,
-                "teacher_email": getattr(teacher, 'email') if teacher else None,
-                "aspect_name": getattr(aspect, 'aspect_name') if aspect else None,
-                "aspect_category": getattr(aspect, 'category') if aspect else None,
-                "period_name": getattr(period, 'period_name') if period else None,
-            })
-        
-        return cls(**data)
-    
-    model_config = {"from_attributes": True}
-
-
-class TeacherEvaluationListResponse(BaseListResponse[TeacherEvaluationResponse]):
-    """Standardized teacher evaluation list response."""
+    """Schema for creating parent teacher evaluation record."""
     pass
 
 
+class TeacherEvaluationItemCreate(TeacherEvaluationItemBase):
+    """Schema for creating individual evaluation item."""
+    pass
+
+
+class TeacherEvaluationWithItemsCreate(TeacherEvaluationBase):
+    """Schema for creating evaluation with multiple aspects at once."""
+    items: List[TeacherEvaluationItemCreate] = Field(..., description="List of aspect evaluations")
+
+
+# Update schemas
+class TeacherEvaluationUpdate(BaseModel):
+    """Schema for updating parent teacher evaluation."""
+    final_notes: Optional[str] = Field(None, max_length=1000, description="Updated final notes")
+
+
+class TeacherEvaluationItemUpdate(BaseModel):
+    """Schema for updating individual evaluation item."""
+    grade: Optional[EvaluationGrade] = Field(None, description="Updated evaluation grade")
+    notes: Optional[str] = Field(None, max_length=500, description="Updated aspect notes")
+
+
+class TeacherEvaluationBulkItemUpdate(BaseModel):
+    """Schema for bulk updating multiple aspect evaluations."""
+    item_updates: List[dict] = Field(
+        ..., 
+        description="List of {aspect_id: int, grade: EvaluationGrade, notes: str} updates"
+    )
+
+
+# Response schemas
+class TeacherEvaluationItemResponse(BaseResponse):
+    """Schema for teacher evaluation item response."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    teacher_evaluation_id: int
+    aspect_id: int
+    grade: EvaluationGrade
+    score: int
+    notes: Optional[str]
+    evaluated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    
+    # Relationships
+    aspect: Optional[EvaluationAspectResponse] = None
+
+
+class TeacherEvaluationResponse(BaseResponse):
+    """Schema for parent teacher evaluation response."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    teacher_id: int
+    evaluator_id: int
+    period_id: int
+    total_score: int
+    average_score: float
+    final_grade: Optional[EvaluationGrade]
+    final_notes: Optional[str]
+    last_updated: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    
+    # Relationships
+    teacher: Optional[UserResponse] = None
+    evaluator: Optional[UserResponse] = None
+    period: Optional[PeriodResponse] = None
+    items: List[TeacherEvaluationItemResponse] = Field(default_factory=list)
+
+
 class TeacherEvaluationSummary(BaseModel):
-    """Schema for teacher evaluation summary."""
+    """Summary schema for teacher evaluation performance across periods."""
+    model_config = ConfigDict(from_attributes=True)
+    
     teacher_id: int
     teacher_name: str
-    teacher_email: str
     period_id: int
-    period_name: str
     total_aspects: int
-    completed_evaluations: int
-    average_score: float = Field(description="Average score across all aspects")
-    grade_distribution: Dict[str, int] = Field(description="Count of each grade (A, B, C, D)")
-    completion_percentage: float = Field(description="Percentage of aspects evaluated")
-    
-    model_config = {"from_attributes": True}
+    completed_aspects: int
+    total_score: int
+    average_score: float
+    final_grade: Optional[EvaluationGrade]
+    completion_percentage: float
+    last_updated: Optional[datetime] = None
 
 
 class PeriodEvaluationStats(BaseModel):
-    """Schema for period evaluation statistics."""
+    """Statistics for evaluations in a period."""
+    model_config = ConfigDict(from_attributes=True)
+    
     period_id: int
-    period_name: str
+    total_evaluations: int
     total_teachers: int
-    total_aspects: int
-    total_possible_evaluations: int
     completed_evaluations: int
-    completion_percentage: float
+    total_aspects_evaluated: int
     average_score: float
-    grade_distribution: Dict[str, int]
-    teacher_summaries: List[TeacherEvaluationSummary]
+    final_grade_distribution: dict  # {"A": count, "B": count, "C": count, "D": count}
+    completion_percentage: float
+    top_performers: List[dict]  # Top teachers by final grade and average
+    aspect_performance: List[dict]  # Average performance by aspect
 
 
-# ===== BASE FILTER SCHEMAS =====
-
-class PaginationParams(BaseModel):
-    """Base pagination parameters."""
-    
-    page: int = Field(default=1, ge=1, description="Page number")
-    size: int = Field(default=10, ge=1, le=100, description="Items per page")
-
-
-class SearchParams(BaseModel):
-    """Base search parameters."""
-    
-    q: Optional[str] = Field(default=None, description="Search query")
-    sort_by: str = Field(default="created_at", description="Sort field")
-    sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sort order")
-
-
-class DateRangeFilter(BaseModel):
-    """Date range filter parameters."""
-    
-    start_date: Optional[date] = Field(default=None, description="Start date")
-    end_date: Optional[date] = Field(default=None, description="End date")
-
-
-# ===== FILTER SCHEMAS =====
-
-class TeacherEvaluationFilterParams(PaginationParams, SearchParams, DateRangeFilter):
-    """Filter parameters for teacher evaluation listing."""
-    
-    # Evaluation-specific filters
+# Filter and request schemas
+class TeacherEvaluationFilterParams(PaginationParams):
+    """Filter parameters for teacher evaluation queries."""
     teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
     evaluator_id: Optional[int] = Field(None, description="Filter by evaluator ID")
-    aspect_id: Optional[int] = Field(None, description="Filter by aspect ID")
     period_id: Optional[int] = Field(None, description="Filter by period ID")
-    grade: Optional[EvaluationGrade] = Field(None, description="Filter by grade")
-    min_score: Optional[int] = Field(None, ge=1, le=4, description="Minimum score")
-    max_score: Optional[int] = Field(None, ge=1, le=4, description="Maximum score")
-    
-    # Override search field description
-    q: Optional[str] = Field(None, description="Search in notes or related names")
-    
-    # Override default sort
-    sort_by: str = Field(default="evaluation_date", description="Sort field")
+    final_grade: Optional[EvaluationGrade] = Field(None, description="Filter by final grade")
+    min_average_score: Optional[float] = Field(None, ge=1.0, le=4.0, description="Minimum average score")
+    max_average_score: Optional[float] = Field(None, ge=1.0, le=4.0, description="Maximum average score")
+    has_final_notes: Optional[bool] = Field(None, description="Filter by presence of final notes")
+    from_date: Optional[datetime] = Field(None, description="Filter from last updated date")
+    to_date: Optional[datetime] = Field(None, description="Filter to last updated date")
 
 
-# ===== BULK OPERATIONS =====
-
-class TeacherEvaluationBulkDelete(BaseModel):
-    """Schema for bulk teacher evaluation deletion."""
-    evaluation_ids: List[int] = Field(..., min_items=1, description="List of evaluation IDs to delete")
+class AssignTeachersToEvaluationPeriod(BaseModel):
+    """Schema for assigning teachers to evaluation period."""
+    period_id: int = Field(..., description="Period to assign teachers to")
 
 
-# ===== ANALYTICS SCHEMAS =====
-
-class TeacherPerformanceAnalysis(BaseModel):
-    """Schema for teacher performance analysis across periods."""
-    teacher_id: int
-    teacher_name: str
-    periods_data: List[Dict[str, Any]] = Field(description="Performance data across periods")
-    overall_average: float
-    improvement_trend: str = Field(description="improving, declining, stable")
-    strengths: List[str] = Field(description="Top performing aspects")
-    areas_for_improvement: List[str] = Field(description="Aspects needing attention")
+# Individual update schemas
+class UpdateEvaluationItemGrade(BaseModel):
+    """Schema for updating individual aspect evaluation grade."""
+    grade: EvaluationGrade = Field(..., description="New evaluation grade")
+    notes: Optional[str] = Field(None, max_length=500, description="Notes for this aspect")
 
 
-class AspectAnalytics(BaseModel):
-    """Schema for aspect performance analytics."""
-    aspect_id: int
-    aspect_name: str
-    total_evaluations: int
-    average_grade: str
-    grade_distribution: Dict[str, int]
-    trend_analysis: Dict[str, Any]
-
-
-class EvaluationSystemAnalytics(BaseModel):
-    """Schema for comprehensive evaluation system analytics."""
-    total_evaluations: int
-    completion_rate: float
-    average_performance: float
-    grade_distribution: Dict[str, int]
-    period_performance: List[Dict[str, Any]]
-    teacher_performance: List[TeacherPerformanceAnalysis]
-    aspect_performance: List[AspectAnalytics]
-    recommendations: List[str]
+class UpdateEvaluationFinalNotes(BaseModel):
+    """Schema for updating final evaluation notes."""
+    final_notes: Optional[str] = Field(None, max_length=1000, description="Final evaluation summary")

@@ -15,6 +15,7 @@ from .rpp_submission import RPPSubmission
 from .rpp_submission_item import RPPSubmissionItem
 from .evaluation_aspect import EvaluationAspect
 from .teacher_evaluation import TeacherEvaluation
+from .teacher_evaluation_item import TeacherEvaluationItem
 
 # Enums
 from .enums import (
@@ -50,6 +51,7 @@ __all__ = [
     "RPPSubmissionItem",
     "EvaluationAspect",
     "TeacherEvaluation",
+    "TeacherEvaluationItem",
     
     # Enums
     "UserRoleEnum",

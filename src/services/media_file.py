@@ -111,9 +111,16 @@ class MediaFileService:
                 detail=get_message("file", "upload_failed")
             )
     
-    async def get_file(self, file_id: int, user_id: Optional[int] = None) -> MediaFileResponse:
+    async def get_file(
+        self, 
+        file_id: int, 
+        user_id: Optional[int] = None,
+        user_roles: List[str] = None,
+        user_organization_id: Optional[int] = None
+    ) -> MediaFileResponse:
         """Get media file by ID."""
         media_file = await self.media_file_repo.get_by_id(file_id)
+       
         if not media_file:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -122,13 +129,32 @@ class MediaFileService:
         
         # Check access permissions
         if not media_file.is_public:
-            # Private file - only uploader can access
+            # Private file - check based on role
             if user_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Autentikasi diperlukan untuk mengakses file pribadi"
                 )
-            if user_id != media_file.uploader_id:
+            
+            has_access = False
+            user_roles = user_roles or []
+            
+            # Admin has full access
+            if "admin" in user_roles:
+                has_access = True
+            # Kepala sekolah can access files from same organization
+            elif "kepala_sekolah" in user_roles:
+                if user_organization_id and media_file.organization_id == user_organization_id:
+                    has_access = True
+            # Guru can only access their own files
+            elif "guru" in user_roles:
+                if media_file.uploader_id == user_id:
+                    has_access = True
+            # File uploader can always access their own file
+            elif media_file.uploader_id == user_id:
+                has_access = True
+                
+            if not has_access:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Tidak memiliki otorisasi untuk mengakses file ini"
@@ -167,7 +193,9 @@ class MediaFileService:
         self, 
         file_id: int, 
         file_data: MediaFileUpdate,
-        user_id: int
+        user_id: int,
+        user_roles: List[str] = None,
+        user_organization_id: Optional[int] = None
     ) -> MediaFileResponse:
         """Update media file metadata."""
         
@@ -179,10 +207,30 @@ class MediaFileService:
                 detail=get_message("file", "file_not_found")
             )
         
-        # Check permission (only uploader or admin can update)
-        if media_file.uploader_id != user_id:
-            # Additional permission checks can be added here
-            pass
+        # Check access permissions
+        has_access = False
+        user_roles = user_roles or []
+        
+        # Admin has full access
+        if "admin" in user_roles:
+            has_access = True
+        # Kepala sekolah can update files from same organization
+        elif "kepala_sekolah" in user_roles:
+            if user_organization_id and media_file.organization_id == user_organization_id:
+                has_access = True
+        # Guru can only update their own files
+        elif "guru" in user_roles:
+            if media_file.uploader_id == user_id:
+                has_access = True
+        # File uploader can always update their own file
+        elif media_file.uploader_id == user_id:
+            has_access = True
+            
+        if not has_access:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tidak memiliki otorisasi untuk mengupdate file ini"
+            )
         
         # Update file
         updated_media_file = await self.media_file_repo.update(
@@ -192,7 +240,13 @@ class MediaFileService:
         
         return MediaFileResponse.from_media_file_model(updated_media_file, include_relations=True)
     
-    async def delete_file(self, file_id: int, user_id: int) -> MessageResponse:
+    async def delete_file(
+        self, 
+        file_id: int, 
+        user_id: int,
+        user_roles: List[str] = None,
+        user_organization_id: Optional[int] = None
+    ) -> MessageResponse:
         """Delete media file and remove from filesystem."""
         
         # Check if file exists and user has permission
@@ -203,10 +257,30 @@ class MediaFileService:
                 detail=get_message("file", "file_not_found")
             )
         
-        # Check permission (only uploader or admin can delete)
-        if media_file.uploader_id != user_id:
-            # Additional permission checks can be added here
-            pass
+        # Check access permissions
+        has_access = False
+        user_roles = user_roles or []
+        
+        # Admin has full access
+        if "admin" in user_roles:
+            has_access = True
+        # Kepala sekolah can delete files from same organization
+        elif "kepala_sekolah" in user_roles:
+            if user_organization_id and media_file.organization_id == user_organization_id:
+                has_access = True
+        # Guru can only delete their own files
+        elif "guru" in user_roles:
+            if media_file.uploader_id == user_id:
+                has_access = True
+        # File uploader can always delete their own file
+        elif media_file.uploader_id == user_id:
+            has_access = True
+            
+        if not has_access:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tidak memiliki otorisasi untuk menghapus file ini"
+            )
         
         try:
             # Remove file from filesystem
@@ -225,10 +299,17 @@ class MediaFileService:
                 detail=f"Failed to delete file: {str(e)}"
             )
     
-    async def get_file_content(self, file_id: int, user_id: Optional[int] = None) -> tuple[bytes, str, str]:
+    async def get_file_content(
+        self, 
+        file_id: int, 
+        user_id: Optional[int] = None,
+        user_roles: List[str] = None,
+        user_organization_id: Optional[int] = None
+    ) -> tuple[bytes, str, str]:
         """Get file content for download."""
         
         media_file = await self.media_file_repo.get_by_id(file_id)
+     
         if not media_file:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -237,13 +318,32 @@ class MediaFileService:
         
         # Check access permissions
         if not media_file.is_public:
-            # Private file - only uploader can access
+            # Private file - check based on role
             if user_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Autentikasi diperlukan untuk mengakses file pribadi"
                 )
-            if user_id != media_file.uploader_id:
+            
+            has_access = False
+            user_roles = user_roles or []
+            
+            # Admin has full access
+            if "admin" in user_roles:
+                has_access = True
+            # Kepala sekolah can access files from same organization
+            elif "kepala_sekolah" in user_roles:
+                if user_organization_id and media_file.organization_id == user_organization_id:
+                    has_access = True
+            # Guru can only access their own files
+            elif "guru" in user_roles:
+                if media_file.uploader_id == user_id:
+                    has_access = True
+            # File uploader can always access their own file
+            elif media_file.uploader_id == user_id:
+                has_access = True
+                
+            if not has_access:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Tidak memiliki otorisasi untuk mengakses file ini"
@@ -289,7 +389,13 @@ class MediaFileService:
         
         return await self.list_files(filters)
     
-    async def get_file_view_info(self, file_id: int, user_id: Optional[int] = None) -> MediaFileViewResponse:
+    async def get_file_view_info(
+        self, 
+        file_id: int, 
+        user_id: Optional[int] = None,
+        user_roles: List[str] = None,
+        user_organization_id: Optional[int] = None
+    ) -> MediaFileViewResponse:
         """Get file view information with static URL."""
         
         media_file = await self.media_file_repo.get_by_id(file_id)
@@ -301,13 +407,32 @@ class MediaFileService:
         
         # Check access permissions
         if not media_file.is_public:
-            # Private file - only uploader can access
+            # Private file - check based on role
             if user_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Autentikasi diperlukan untuk mengakses file pribadi"
                 )
-            if user_id != media_file.uploader_id:
+            
+            has_access = False
+            user_roles = user_roles or []
+            
+            # Admin has full access
+            if "admin" in user_roles:
+                has_access = True
+            # Kepala sekolah can access files from same organization
+            elif "kepala_sekolah" in user_roles:
+                if user_organization_id and media_file.organization_id == user_organization_id:
+                    has_access = True
+            # Guru can only access their own files
+            elif "guru" in user_roles:
+                if media_file.uploader_id == user_id:
+                    has_access = True
+            # File uploader can always access their own file
+            elif media_file.uploader_id == user_id:
+                has_access = True
+                
+            if not has_access:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Tidak memiliki otorisasi untuk mengakses file ini"

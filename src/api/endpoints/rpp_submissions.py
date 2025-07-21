@@ -38,6 +38,7 @@ router = APIRouter()
 admin_required = require_roles(["admin"])
 kepala_sekolah_required = require_roles(["kepala_sekolah"])
 guru_required = require_roles(["guru"])
+guru_or_kepala_sekolah = require_roles(["guru", "kepala_sekolah"])
 admin_or_kepala_sekolah = require_roles(["admin", "kepala_sekolah"])
 any_authorized_user = require_roles(["admin", "kepala_sekolah", "guru"])
 
@@ -85,8 +86,8 @@ async def generate_submissions_for_period(
 @router.get(
     "/my-submissions",
     response_model=RPPSubmissionListResponse,
-    summary="Get current teacher's submissions",
-    dependencies=[Depends(guru_required)],
+    summary="Get current user's submissions",
+    dependencies=[Depends(guru_or_kepala_sekolah)],
 )
 async def get_my_submissions(
     period_id: Optional[int] = Query(None, description="Filter by period ID"),
@@ -97,9 +98,9 @@ async def get_my_submissions(
     rpp_service: RPPSubmissionService = Depends(get_rpp_submission_service),
 ):
     """
-    Get submissions for the current teacher.
+    Get submissions for the current user.
 
-    Teachers can only see their own submissions.
+    Teachers and kepala sekolah can only see their own submissions.
     """
     filters = RPPSubmissionFilter(
         teacher_id=current_user["id"], period_id=period_id, status=status
@@ -112,7 +113,7 @@ async def get_my_submissions(
     "/my-submission/{period_id}",
     response_model=RPPSubmissionResponse,
     summary="Get my submission for specific period",
-    dependencies=[Depends(guru_required)],
+    dependencies=[Depends(guru_or_kepala_sekolah)],
 )
 async def get_my_submission_for_period(
     period_id: int = Path(..., description="Period ID"),
@@ -133,7 +134,7 @@ async def get_my_submission_for_period(
     "/my-submission/{period_id}/upload/{rpp_type}",
     response_model=RPPSubmissionItemResponse,
     summary="Upload RPP file for specific type",
-    dependencies=[Depends(guru_required)],
+    dependencies=[Depends(guru_or_kepala_sekolah)],
 )
 async def upload_rpp_file(
     period_id: int = Path(..., description="Period ID"),
@@ -160,7 +161,7 @@ async def upload_rpp_file(
     "/my-submission/{submission_id}/submit",
     response_model=MessageResponse,
     summary="Submit RPP for approval",
-    dependencies=[Depends(guru_required)],
+    dependencies=[Depends(guru_or_kepala_sekolah)],
 )
 async def submit_for_approval(
     submission_id: int = Path(..., description="Submission ID"),
@@ -179,14 +180,14 @@ async def submit_for_approval(
     )
 
 
-# ===== REVIEWER ENDPOINTS (KEPALA SEKOLAH) =====
+# ===== REVIEWER ENDPOINTS =====
 
 
 @router.get(
     "/pending-reviews",
     response_model=RPPSubmissionListResponse,
     summary="Get submissions pending review",
-    dependencies=[Depends(kepala_sekolah_required)],
+    dependencies=[Depends(admin_or_kepala_sekolah)],
 )
 async def get_pending_reviews(
     period_id: Optional[int] = Query(None, description="Filter by period ID"),
@@ -199,14 +200,25 @@ async def get_pending_reviews(
     """
     Get submissions pending review.
 
-    Only for kepala sekolah to review teacher submissions.
+    - Admin can review kepala sekolah submissions
+    - Kepala sekolah can review guru submissions from their organization
     """
+    user_roles = current_user.get("roles", [])
+    
     filters = RPPSubmissionFilter(
         status=RPPSubmissionStatus.PENDING,
         period_id=period_id,
         teacher_id=teacher_id,
-        organization_id=current_user.get("organization_id"),  # Filter by organization
     )
+    
+    # Role-based filtering
+    if "admin" in user_roles:
+        # Admin can see all pending submissions (especially from kepala sekolah)
+        pass
+    elif "kepala_sekolah" in user_roles:
+        # Kepala sekolah can only see guru submissions from their organization
+        filters.organization_id = current_user.get("organization_id")
+        filters.submitter_role = "guru"  # Only show guru submissions for kepala sekolah to review
 
     return await rpp_service.get_submissions(filters, limit, offset)
 
@@ -215,7 +227,7 @@ async def get_pending_reviews(
     "/review/{submission_id}",
     response_model=MessageResponse,
     summary="Review RPP submission",
-    dependencies=[Depends(kepala_sekolah_required)],
+    dependencies=[Depends(admin_or_kepala_sekolah)],
 )
 async def review_submission(
     submission_id: int = Path(..., description="Submission ID"),
@@ -226,7 +238,8 @@ async def review_submission(
     """
     Review RPP submission.
 
-    Kepala sekolah can approve, reject, or request revision.
+    - Admin can approve/reject kepala sekolah submissions
+    - Kepala sekolah can approve/reject guru submissions from their organization
     """
     return await rpp_service.review_submission(
         submission_id, current_user["id"], review_data
@@ -358,8 +371,8 @@ async def get_dashboard_overview(
     Get dashboard overview data.
 
     Returns different data based on user role:
-    - Admin: System-wide data
-    - Kepala Sekolah: Organization data + pending reviews
+    - Admin: System-wide data + pending reviews (kepala sekolah submissions)
+    - Kepala Sekolah: Personal submissions + pending reviews (guru submissions) + organization data
     - Guru: Personal submissions + organization overview
     """
     organization_id = None

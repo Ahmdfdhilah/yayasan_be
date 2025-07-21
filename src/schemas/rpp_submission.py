@@ -149,6 +149,7 @@ class RPPSubmissionFilter(BaseModel):
     status: Optional[RPPSubmissionStatus] = None
     reviewer_id: Optional[int] = None
     organization_id: Optional[int] = None  # For filtering by organization
+    submitter_role: Optional[str] = None  # For filtering by submitter role (guru, kepala_sekolah)
     
     # Date filters
     submitted_after: Optional[datetime] = None

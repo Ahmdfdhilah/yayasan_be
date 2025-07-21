@@ -80,7 +80,7 @@ class RPPSubmissionService:
         )
     
     async def _validate_teacher_exists(self, teacher_id: int) -> None:
-        """Validate that teacher exists and has guru role."""
+        """Validate that teacher exists and has guru or kepala_sekolah role."""
         user = await self.user_repo.get_by_id(teacher_id)
         if not user:
             raise HTTPException(
@@ -88,11 +88,11 @@ class RPPSubmissionService:
                 detail=get_message("user", "not_found")
             )
         
-        # Check if user has guru role
-        if not user.has_role("guru"):
+        # Check if user has guru or kepala_sekolah role
+        if not (user.has_role("guru") or user.has_role("kepala_sekolah")):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Pengguna bukan seorang guru"
+                detail="Pengguna bukan seorang guru atau kepala sekolah"
             )
     
     async def _validate_period_exists(self, period_id: int) -> None:
@@ -113,8 +113,8 @@ class RPPSubmissionService:
                 detail=get_message("file", "file_not_found")
             )
     
-    async def _validate_reviewer_exists(self, reviewer_id: int) -> None:
-        """Validate that reviewer exists and has kepala_sekolah role."""
+    async def _validate_reviewer_exists(self, reviewer_id: int, submitter_role: str = None) -> None:
+        """Validate that reviewer exists and has appropriate role based on submitter."""
         user = await self.user_repo.get_by_id(reviewer_id)
         if not user:
             raise HTTPException(
@@ -122,12 +122,28 @@ class RPPSubmissionService:
                 detail=get_message("user", "not_found")
             )
         
-        # Check if user has kepala_sekolah role
-        if not user.has_role("kepala_sekolah"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Pengguna tidak memiliki otorisasi untuk meninjau pengajuan"
-            )
+        # Check reviewer role based on submitter role
+        if submitter_role == "guru":
+            # Guru's RPP should be reviewed by kepala sekolah
+            if not user.has_role("kepala_sekolah"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="RPP guru harus ditinjau oleh kepala sekolah"
+                )
+        elif submitter_role == "kepala_sekolah":
+            # Kepala sekolah's RPP should be reviewed by admin
+            if not user.has_role("admin"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="RPP kepala sekolah harus ditinjau oleh admin"
+                )
+        else:
+            # Default: require admin or kepala sekolah
+            if not (user.has_role("admin") or user.has_role("kepala_sekolah")):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Reviewer harus admin atau kepala sekolah"
+                )
     
     # ===== SUBMISSION OPERATIONS =====
     
@@ -229,16 +245,31 @@ class RPPSubmissionService:
         self, submission_id: int, reviewer_id: int, review_data: RPPSubmissionReviewRequest
     ) -> MessageResponse:
         """Review RPP submission."""
-        # Validate reviewer
-        await self._validate_reviewer_exists(reviewer_id)
-        
-        # Get submission
+        # Get submission first to determine submitter role
         submission = await self.rpp_repo.get_submission_by_id(submission_id)
         if not submission:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=get_message("submission", "submission_not_found")
             )
+        
+        # Get submitter's role
+        submitter = await self.user_repo.get_by_id(submission.teacher_id)
+        if not submitter:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Submitter tidak ditemukan"
+            )
+        
+        submitter_roles = submitter.get_roles()
+        submitter_role = None
+        if "guru" in submitter_roles:
+            submitter_role = "guru"
+        elif "kepala_sekolah" in submitter_roles:
+            submitter_role = "kepala_sekolah"
+        
+        # Validate reviewer based on submitter role
+        await self._validate_reviewer_exists(reviewer_id, submitter_role)
         
         # Validate submission is pending
         if submission.status != RPPSubmissionStatus.PENDING:
@@ -402,19 +433,28 @@ class RPPSubmissionService:
         recent_submissions_response = await self.get_submissions(recent_filter, limit=10)
         recent_submissions = recent_submissions_response.data
         
-        # Get pending reviews (for kepala sekolah)
+        # Get pending reviews (for admin and kepala sekolah)
         pending_reviews = []
-        if user.has_role("kepala_sekolah"):
+        if user.has_role("admin"):
+            # Admin can see all pending submissions (especially kepala sekolah submissions)
+            pending_filter = RPPSubmissionFilter(
+                status=RPPSubmissionStatus.PENDING
+            )
+            pending_response = await self.get_submissions(pending_filter, limit=20)
+            pending_reviews = pending_response.data
+        elif user.has_role("kepala_sekolah"):
+            # Kepala sekolah can see guru submissions from their organization  
             pending_filter = RPPSubmissionFilter(
                 status=RPPSubmissionStatus.PENDING,
-                organization_id=organization_id
+                organization_id=organization_id,
+                submitter_role="guru"  # Only show guru submissions for kepala sekolah to review
             )
             pending_response = await self.get_submissions(pending_filter, limit=20)
             pending_reviews = pending_response.data
         
-        # Get my submissions (for teachers)
+        # Get my submissions (for teachers and kepala sekolah)
         my_submissions = []
-        if user.has_role("guru"):
+        if user.has_role("guru") or user.has_role("kepala_sekolah"):
             my_filter = RPPSubmissionFilter(teacher_id=user_id)
             my_response = await self.get_submissions(my_filter, limit=10)
             my_submissions = my_response.data

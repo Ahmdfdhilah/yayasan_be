@@ -270,14 +270,28 @@ class RPPSubmissionRepository:
             query = query.join(User, RPPSubmission.teacher_id == User.id)
             conditions.append(User.organization_id == filters.organization_id)
         
+        # Submitter role filter via teacher roles
+        if filters.submitter_role:
+            if User not in query.column_descriptions:
+                query = query.join(User, RPPSubmission.teacher_id == User.id)
+            query = query.join(User.user_roles)
+            conditions.append(
+                and_(
+                    UserRole.role_name == filters.submitter_role,
+                    UserRole.is_active == True
+                )
+            )
+        
         # Apply conditions
         if conditions:
             query = query.where(and_(*conditions))
         
         # Get total count
         count_query = select(func.count(distinct(RPPSubmission.id))).where(and_(*conditions))
-        if filters.organization_id:
+        if filters.organization_id or filters.submitter_role:
             count_query = count_query.join(User, RPPSubmission.teacher_id == User.id)
+        if filters.submitter_role:
+            count_query = count_query.join(User.user_roles)
         
         count_result = await self.session.execute(count_query)
         total = count_result.scalar()
@@ -349,9 +363,12 @@ class RPPSubmissionRepository:
         Returns:
             Tuple of (generated_count, skipped_count, total_teachers)
         """
-        # Get all active teachers
+        # Get all active teachers (guru) and kepala sekolah
         teachers_query = select(User).join(
-            User.user_roles.and_(UserRole.role_name == "guru", UserRole.is_active == True)
+            User.user_roles.and_(
+                UserRole.role_name.in_(["guru", "kepala_sekolah"]), 
+                UserRole.is_active == True
+            )
         ).where(User.status == "active", User.deleted_at.is_(None))
         
         teachers_result = await self.session.execute(teachers_query)

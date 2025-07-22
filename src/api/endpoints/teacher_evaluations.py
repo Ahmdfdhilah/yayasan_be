@@ -245,7 +245,7 @@ async def get_teacher_evaluations_filtered(
     teacher_id: Optional[int] = Query(None, description="Filter by teacher ID"),
     evaluator_id: Optional[int] = Query(None, description="Filter by evaluator ID"),
     period_id: Optional[int] = Query(None, description="Filter by period ID"),
-    final_grade: Optional[EvaluationGrade] = Query(
+    final_grade: Optional[float] = Query(
         None, description="Filter by final grade"
     ),
     min_average_score: Optional[float] = Query(

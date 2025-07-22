@@ -48,19 +48,6 @@ def get_aspect_service(db: AsyncSession = Depends(get_db)) -> EvaluationAspectSe
 # ===== SPECIFIC ENDPOINTS (Must come before generic {id} routes) =====
 
 @router.get(
-    "/active/list",
-    response_model=List[EvaluationAspectSummary],
-    summary="Get active evaluation aspects"
-)
-async def get_active_aspects(
-    current_user: dict = Depends(get_current_active_user),
-    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
-):
-    """Get all active evaluation aspects."""
-    return await aspect_service.get_active_aspects()
-
-
-@router.get(
     "/analytics",
     response_model=EvaluationAspectStats,
     summary="Get comprehensive analytics and statistics"

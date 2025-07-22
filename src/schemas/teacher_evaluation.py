@@ -93,7 +93,7 @@ class TeacherEvaluationResponse(BaseResponse):
     period_id: int
     total_score: int
     average_score: float
-    final_grade: Optional[EvaluationGrade]
+    final_grade: float
     final_notes: Optional[str]
     last_updated: datetime
     created_at: Optional[datetime] = None
@@ -117,7 +117,7 @@ class TeacherEvaluationSummary(BaseModel):
     completed_aspects: int
     total_score: int
     average_score: float
-    final_grade: Optional[EvaluationGrade]
+    final_grade: float
     completion_percentage: float
     last_updated: Optional[datetime] = None
 
@@ -144,7 +144,7 @@ class TeacherEvaluationFilterParams(PaginationParams):
     teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
     evaluator_id: Optional[int] = Field(None, description="Filter by evaluator ID")
     period_id: Optional[int] = Field(None, description="Filter by period ID")
-    final_grade: Optional[EvaluationGrade] = Field(None, description="Filter by final grade")
+    final_grade: float = Field(None, description="Filter by final grade")
     min_average_score: Optional[float] = Field(None, ge=1.0, le=4.0, description="Minimum average score")
     max_average_score: Optional[float] = Field(None, ge=1.0, le=4.0, description="Maximum average score")
     has_final_notes: Optional[bool] = Field(None, description="Filter by presence of final notes")

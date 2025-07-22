@@ -31,7 +31,7 @@ class TeacherEvaluation(BaseModel, SQLModel, table=True):
     # Auto-calculated aggregate fields
     total_score: int = Field(default=0, description="Sum of all aspect scores")
     average_score: float = Field(default=0.0, description="Average score across all aspects")
-    final_grade: Optional[EvaluationGrade] = Field(default=None, description="Final grade based on average")
+    final_grade: float = Field(default=0.0, description="Final grade calculated as total_score * 1.25")
     
     # Summary notes from evaluator
     final_notes: Optional[str] = Field(default=None, max_length=1000, description="Final evaluation summary")
@@ -68,33 +68,31 @@ class TeacherEvaluation(BaseModel, SQLModel, table=True):
         return 100.0  # All items are completed if they exist
     
     @property
-    def final_grade_description(self) -> Optional[str]:
+    def final_grade_description(self) -> str:
         """Get description for the final grade."""
-        if self.final_grade:
-            return EvaluationGrade.get_description(self.final_grade)
-        return None
+        if self.final_grade >= 87.5:  # 70 * 1.25 = 87.5 (equivalent to A grade)
+            return "Excellent (A)"
+        elif self.final_grade >= 62.5:  # 50 * 1.25 = 62.5 (equivalent to B grade)
+            return "Good (B)"
+        elif self.final_grade >= 37.5:  # 30 * 1.25 = 37.5 (equivalent to C grade)
+            return "Satisfactory (C)"
+        else:
+            return "Needs Improvement (D)"
     
     def recalculate_aggregates(self) -> None:
         """Recalculate total_score, average_score, and final_grade from items."""
         if not self.items:
             self.total_score = 0
             self.average_score = 0.0
-            self.final_grade = None
+            self.final_grade = 0.0
             return
         
         # Calculate totals
         self.total_score = sum(item.score for item in self.items)
         self.average_score = self.total_score / len(self.items)
         
-        # Determine final grade based on average
-        if self.average_score >= 3.5:
-            self.final_grade = EvaluationGrade.A
-        elif self.average_score >= 2.5:
-            self.final_grade = EvaluationGrade.B
-        elif self.average_score >= 1.5:
-            self.final_grade = EvaluationGrade.C
-        else:
-            self.final_grade = EvaluationGrade.D
+        # Calculate final grade as total_score * 1.25
+        self.final_grade = self.total_score * 1.25
         
         self.last_updated = datetime.utcnow()
         self.updated_at = datetime.utcnow()

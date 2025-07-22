@@ -25,6 +25,17 @@ class TeacherEvaluationRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
     
+    def _get_grade_letter(self, final_grade: float) -> str:
+        """Convert float final_grade to letter grade."""
+        if final_grade >= 87.5:
+            return "A"
+        elif final_grade >= 62.5:
+            return "B"
+        elif final_grade >= 37.5:
+            return "C"
+        else:
+            return "D"
+    
     # ===== PARENT EVALUATION CRUD =====
     
     async def create_evaluation(self, evaluation_data: TeacherEvaluationCreate, created_by: Optional[int] = None) -> TeacherEvaluation:
@@ -397,7 +408,8 @@ class TeacherEvaluationRepository:
             grade_distribution = {"A": 0, "B": 0, "C": 0, "D": 0, "None": 0}
             for evaluation in evaluations:
                 if evaluation.final_grade:
-                    grade_distribution[evaluation.final_grade.value] += 1
+                    grade_letter = self._get_grade_letter(evaluation.final_grade)
+                    grade_distribution[grade_letter] += 1
                 else:
                     grade_distribution["None"] += 1
         else:
@@ -419,7 +431,8 @@ class TeacherEvaluationRepository:
                     "teacher_id": e.teacher_id,
                     "teacher_name": e.teacher.display_name if e.teacher else "Unknown",
                     "average_score": e.average_score,
-                    "final_grade": e.final_grade.value if e.final_grade else None
+                    "final_grade": e.final_grade if e.final_grade else 0.0,
+                    "final_grade_letter": self._get_grade_letter(e.final_grade) if e.final_grade else "None"
                 }
                 for e in sorted_evaluations
             ]

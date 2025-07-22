@@ -71,6 +71,8 @@ class TeacherDashboard(DashboardResponse):
 
 class PrincipalDashboard(DashboardResponse):
     """Principal-specific dashboard with organization statistics."""
+    my_rpp_stats: RPPDashboardStats = Field(description="Personal RPP submission statistics")
+    my_evaluation_stats: TeacherEvaluationDashboardStats = Field(description="Personal evaluation statistics")
     organization_overview: Dict[str, Any] = Field(description="Detailed organization overview")
     teacher_summaries: List[Dict[str, Any]] = Field(description="Summary of teachers in organization")
 

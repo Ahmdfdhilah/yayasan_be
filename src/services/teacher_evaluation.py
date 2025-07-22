@@ -43,6 +43,18 @@ class TeacherEvaluationService:
         self.user_repo = user_repo
         self.session = session
 
+    def _to_response(self, evaluation) -> TeacherEvaluationResponse:
+        """Convert evaluation model to response with organization_name populated."""
+        response_data = evaluation.__dict__.copy()
+        
+        # Add organization_name from teacher's organization
+        if hasattr(evaluation, 'teacher') and evaluation.teacher and hasattr(evaluation.teacher, 'organization') and evaluation.teacher.organization:
+            response_data['organization_name'] = evaluation.teacher.organization.name
+        else:
+            response_data['organization_name'] = None
+            
+        return TeacherEvaluationResponse.model_validate(response_data)
+
     # ===== PARENT EVALUATION OPERATIONS =====
 
     async def create_evaluation(
@@ -85,7 +97,7 @@ class TeacherEvaluationService:
         evaluation = await self.evaluation_repo.create_evaluation(
             evaluation_data, created_by
         )
-        return TeacherEvaluationResponse.model_validate(evaluation)
+        return self._to_response(evaluation)
 
     async def get_evaluation(
         self, evaluation_id: int, current_user: dict = None
@@ -119,7 +131,7 @@ class TeacherEvaluationService:
                         detail="Access denied: Can only view your own evaluations",
                     )
 
-        return TeacherEvaluationResponse.model_validate(evaluation)
+        return self._to_response(evaluation)
 
     async def update_evaluation_notes(
         self,
@@ -139,7 +151,7 @@ class TeacherEvaluationService:
                 detail="Teacher evaluation not found",
             )
 
-        return TeacherEvaluationResponse.model_validate(evaluation)
+        return self._to_response(evaluation)
 
     async def delete_evaluation(self, evaluation_id: int) -> MessageResponse:
         """Delete teacher evaluation and all its items."""
@@ -247,7 +259,7 @@ class TeacherEvaluationService:
         updated_evaluation = await self.evaluation_repo.get_evaluation_by_id(
             evaluation_id
         )
-        return TeacherEvaluationResponse.model_validate(updated_evaluation)
+        return self._to_response(updated_evaluation)
 
     # ===== QUERY OPERATIONS =====
 
@@ -282,7 +294,7 @@ class TeacherEvaluationService:
 
         return {
             "items": [
-                TeacherEvaluationResponse.model_validate(eval) for eval in evaluations
+                self._to_response(eval) for eval in evaluations
             ],
             "total_count": total_count,
             "page": (filters.skip // filters.limit) + 1 if filters.limit > 0 else 1,
@@ -325,7 +337,7 @@ class TeacherEvaluationService:
                 detail="Teacher evaluation not found for this period",
             )
 
-        return TeacherEvaluationResponse.model_validate(evaluation)
+        return self._to_response(evaluation)
 
     async def get_evaluations_by_period(
         self, period_id: int, current_user: dict = None
@@ -341,7 +353,7 @@ class TeacherEvaluationService:
             period_id, organization_id
         )
 
-        return [TeacherEvaluationResponse.model_validate(eval) for eval in evaluations]
+        return [self._to_response(eval) for eval in evaluations]
 
     # ===== BULK OPERATIONS =====
 
@@ -436,7 +448,7 @@ class TeacherEvaluationService:
         updated_evaluation = await self.evaluation_repo.get_evaluation_by_id(
             evaluation.id
         )
-        return TeacherEvaluationResponse.model_validate(updated_evaluation)
+        return self._to_response(updated_evaluation)
 
     # ===== STATISTICS AND ANALYTICS =====
 

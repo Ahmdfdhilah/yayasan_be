@@ -12,6 +12,7 @@ from src.models.evaluation_aspect import EvaluationAspect
 from src.models.period import Period
 from src.models.user import User
 from src.models.user_role import UserRole
+from src.models.organization import Organization
 from src.models.enums import EvaluationGrade, UserRole as UserRoleEnum
 from src.schemas.teacher_evaluation import (
     TeacherEvaluationCreate, TeacherEvaluationUpdate, TeacherEvaluationFilterParams,
@@ -57,7 +58,7 @@ class TeacherEvaluationRepository:
     async def get_evaluation_by_id(self, evaluation_id: int) -> Optional[TeacherEvaluation]:
         """Get teacher evaluation by ID with all relationships."""
         query = select(TeacherEvaluation).options(
-            selectinload(TeacherEvaluation.teacher),
+            selectinload(TeacherEvaluation.teacher).selectinload(User.organization),
             selectinload(TeacherEvaluation.evaluator),
             selectinload(TeacherEvaluation.period),
             selectinload(TeacherEvaluation.items).selectinload(TeacherEvaluationItem.aspect)
@@ -179,7 +180,7 @@ class TeacherEvaluationRepository:
     async def get_evaluations_filtered(self, filters: TeacherEvaluationFilterParams, organization_id: Optional[int] = None) -> Tuple[List[TeacherEvaluation], int]:
         """Get filtered list of teacher evaluations with pagination."""
         base_query = select(TeacherEvaluation).options(
-            selectinload(TeacherEvaluation.teacher),
+            selectinload(TeacherEvaluation.teacher).selectinload(User.organization),
             selectinload(TeacherEvaluation.evaluator),
             selectinload(TeacherEvaluation.period),
             selectinload(TeacherEvaluation.items).selectinload(TeacherEvaluationItem.aspect)
@@ -261,7 +262,7 @@ class TeacherEvaluationRepository:
     async def get_teacher_evaluation_by_period(self, teacher_id: int, period_id: int, evaluator_id: int) -> Optional[TeacherEvaluation]:
         """Get teacher evaluation for specific period and evaluator."""
         query = select(TeacherEvaluation).options(
-            selectinload(TeacherEvaluation.teacher),
+            selectinload(TeacherEvaluation.teacher).selectinload(User.organization),
             selectinload(TeacherEvaluation.evaluator),
             selectinload(TeacherEvaluation.period),
             selectinload(TeacherEvaluation.items).selectinload(TeacherEvaluationItem.aspect)
@@ -279,7 +280,7 @@ class TeacherEvaluationRepository:
     async def get_evaluations_by_period(self, period_id: int, organization_id: Optional[int] = None) -> List[TeacherEvaluation]:
         """Get all evaluations for a specific period."""
         query = select(TeacherEvaluation).options(
-            selectinload(TeacherEvaluation.teacher),
+            selectinload(TeacherEvaluation.teacher).selectinload(User.organization),
             selectinload(TeacherEvaluation.evaluator),
             selectinload(TeacherEvaluation.period),
             selectinload(TeacherEvaluation.items).selectinload(TeacherEvaluationItem.aspect)

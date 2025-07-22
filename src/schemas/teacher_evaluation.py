@@ -98,6 +98,7 @@ class TeacherEvaluationResponse(BaseResponse):
     last_updated: datetime
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    organization_name: Optional[str] = None
     
     # Relationships
     teacher: Optional[UserResponse] = None

@@ -174,6 +174,12 @@ class DashboardService:
         period: Optional[PeriodSummary]
     ) -> PrincipalDashboard:
         """Get dashboard data for principals (kepala_sekolah)."""
+        # Get personal RPP stats for principal
+        my_rpp_stats = await self._get_teacher_rpp_stats(user_obj.id, filters.period_id)
+        
+        # Get personal evaluation stats for principal
+        my_evaluation_stats = await self._get_teacher_evaluation_stats(user_obj.id, filters.period_id)
+        
         # Get organization stats
         org_rpp_stats = await self._get_organization_rpp_stats(user_obj.organization_id, filters.period_id)
         org_eval_stats = await self._get_organization_evaluation_stats(user_obj.organization_id, filters.period_id)
@@ -210,6 +216,8 @@ class DashboardService:
             user_role="kepala_sekolah",
             organization_name=org_name,
             last_updated=datetime.utcnow(),
+            my_rpp_stats=my_rpp_stats,
+            my_evaluation_stats=my_evaluation_stats,
             organization_overview=org_overview,
             teacher_summaries=teacher_summaries
         )
@@ -367,32 +375,85 @@ class DashboardService:
     async def _get_organization_evaluation_stats(self, org_id: Optional[int], period_id: Optional[int]) -> TeacherEvaluationDashboardStats:
         """Get evaluation statistics for an organization."""
         if period_id:
-            stats = await self.evaluation_repo.get_period_statistics(period_id, org_id)
+            # Get raw evaluation data to calculate proper averages
+            from src.schemas.teacher_evaluation import TeacherEvaluationFilterParams
+            
+            # Get ALL evaluations for the organization/period
+            all_evaluations = []
+            skip = 0
+            limit = 100
+            
+            while True:
+                filters = TeacherEvaluationFilterParams(
+                    period_id=period_id,
+                    organization_id=org_id,
+                    skip=skip,
+                    limit=limit
+                )
+                
+                evaluations, total = await self.evaluation_repo.get_evaluations_filtered(filters)
+                all_evaluations.extend(evaluations)
+                
+                if len(evaluations) < limit or skip + limit >= total:
+                    break
+                
+                skip += limit
+            
+            # Calculate statistics from raw data
+            total_evaluations = len(all_evaluations)
+            
+            if total_evaluations > 0:
+                # Calculate average scores
+                total_score_sum = sum(e.average_score for e in all_evaluations if e.average_score)
+                total_total_score_sum = sum(e.total_score for e in all_evaluations if e.total_score)
+                total_final_score_sum = sum(e.final_grade for e in all_evaluations if e.final_grade)
+                
+                avg_score = total_score_sum / total_evaluations if total_evaluations > 0 else 0
+                avg_total_score = total_total_score_sum / total_evaluations if total_evaluations > 0 else 0
+                avg_final_score = total_final_score_sum / total_evaluations if total_evaluations > 0 else 0
+                
+                # Calculate grade distribution
+                grade_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
+                for evaluation in all_evaluations:
+                    if evaluation.final_grade is not None:
+                        if evaluation.final_grade >= 87.5:
+                            grade_dist["A"] += 1
+                        elif evaluation.final_grade >= 62.5:
+                            grade_dist["B"] += 1
+                        elif evaluation.final_grade >= 37.5:
+                            grade_dist["C"] += 1
+                        else:
+                            grade_dist["D"] += 1
+                
+                # Count unique teachers and total aspects
+                teacher_ids = set(e.teacher_id for e in all_evaluations)
+                total_teachers = len(teacher_ids)
+                total_aspects = sum(e.item_count for e in all_evaluations)
+            else:
+                avg_score = 0
+                avg_total_score = 0
+                avg_final_score = 0
+                grade_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
+                total_teachers = 0
+                total_aspects = 0
         else:
-            # Get organization-wide stats (fallback)
-            stats = {
-                "total_teachers": 0,
-                "total_aspects_evaluated": 0,
-                "total_evaluations": 0,
-                "completed_evaluations": 0,
-                "completion_percentage": 0,
-                "average_score": 0,
-                "average_total_score": 0,
-                "average_final_score": 0,
-                "final_grade_distribution": {"A": 0, "B": 0, "C": 0, "D": 0, "None": 0}
-            }
-        
-        # Exclude "None" grades from the grade distribution for dashboard
-        grade_dist = {k: v for k, v in stats["final_grade_distribution"].items() if k != "None"}
+            # Fallback for no period
+            total_evaluations = 0
+            avg_score = 0
+            avg_total_score = 0
+            avg_final_score = 0
+            grade_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
+            total_teachers = 0
+            total_aspects = 0
         
         return TeacherEvaluationDashboardStats(
-            total_evaluations=stats["total_evaluations"],
-            avg_score=stats["average_score"],
-            avg_total_score=stats.get("average_total_score", 0),
-            avg_final_score=stats.get("average_final_score", 0),
+            total_evaluations=total_evaluations,
+            avg_score=avg_score,
+            avg_total_score=avg_total_score,
+            avg_final_score=avg_final_score,
             grade_distribution=grade_dist,
-            total_teachers=stats["total_teachers"],
-            total_aspects=stats["total_aspects_evaluated"]
+            total_teachers=total_teachers,
+            total_aspects=total_aspects
         )
     
     async def _get_system_rpp_stats(self, period_id: Optional[int]) -> RPPDashboardStats:
@@ -412,32 +473,84 @@ class DashboardService:
     async def _get_system_evaluation_stats(self, period_id: Optional[int]) -> TeacherEvaluationDashboardStats:
         """Get system-wide evaluation statistics."""
         if period_id:
-            stats = await self.evaluation_repo.get_period_statistics(period_id)
+            # Get raw evaluation data to calculate proper averages
+            from src.schemas.teacher_evaluation import TeacherEvaluationFilterParams
+            
+            # Get ALL evaluations for the period (system-wide)
+            all_evaluations = []
+            skip = 0
+            limit = 100
+            
+            while True:
+                filters = TeacherEvaluationFilterParams(
+                    period_id=period_id,
+                    skip=skip,
+                    limit=limit
+                )
+                
+                evaluations, total = await self.evaluation_repo.get_evaluations_filtered(filters)
+                all_evaluations.extend(evaluations)
+                
+                if len(evaluations) < limit or skip + limit >= total:
+                    break
+                
+                skip += limit
+            
+            # Calculate statistics from raw data
+            total_evaluations = len(all_evaluations)
+            
+            if total_evaluations > 0:
+                # Calculate average scores
+                total_score_sum = sum(e.average_score for e in all_evaluations if e.average_score)
+                total_total_score_sum = sum(e.total_score for e in all_evaluations if e.total_score)
+                total_final_score_sum = sum(e.final_grade for e in all_evaluations if e.final_grade)
+                
+                avg_score = total_score_sum / total_evaluations if total_evaluations > 0 else 0
+                avg_total_score = total_total_score_sum / total_evaluations if total_evaluations > 0 else 0
+                avg_final_score = total_final_score_sum / total_evaluations if total_evaluations > 0 else 0
+                
+                # Calculate grade distribution
+                grade_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
+                for evaluation in all_evaluations:
+                    if evaluation.final_grade is not None:
+                        if evaluation.final_grade >= 87.5:
+                            grade_dist["A"] += 1
+                        elif evaluation.final_grade >= 62.5:
+                            grade_dist["B"] += 1
+                        elif evaluation.final_grade >= 37.5:
+                            grade_dist["C"] += 1
+                        else:
+                            grade_dist["D"] += 1
+                
+                # Count unique teachers and total aspects
+                teacher_ids = set(e.teacher_id for e in all_evaluations)
+                total_teachers = len(teacher_ids)
+                total_aspects = sum(e.item_count for e in all_evaluations)
+            else:
+                avg_score = 0
+                avg_total_score = 0
+                avg_final_score = 0
+                grade_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
+                total_teachers = 0
+                total_aspects = 0
         else:
-            # Get system-wide stats (fallback)
-            stats = {
-                "total_teachers": 0,
-                "total_aspects_evaluated": 0,
-                "total_evaluations": 0,
-                "completed_evaluations": 0,
-                "completion_percentage": 0,
-                "average_score": 0,
-                "average_total_score": 0,
-                "average_final_score": 0,
-                "final_grade_distribution": {"A": 0, "B": 0, "C": 0, "D": 0, "None": 0}
-            }
-        
-        # Exclude "None" grades from the grade distribution for dashboard
-        grade_dist = {k: v for k, v in stats["final_grade_distribution"].items() if k != "None"}
+            # Fallback for no period
+            total_evaluations = 0
+            avg_score = 0
+            avg_total_score = 0
+            avg_final_score = 0
+            grade_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
+            total_teachers = 0
+            total_aspects = 0
         
         return TeacherEvaluationDashboardStats(
-            total_evaluations=stats["total_evaluations"],
-            avg_score=stats["average_score"],
-            avg_total_score=stats.get("average_total_score", 0),
-            avg_final_score=stats.get("average_final_score", 0),
+            total_evaluations=total_evaluations,
+            avg_score=avg_score,
+            avg_total_score=avg_total_score,
+            avg_final_score=avg_final_score,
             grade_distribution=grade_dist,
-            total_teachers=stats["total_teachers"],
-            total_aspects=stats["total_aspects_evaluated"]
+            total_teachers=total_teachers,
+            total_aspects=total_aspects
         )
     
     

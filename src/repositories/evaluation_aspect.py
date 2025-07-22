@@ -483,6 +483,35 @@ class EvaluationAspectRepository:
         await self.session.refresh(category)
         return category
     
+    async def update_category(self, category_id: int, category_data, updated_by: int) -> Optional[EvaluationCategory]:
+        """Update an evaluation category."""
+        # Prepare update data
+        update_data = {"updated_by": updated_by, "updated_at": datetime.utcnow()}
+        
+        if category_data.name is not None:
+            update_data["name"] = category_data.name
+        if category_data.description is not None:
+            update_data["description"] = category_data.description
+        if category_data.display_order is not None:
+            update_data["display_order"] = category_data.display_order
+        if category_data.is_active is not None:
+            update_data["is_active"] = category_data.is_active
+        
+        # Update the category
+        stmt = update(EvaluationCategory).where(
+            and_(EvaluationCategory.id == category_id, EvaluationCategory.deleted_at.is_(None))
+        ).values(**update_data)
+        
+        result = await self.session.execute(stmt)
+        
+        if result.rowcount == 0:
+            return None
+        
+        await self.session.commit()
+        
+        # Return updated category
+        return await self.get_category_by_id(category_id)
+    
     async def get_category_by_id(self, category_id: int) -> Optional[EvaluationCategory]:
         """Get evaluation category by ID."""
         query = select(EvaluationCategory).where(

@@ -27,6 +27,7 @@ from src.schemas.evaluation_aspect import (
 )
 from src.schemas.evaluation_category import (
     EvaluationCategoryCreate,
+    EvaluationCategoryUpdate,
     EvaluationCategoryResponse,
     EvaluationCategorySummary,
     CategoryOrderUpdate,
@@ -75,6 +76,21 @@ async def create_category(
 ):
     """Create a new evaluation category. Requires admin role."""
     return await aspect_service.create_category(category_data, current_user.get("id"))
+
+
+@router.put(
+    "/categories/{category_id}",
+    response_model=EvaluationCategoryResponse,
+    summary="Update evaluation category"
+)
+async def update_category(
+    category_id: int,
+    category_data: EvaluationCategoryUpdate,
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Update an evaluation category (name, description, etc.). Requires admin role."""
+    return await aspect_service.update_category(category_id, category_data, current_user.get("id"))
 
 
 @router.get(

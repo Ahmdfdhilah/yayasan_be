@@ -65,7 +65,7 @@ class EvaluationAspectService:
             items_created = await self.aspect_repo.sync_aspect_to_all_evaluations(aspect.id, created_by)
             if items_created > 0 and self.evaluation_repo:
                 await self.evaluation_repo.recalculate_all_aggregates()
-                print(f"✅ Synced new aspect {aspect.id} to {items_created} evaluations")
+           
         
         return EvaluationAspectResponse.from_evaluation_aspect_model(aspect, include_stats=True)
     
@@ -126,14 +126,13 @@ class EvaluationAspectService:
                 items_created = await self.aspect_repo.sync_aspect_to_all_evaluations(aspect_id, updated_by)
                 if items_created > 0 and self.evaluation_repo:
                     await self.evaluation_repo.recalculate_all_aggregates()
-                    print(f"✅ Synced activated aspect {aspect_id} to {items_created} evaluations")
+             
             elif was_active and not aspect_data.is_active:
                 # Aspect was deactivated - remove from all evaluations
                 items_deleted = await self.aspect_repo.remove_aspect_from_all_evaluations(aspect_id)
                 if items_deleted > 0 and self.evaluation_repo:
                     await self.evaluation_repo.recalculate_all_aggregates()
-                    print(f"✅ Removed deactivated aspect {aspect_id} from {items_deleted} evaluation items")
-        
+             
         return EvaluationAspectResponse.from_evaluation_aspect_model(updated_aspect, include_stats=True)
     
     async def delete_aspect(self, aspect_id: int) -> MessageResponse:
@@ -150,8 +149,7 @@ class EvaluationAspectService:
         items_deleted = await self.aspect_repo.remove_aspect_from_all_evaluations(aspect_id)
         if items_deleted > 0 and self.evaluation_repo:
             await self.evaluation_repo.recalculate_all_aggregates()
-            print(f"✅ Removed deleted aspect {aspect_id} from {items_deleted} evaluation items")
-        
+
         # Then delete the aspect
         success = await self.aspect_repo.soft_delete(aspect_id)
         if not success:
@@ -473,6 +471,35 @@ class EvaluationAspectService:
         )
         
         return EvaluationCategoryResponse.from_evaluation_category_model(category, include_stats=True)
+    
+    async def update_category(self, category_id: int, category_data: EvaluationCategoryUpdate, updated_by: int) -> EvaluationCategoryResponse:
+        """Update an evaluation category."""
+        # Check if category exists
+        category = await self.aspect_repo.get_category_by_id(category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Category not found"
+            )
+        
+        # Check for duplicate name if name is being updated
+        if category_data.name and category_data.name != category.name:
+            existing_category = await self.aspect_repo.get_category_by_name(category_data.name)
+            if existing_category and existing_category.id != category_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Category with this name already exists"
+                )
+        
+        # Update category
+        updated_category = await self.aspect_repo.update_category(category_id, category_data, updated_by)
+        if not updated_category:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update category"
+            )
+        
+        return EvaluationCategoryResponse.from_evaluation_category_model(updated_category, include_stats=True)
     
     async def get_all_categories(self, include_inactive: bool = False) -> List[EvaluationCategorySummary]:
         """Get all evaluation categories."""

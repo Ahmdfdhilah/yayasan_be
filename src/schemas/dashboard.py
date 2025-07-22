@@ -19,9 +19,6 @@ class RPPDashboardStats(BaseModel):
 class TeacherEvaluationDashboardStats(BaseModel):
     """Teacher evaluation statistics for dashboard."""
     total_evaluations: int = Field(description="Total number of evaluations")
-    completed_evaluations: int = Field(description="Number of completed evaluations")
-    pending_evaluations: int = Field(description="Number of pending evaluations")
-    completion_rate: float = Field(description="Evaluation completion rate percentage")
     avg_score: Optional[float] = Field(description="Average evaluation score")
     grade_distribution: Dict[str, int] = Field(description="Distribution of grades (A, B, C, D)")
     total_teachers: int = Field(description="Total number of teachers being evaluated")

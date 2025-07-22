@@ -278,35 +278,50 @@ class DashboardService:
     
     async def _get_teacher_evaluation_stats(self, teacher_id: int, period_id: Optional[int]) -> TeacherEvaluationDashboardStats:
         """Get evaluation statistics for a specific teacher."""
-        if period_id:
-            evaluations = await self.evaluation_repo.get_teacher_evaluations_in_period(teacher_id, period_id)
-        else:
-            evaluations = await self.evaluation_repo.get_teacher_evaluations(teacher_id)
+        from src.schemas.teacher_evaluation import TeacherEvaluationFilterParams
+        
+        # Create filter for teacher evaluations
+        filters = TeacherEvaluationFilterParams(
+            teacher_id=teacher_id,
+            period_id=period_id,
+            skip=0,
+            limit=1000  # Large limit to get all
+        )
+        
+        evaluations, _ = await self.evaluation_repo.get_evaluations_filtered(filters)
         
         total = len(evaluations)
-        completed = len([e for e in evaluations if e.grade is not None])
         
-        # Calculate grade distribution
+        # Calculate grade distribution based on final grades
         grade_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
         total_score = 0
+        evaluated_count = 0
         
         for eval in evaluations:
-            if eval.grade:
-                grade_dist[eval.grade.value] += 1
-                total_score += EvaluationGrade.get_score(eval.grade.value)
+            if eval.final_grade is not None:
+                # Convert final_grade to letter grade
+                if eval.final_grade >= 87.5:
+                    grade_dist["A"] += 1
+                elif eval.final_grade >= 62.5:
+                    grade_dist["B"] += 1
+                elif eval.final_grade >= 37.5:
+                    grade_dist["C"] += 1
+                else:
+                    grade_dist["D"] += 1
+                total_score += eval.average_score if eval.average_score else 0
+                evaluated_count += 1
         
-        avg_score = total_score / completed if completed > 0 else 0
-        completion_rate = (completed / total * 100) if total > 0 else 0
+        avg_score = total_score / evaluated_count if evaluated_count > 0 else 0
+        
+        # Count total aspects from all evaluations
+        total_aspects = sum(e.item_count for e in evaluations) if evaluations else 0
         
         return TeacherEvaluationDashboardStats(
             total_evaluations=total,
-            completed_evaluations=completed,
-            pending_evaluations=total - completed,
-            completion_rate=completion_rate,
             avg_score=avg_score,
             grade_distribution=grade_dist,
             total_teachers=1,  # Just this teacher
-            total_aspects=len(set(e.aspect_id for e in evaluations))
+            total_aspects=total_aspects
         )
     
     async def _get_organization_rpp_stats(self, org_id: Optional[int], period_id: Optional[int]) -> RPPDashboardStats:
@@ -329,28 +344,28 @@ class DashboardService:
     async def _get_organization_evaluation_stats(self, org_id: Optional[int], period_id: Optional[int]) -> TeacherEvaluationDashboardStats:
         """Get evaluation statistics for an organization."""
         if period_id:
-            stats = await self.evaluation_repo.get_period_statistics(period_id)
+            stats = await self.evaluation_repo.get_period_statistics(period_id, org_id)
         else:
-            # Get organization-wide stats (this would need to be implemented in repo)
+            # Get organization-wide stats (fallback)
             stats = {
                 "total_teachers": 0,
-                "total_aspects": 0,
-                "total_possible_evaluations": 0,
+                "total_aspects_evaluated": 0,
+                "total_evaluations": 0,
                 "completed_evaluations": 0,
                 "completion_percentage": 0,
                 "average_score": 0,
-                "grade_distribution": {"A": 0, "B": 0, "C": 0, "D": 0}
+                "final_grade_distribution": {"A": 0, "B": 0, "C": 0, "D": 0, "None": 0}
             }
         
+        # Exclude "None" grades from the grade distribution for dashboard
+        grade_dist = {k: v for k, v in stats["final_grade_distribution"].items() if k != "None"}
+        
         return TeacherEvaluationDashboardStats(
-            total_evaluations=stats["total_possible_evaluations"],
-            completed_evaluations=stats["completed_evaluations"],
-            pending_evaluations=stats["total_possible_evaluations"] - stats["completed_evaluations"],
-            completion_rate=stats["completion_percentage"],
+            total_evaluations=stats["total_evaluations"],
             avg_score=stats["average_score"],
-            grade_distribution=stats["grade_distribution"],
+            grade_distribution=grade_dist,
             total_teachers=stats["total_teachers"],
-            total_aspects=stats["total_aspects"]
+            total_aspects=stats["total_aspects_evaluated"]
         )
     
     async def _get_system_rpp_stats(self, period_id: Optional[int]) -> RPPDashboardStats:
@@ -372,26 +387,26 @@ class DashboardService:
         if period_id:
             stats = await self.evaluation_repo.get_period_statistics(period_id)
         else:
-            # Get system-wide stats
+            # Get system-wide stats (fallback)
             stats = {
                 "total_teachers": 0,
-                "total_aspects": 0,
-                "total_possible_evaluations": 0,
+                "total_aspects_evaluated": 0,
+                "total_evaluations": 0,
                 "completed_evaluations": 0,
                 "completion_percentage": 0,
                 "average_score": 0,
-                "grade_distribution": {"A": 0, "B": 0, "C": 0, "D": 0}
+                "final_grade_distribution": {"A": 0, "B": 0, "C": 0, "D": 0, "None": 0}
             }
         
+        # Exclude "None" grades from the grade distribution for dashboard
+        grade_dist = {k: v for k, v in stats["final_grade_distribution"].items() if k != "None"}
+        
         return TeacherEvaluationDashboardStats(
-            total_evaluations=stats["total_possible_evaluations"],
-            completed_evaluations=stats["completed_evaluations"],
-            pending_evaluations=stats["total_possible_evaluations"] - stats["completed_evaluations"],
-            completion_rate=stats["completion_percentage"],
+            total_evaluations=stats["total_evaluations"],
             avg_score=stats["average_score"],
-            grade_distribution=stats["grade_distribution"],
+            grade_distribution=grade_dist,
             total_teachers=stats["total_teachers"],
-            total_aspects=stats["total_aspects"]
+            total_aspects=stats["total_aspects_evaluated"]
         )
     
     async def _get_teacher_quick_stats(self, teacher_id: int, period_id: Optional[int]) -> QuickStats:
@@ -404,12 +419,17 @@ class DashboardService:
         my_pending_reviews = 0
         
         # Get pending evaluations
-        if period_id:
-            evaluations = await self.evaluation_repo.get_teacher_evaluations_in_period(teacher_id, period_id)
-        else:
-            evaluations = await self.evaluation_repo.get_teacher_evaluations(teacher_id)
+        from src.schemas.teacher_evaluation import TeacherEvaluationFilterParams
         
-        my_pending_evaluations = len([e for e in evaluations if e.grade is None])
+        eval_filters = TeacherEvaluationFilterParams(
+            teacher_id=teacher_id,
+            period_id=period_id,
+            skip=0,
+            limit=1000
+        )
+        
+        evaluations, _ = await self.evaluation_repo.get_evaluations_filtered(eval_filters)
+        my_pending_evaluations = len([e for e in evaluations if e.item_count == 0 or e.final_grade is None])
         
         # Recent activities (simplified)
         recent_activities = [

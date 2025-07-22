@@ -134,7 +134,7 @@ class PeriodEvaluationStats(BaseModel):
     average_score: float
     final_grade_distribution: dict  # {"A": count, "B": count, "C": count, "D": count}
     completion_percentage: float
-    top_performers: List[dict]  # Top teachers by final grade and average
+    top_performers: List[dict]  # Top teachers by final grade and average, includes total_score and organization_name
     aspect_performance: List[dict]  # Average performance by aspect
 
 

@@ -416,7 +416,7 @@ class TeacherEvaluationRepository:
         """Get comprehensive statistics for evaluations in a period."""
         base_query = select(TeacherEvaluation).options(
             selectinload(TeacherEvaluation.items).selectinload(TeacherEvaluationItem.aspect),
-            selectinload(TeacherEvaluation.teacher)
+            selectinload(TeacherEvaluation.teacher).selectinload(User.organization)
         ).where(TeacherEvaluation.period_id == period_id)
         
         if organization_id:
@@ -461,9 +461,11 @@ class TeacherEvaluationRepository:
                 {
                     "teacher_id": e.teacher_id,
                     "teacher_name": e.teacher.display_name if e.teacher else "Unknown",
+                    "total_score": e.total_score,
                     "average_score": e.average_score,
                     "final_grade": e.final_grade if e.final_grade else 0.0,
-                    "final_grade_letter": self._get_grade_letter(e.final_grade) if e.final_grade else "None"
+                    "final_grade_letter": self._get_grade_letter(e.final_grade) if e.final_grade else "None",
+                    "organization_name": e.teacher.organization.name if (e.teacher and e.teacher.organization) else "Unknown"
                 }
                 for e in sorted_evaluations
             ]

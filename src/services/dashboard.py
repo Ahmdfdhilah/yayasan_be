@@ -16,7 +16,6 @@ from src.schemas.dashboard import (
     TeacherEvaluationDashboardStats,
     OrganizationSummary,
     PeriodSummary,
-    QuickStats,
     TeacherDashboard,
     PrincipalDashboard,
     AdminDashboard
@@ -134,9 +133,6 @@ class DashboardService:
         # Get personal evaluation stats
         my_evaluation_stats = await self._get_teacher_evaluation_stats(user_obj.id, filters.period_id)
         
-        # Get quick stats
-        quick_stats = await self._get_teacher_quick_stats(user_obj.id, filters.period_id)
-        
         # Get organization-wide stats for context
         org_rpp_stats = await self._get_organization_rpp_stats(user_obj.organization_id, filters.period_id)
         org_eval_stats = await self._get_organization_evaluation_stats(user_obj.organization_id, filters.period_id)
@@ -167,7 +163,6 @@ class DashboardService:
             user_role="guru",
             organization_name=org_name,
             last_updated=datetime.utcnow(),
-            quick_stats=quick_stats,
             my_rpp_stats=my_rpp_stats,
             my_evaluation_stats=my_evaluation_stats
         )
@@ -182,9 +177,6 @@ class DashboardService:
         # Get organization stats
         org_rpp_stats = await self._get_organization_rpp_stats(user_obj.organization_id, filters.period_id)
         org_eval_stats = await self._get_organization_evaluation_stats(user_obj.organization_id, filters.period_id)
-        
-        # Get quick stats for principal
-        quick_stats = await self._get_principal_quick_stats(user_obj.id, user_obj.organization_id, filters.period_id)
         
         # Get organization overview
         org_overview = await self._get_organization_overview(user_obj.organization_id, filters.period_id)
@@ -218,7 +210,6 @@ class DashboardService:
             user_role="kepala_sekolah",
             organization_name=org_name,
             last_updated=datetime.utcnow(),
-            quick_stats=quick_stats,
             organization_overview=org_overview,
             teacher_summaries=teacher_summaries
         )
@@ -247,6 +238,9 @@ class DashboardService:
         # Get recent system activities
         recent_activities = await self._get_recent_system_activities()
         
+        # Get organization distribution for admin
+        organization_distribution = await self._get_organization_distribution(filters.period_id)
+        
         return AdminDashboard(
             period=period,
             rpp_stats=rpp_stats,
@@ -257,6 +251,7 @@ class DashboardService:
             last_updated=datetime.utcnow(),
             system_overview=system_overview,
             organization_summaries=org_summaries,
+            organization_distribution=organization_distribution,
             recent_system_activities=recent_activities
         )
     
@@ -305,13 +300,26 @@ class DashboardService:
         
         total = len(evaluations)
         
-        # Calculate grade distribution based on final grades
+        # Calculate grade distribution and scores
         grade_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
         total_score = 0
+        total_total_score = 0
+        total_final_score = 0
         evaluated_count = 0
+        final_score_count = 0
         
         for eval in evaluations:
+            if eval.average_score is not None:
+                total_score += eval.average_score
+                evaluated_count += 1
+            
+            if eval.total_score is not None:
+                total_total_score += eval.total_score
+            
             if eval.final_grade is not None:
+                total_final_score += eval.final_grade
+                final_score_count += 1
+                
                 # Convert final_grade to letter grade
                 if eval.final_grade >= 87.5:
                     grade_dist["A"] += 1
@@ -321,10 +329,10 @@ class DashboardService:
                     grade_dist["C"] += 1
                 else:
                     grade_dist["D"] += 1
-                total_score += eval.average_score if eval.average_score else 0
-                evaluated_count += 1
         
         avg_score = total_score / evaluated_count if evaluated_count > 0 else 0
+        avg_total_score = total_total_score / evaluated_count if evaluated_count > 0 else 0
+        avg_final_score = total_final_score / final_score_count if final_score_count > 0 else 0
         
         # Count total aspects from all evaluations
         total_aspects = sum(e.item_count for e in evaluations) if evaluations else 0
@@ -332,6 +340,8 @@ class DashboardService:
         return TeacherEvaluationDashboardStats(
             total_evaluations=total,
             avg_score=avg_score,
+            avg_total_score=avg_total_score,
+            avg_final_score=avg_final_score,
             grade_distribution=grade_dist,
             total_teachers=1,  # Just this teacher
             total_aspects=total_aspects
@@ -367,6 +377,8 @@ class DashboardService:
                 "completed_evaluations": 0,
                 "completion_percentage": 0,
                 "average_score": 0,
+                "average_total_score": 0,
+                "average_final_score": 0,
                 "final_grade_distribution": {"A": 0, "B": 0, "C": 0, "D": 0, "None": 0}
             }
         
@@ -376,6 +388,8 @@ class DashboardService:
         return TeacherEvaluationDashboardStats(
             total_evaluations=stats["total_evaluations"],
             avg_score=stats["average_score"],
+            avg_total_score=stats.get("average_total_score", 0),
+            avg_final_score=stats.get("average_final_score", 0),
             grade_distribution=grade_dist,
             total_teachers=stats["total_teachers"],
             total_aspects=stats["total_aspects_evaluated"]
@@ -408,6 +422,8 @@ class DashboardService:
                 "completed_evaluations": 0,
                 "completion_percentage": 0,
                 "average_score": 0,
+                "average_total_score": 0,
+                "average_final_score": 0,
                 "final_grade_distribution": {"A": 0, "B": 0, "C": 0, "D": 0, "None": 0}
             }
         
@@ -417,82 +433,13 @@ class DashboardService:
         return TeacherEvaluationDashboardStats(
             total_evaluations=stats["total_evaluations"],
             avg_score=stats["average_score"],
+            avg_total_score=stats.get("average_total_score", 0),
+            avg_final_score=stats.get("average_final_score", 0),
             grade_distribution=grade_dist,
             total_teachers=stats["total_teachers"],
             total_aspects=stats["total_aspects_evaluated"]
         )
     
-    async def _get_teacher_quick_stats(self, teacher_id: int, period_id: Optional[int]) -> QuickStats:
-        """Get quick statistics for a teacher."""
-        # Get pending RPPs
-        pending_rpps = await self.rpp_repo.get_teacher_submissions(teacher_id, period_id)
-        my_pending_rpps = len([r for r in pending_rpps if r.status == RPPSubmissionStatus.PENDING])
-        
-        # Teachers don't review, so pending reviews is 0
-        my_pending_reviews = 0
-        
-        # Get ALL pending evaluations with pagination
-        from src.schemas.teacher_evaluation import TeacherEvaluationFilterParams
-        
-        all_evaluations = []
-        skip = 0
-        limit = 100
-        
-        while True:
-            eval_filters = TeacherEvaluationFilterParams(
-                teacher_id=teacher_id,
-                period_id=period_id,
-                skip=skip,
-                limit=limit
-            )
-            
-            evaluations, total = await self.evaluation_repo.get_evaluations_filtered(eval_filters)
-            all_evaluations.extend(evaluations)
-            
-            if len(evaluations) < limit or skip + limit >= total:
-                break
-            
-            skip += limit
-        
-        my_pending_evaluations = len([e for e in all_evaluations if e.item_count == 0 or e.final_grade is None])
-        
-        # Recent activities (simplified)
-        recent_activities = [
-            {"type": "rpp_submission", "count": len(pending_rpps[:5])},
-            {"type": "evaluations", "count": len(evaluations[:5])}
-        ]
-        
-        return QuickStats(
-            my_pending_rpps=my_pending_rpps,
-            my_pending_reviews=my_pending_reviews,
-            my_pending_evaluations=my_pending_evaluations,
-            recent_activities=recent_activities
-        )
-    
-    async def _get_principal_quick_stats(self, principal_id: int, org_id: int, period_id: Optional[int]) -> QuickStats:
-        """Get quick statistics for a principal."""
-        # Principals don't submit RPPs
-        my_pending_rpps = 0
-        
-        # Get pending reviews for principal
-        pending_reviews = await self.rpp_repo.get_pending_reviews(principal_id)
-        my_pending_reviews = len(pending_reviews)
-        
-        # Principals don't get evaluated typically
-        my_pending_evaluations = 0
-        
-        # Recent activities
-        recent_activities = [
-            {"type": "pending_reviews", "count": my_pending_reviews},
-            {"type": "organization_overview", "count": 1}
-        ]
-        
-        return QuickStats(
-            my_pending_rpps=my_pending_rpps,
-            my_pending_reviews=my_pending_reviews,
-            my_pending_evaluations=my_pending_evaluations,
-            recent_activities=recent_activities
-        )
     
     async def _get_all_organization_summaries(self, period_id: Optional[int]) -> List[OrganizationSummary]:
         """Get summaries for all organizations."""
@@ -579,6 +526,17 @@ class DashboardService:
             {"type": "system_overview", "message": "System running normally"},
             {"type": "data_summary", "message": "Dashboard data refreshed"}
         ]
+    
+    async def _get_organization_distribution(self, period_id: Optional[int]) -> Dict[str, Dict[str, int]]:
+        """Get grade distribution per organization for admin dashboard."""
+        organizations = await self.org_repo.get_all()
+        distribution = {}
+        
+        for org in organizations:
+            eval_stats = await self._get_organization_evaluation_stats(org.id, period_id)
+            distribution[str(org.id)] = eval_stats.grade_distribution
+        
+        return distribution
     
     def _calculate_submission_rate(self, analytics: Dict[str, Any]) -> float:
         """Calculate submission completion rate."""

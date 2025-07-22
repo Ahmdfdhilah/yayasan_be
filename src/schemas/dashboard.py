@@ -20,6 +20,8 @@ class TeacherEvaluationDashboardStats(BaseModel):
     """Teacher evaluation statistics for dashboard."""
     total_evaluations: int = Field(description="Total number of evaluations")
     avg_score: Optional[float] = Field(description="Average evaluation score")
+    avg_total_score: Optional[float] = Field(description="Average total score")
+    avg_final_score: Optional[float] = Field(description="Average final score")
     grade_distribution: Dict[str, int] = Field(description="Distribution of grades (A, B, C, D)")
     total_teachers: int = Field(description="Total number of teachers being evaluated")
     total_aspects: int = Field(description="Total number of evaluation aspects")
@@ -61,25 +63,14 @@ class DashboardFilters(BaseModel):
     include_inactive: bool = Field(False, description="Include inactive periods/organizations")
 
 
-# Quick stats for summary cards
-class QuickStats(BaseModel):
-    """Quick statistics for dashboard cards."""
-    my_pending_rpps: int = Field(description="Number of user's pending RPP submissions")
-    my_pending_reviews: int = Field(description="Number of RPP reviews pending for user")
-    my_pending_evaluations: int = Field(description="Number of pending evaluations for user")
-    recent_activities: List[Dict[str, Any]] = Field(description="Recent activities for the user")
-
-
 class TeacherDashboard(DashboardResponse):
     """Teacher-specific dashboard with personal statistics."""
-    quick_stats: QuickStats = Field(description="Quick personal statistics")
     my_rpp_stats: RPPDashboardStats = Field(description="Personal RPP submission statistics")
     my_evaluation_stats: TeacherEvaluationDashboardStats = Field(description="Personal evaluation statistics")
 
 
 class PrincipalDashboard(DashboardResponse):
     """Principal-specific dashboard with organization statistics."""
-    quick_stats: QuickStats = Field(description="Quick statistics for principal")
     organization_overview: Dict[str, Any] = Field(description="Detailed organization overview")
     teacher_summaries: List[Dict[str, Any]] = Field(description="Summary of teachers in organization")
 
@@ -88,4 +79,5 @@ class AdminDashboard(DashboardResponse):
     """Admin-specific dashboard with system-wide statistics."""
     system_overview: Dict[str, Any] = Field(description="System-wide overview statistics")
     organization_summaries: List[OrganizationSummary] = Field(description="All organizations summary")
+    organization_distribution: Dict[str, Dict[str, int]] = Field(description="Grade distribution per organization")
     recent_system_activities: List[Dict[str, Any]] = Field(description="Recent system-wide activities")

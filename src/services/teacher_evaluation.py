@@ -53,6 +53,22 @@ class TeacherEvaluationService:
         if self.session:
             await validate_period_is_active(self.session, evaluation_data.period_id)
 
+        # Validate that teacher is not an admin user
+        teacher = await self.user_repo.get_by_id(evaluation_data.teacher_id)
+        if not teacher:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Teacher not found",
+            )
+        
+        # Check if teacher has admin role
+        teacher_roles = [role.role_name for role in teacher.user_roles if role.is_active]
+        if "admin" in teacher_roles:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot create evaluation for admin users",
+            )
+
         # Check if evaluation already exists for this teacher-period-evaluator combination
         existing = await self.evaluation_repo.get_teacher_evaluation_by_period(
             evaluation_data.teacher_id,
@@ -379,6 +395,22 @@ class TeacherEvaluationService:
         created_by: Optional[int] = None,
     ) -> TeacherEvaluationResponse:
         """Create evaluation with multiple items at once."""
+        # Validate that teacher is not an admin user
+        teacher = await self.user_repo.get_by_id(evaluation_data.teacher_id)
+        if not teacher:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Teacher not found",
+            )
+        
+        # Check if teacher has admin role
+        teacher_roles = [role.role_name for role in teacher.user_roles if role.is_active]
+        if "admin" in teacher_roles:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot create evaluation for admin users",
+            )
+        
         # Create parent evaluation
         parent_data = TeacherEvaluationCreate(
             teacher_id=evaluation_data.teacher_id,

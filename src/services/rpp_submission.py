@@ -80,12 +80,19 @@ class RPPSubmissionService:
         )
     
     async def _validate_teacher_exists(self, teacher_id: int) -> None:
-        """Validate that teacher exists and has guru or kepala_sekolah role."""
+        """Validate that teacher exists and has guru or kepala_sekolah role, excluding admin users."""
         user = await self.user_repo.get_by_id(teacher_id)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=get_message("user", "not_found")
+            )
+        
+        # Check if user has admin role - reject if they do
+        if user.has_role("admin"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tidak dapat membuat submission RPP untuk pengguna admin"
             )
         
         # Check if user has guru or kepala_sekolah role

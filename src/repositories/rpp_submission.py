@@ -376,13 +376,30 @@ class RPPSubmissionRepository:
         Returns:
             Tuple of (generated_count, skipped_count, total_teachers)
         """
-        # Get all active teachers (guru) and kepala sekolah
+        # Get all active teachers (guru) and kepala sekolah, excluding admin users
+        # Subquery to find users with admin role
+        admin_users_subquery = (
+            select(UserRole.user_id)
+            .where(
+                and_(
+                    UserRole.role_name == "admin",
+                    UserRole.is_active == True,
+                    UserRole.deleted_at.is_(None)
+                )
+            )
+        )
+        
         teachers_query = select(User).join(
             User.user_roles.and_(
                 UserRole.role_name.in_(["guru", "kepala_sekolah"]), 
                 UserRole.is_active == True
             )
-        ).where(User.status == "active", User.deleted_at.is_(None))
+        ).where(
+            User.status == "active", 
+            User.deleted_at.is_(None),
+            # Exclude users who have admin role
+            ~User.id.in_(admin_users_subquery)
+        )
         
         teachers_result = await self.session.execute(teachers_query)
         teachers = teachers_result.scalars().all()

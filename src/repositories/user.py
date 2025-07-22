@@ -412,7 +412,19 @@ class UserRepository:
         return list(result.scalars().all())
     
     async def get_teachers_by_organization(self, organization_id: int) -> List[User]:
-        """Get all teachers (guru) in a specific organization."""
+        """Get all teachers (guru) in a specific organization, excluding admin users."""
+        # Subquery to find users with admin role
+        admin_users_subquery = (
+            select(UserRoleModel.user_id)
+            .where(
+                and_(
+                    UserRoleModel.role_name == "admin",
+                    UserRoleModel.is_active == True,
+                    UserRoleModel.deleted_at.is_(None)
+                )
+            )
+        )
+        
         query = (
             select(User)
             .join(UserRoleModel)
@@ -422,7 +434,9 @@ class UserRepository:
                     UserRoleModel.role_name == "guru",
                     UserRoleModel.is_active == True,
                     User.deleted_at.is_(None),
-                    User.status == UserStatus.ACTIVE
+                    User.status == UserStatus.ACTIVE,
+                    # Exclude users who have admin role
+                    ~User.id.in_(admin_users_subquery)
                 )
             )
         )

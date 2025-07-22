@@ -329,10 +329,23 @@ class TeacherEvaluationRepository:
                 continue  # Skip if no kepala sekolah found
             
             # 1. Get all teachers in this organization and assign kepala sekolah as evaluator
+            # Exclude users who have admin role
+            admin_users_subquery = (
+                select(UserRole.user_id)
+                .where(
+                    and_(
+                        UserRole.role_name == UserRoleEnum.ADMIN.value,
+                        UserRole.is_active == True,
+                        UserRole.deleted_at.is_(None)
+                    )
+                )
+            )
+            
             teachers_query = select(User).join(User.user_roles).where(
                 and_(
                     User.organization_id == org_id,
-                    User.user_roles.any(UserRole.role_name == UserRoleEnum.GURU.value)
+                    User.user_roles.any(UserRole.role_name == UserRoleEnum.GURU.value),
+                    ~User.id.in_(admin_users_subquery)  # Exclude admin users
                 )
             )
             

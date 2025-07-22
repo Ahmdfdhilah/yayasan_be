@@ -246,6 +246,7 @@ async def get_teacher_evaluations_filtered(
     teacher_id: Optional[int] = Query(None, description="Filter by teacher ID"),
     evaluator_id: Optional[int] = Query(None, description="Filter by evaluator ID"),
     period_id: Optional[int] = Query(None, description="Filter by period ID"),
+    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
     search: Optional[str] = Query(None, min_length=1, max_length=100, description="Search by teacher name"),
     final_grade: Optional[float] = Query(
         None, description="Filter by final grade"
@@ -276,6 +277,7 @@ async def get_teacher_evaluations_filtered(
         teacher_id=teacher_id,
         evaluator_id=evaluator_id,
         period_id=period_id,
+        organization_id=organization_id,
         search=search,
         final_grade=final_grade,
         min_average_score=min_average_score,

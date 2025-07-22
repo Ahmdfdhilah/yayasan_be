@@ -272,6 +272,9 @@ class TeacherEvaluationService:
         # Apply organization filtering for non-admin users
         if current_user and UserRoleEnum.ADMIN not in current_user.get("roles", []):
             organization_id = current_user.get("organization_id")
+        elif current_user and UserRoleEnum.ADMIN in current_user.get("roles", []):
+            # For admin users, use organization_id from filters if provided
+            organization_id = filters.organization_id
 
         # Teachers can only view their own evaluations
         # Kepala sekolah can view their own evaluations (when being evaluated by admin)

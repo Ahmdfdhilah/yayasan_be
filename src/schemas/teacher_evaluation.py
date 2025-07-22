@@ -145,6 +145,7 @@ class TeacherEvaluationFilterParams(PaginationParams):
     teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
     evaluator_id: Optional[int] = Field(None, description="Filter by evaluator ID")
     period_id: Optional[int] = Field(None, description="Filter by period ID")
+    organization_id: Optional[int] = Field(None, description="Filter by organization ID")
     search: Optional[str] = Field(None, min_length=1, max_length=100, description="Search by teacher name")
     final_grade: Optional[float] = Field(None, description="Filter by final grade")
     min_average_score: Optional[float] = Field(None, ge=1.0, le=4.0, description="Minimum average score")

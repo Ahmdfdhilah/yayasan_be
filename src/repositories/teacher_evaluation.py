@@ -188,10 +188,14 @@ class TeacherEvaluationRepository:
         
         conditions = []
         
-        # Organization filter
+        # Organization filter - from passed parameter or from filters
         if organization_id:
             conditions.append(
                 TeacherEvaluation.teacher.has(User.organization_id == organization_id)
+            )
+        elif filters.organization_id:
+            conditions.append(
+                TeacherEvaluation.teacher.has(User.organization_id == filters.organization_id)
             )
         
         # Apply filters

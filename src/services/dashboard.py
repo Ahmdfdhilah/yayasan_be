@@ -280,15 +280,28 @@ class DashboardService:
         """Get evaluation statistics for a specific teacher."""
         from src.schemas.teacher_evaluation import TeacherEvaluationFilterParams
         
-        # Create filter for teacher evaluations
-        filters = TeacherEvaluationFilterParams(
-            teacher_id=teacher_id,
-            period_id=period_id,
-            skip=0,
-            limit=1000  # Large limit to get all
-        )
+        # Get ALL teacher evaluations with pagination
+        all_evaluations = []
+        skip = 0
+        limit = 100
         
-        evaluations, _ = await self.evaluation_repo.get_evaluations_filtered(filters)
+        while True:
+            filters = TeacherEvaluationFilterParams(
+                teacher_id=teacher_id,
+                period_id=period_id,
+                skip=skip,
+                limit=limit
+            )
+            
+            evaluations, total = await self.evaluation_repo.get_evaluations_filtered(filters)
+            all_evaluations.extend(evaluations)
+            
+            if len(evaluations) < limit or skip + limit >= total:
+                break
+            
+            skip += limit
+        
+        evaluations = all_evaluations
         
         total = len(evaluations)
         
@@ -418,18 +431,30 @@ class DashboardService:
         # Teachers don't review, so pending reviews is 0
         my_pending_reviews = 0
         
-        # Get pending evaluations
+        # Get ALL pending evaluations with pagination
         from src.schemas.teacher_evaluation import TeacherEvaluationFilterParams
         
-        eval_filters = TeacherEvaluationFilterParams(
-            teacher_id=teacher_id,
-            period_id=period_id,
-            skip=0,
-            limit=1000
-        )
+        all_evaluations = []
+        skip = 0
+        limit = 100
         
-        evaluations, _ = await self.evaluation_repo.get_evaluations_filtered(eval_filters)
-        my_pending_evaluations = len([e for e in evaluations if e.item_count == 0 or e.final_grade is None])
+        while True:
+            eval_filters = TeacherEvaluationFilterParams(
+                teacher_id=teacher_id,
+                period_id=period_id,
+                skip=skip,
+                limit=limit
+            )
+            
+            evaluations, total = await self.evaluation_repo.get_evaluations_filtered(eval_filters)
+            all_evaluations.extend(evaluations)
+            
+            if len(evaluations) < limit or skip + limit >= total:
+                break
+            
+            skip += limit
+        
+        my_pending_evaluations = len([e for e in all_evaluations if e.item_count == 0 or e.final_grade is None])
         
         # Recent activities (simplified)
         recent_activities = [

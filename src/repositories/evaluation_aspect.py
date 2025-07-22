@@ -888,3 +888,57 @@ class EvaluationAspectRepository:
         except Exception:
             await self.session.rollback()
             return False
+
+    async def delete_category(self, category_id: int) -> bool:
+        """Delete category with cascade deletion of all associated aspects."""
+        try:
+            # First, get all aspects in this category
+            aspects_query = select(EvaluationAspect).where(
+                and_(
+                    EvaluationAspect.category_id == category_id,
+                    EvaluationAspect.deleted_at.is_(None)
+                )
+            )
+            result = await self.session.execute(aspects_query)
+            aspects = result.scalars().all()
+            
+            # Remove each aspect from all teacher evaluations first
+            total_items_deleted = 0
+            for aspect in aspects:
+                items_deleted = await self.remove_aspect_from_all_evaluations(aspect.id)
+                total_items_deleted += items_deleted
+            
+            # Soft delete all aspects in the category
+            aspects_delete_query = (
+                update(EvaluationAspect)
+                .where(
+                    and_(
+                        EvaluationAspect.category_id == category_id,
+                        EvaluationAspect.deleted_at.is_(None)
+                    )
+                )
+                .values(
+                    deleted_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+            )
+            await self.session.execute(aspects_delete_query)
+            
+            # Soft delete the category
+            category_delete_query = (
+                update(EvaluationCategory)
+                .where(EvaluationCategory.id == category_id)
+                .values(
+                    deleted_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+            )
+            result = await self.session.execute(category_delete_query)
+            
+            await self.session.commit()
+            
+            return result.rowcount > 0
+            
+        except Exception:
+            await self.session.rollback()
+            return False

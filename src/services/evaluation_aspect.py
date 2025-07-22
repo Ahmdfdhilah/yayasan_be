@@ -501,6 +501,35 @@ class EvaluationAspectService:
         
         return EvaluationCategoryResponse.from_evaluation_category_model(updated_category, include_stats=True)
     
+    async def delete_category(self, category_id: int) -> MessageResponse:
+        """Delete evaluation category with cascade deletion of all associated aspects."""
+        # Check if category exists
+        category = await self.aspect_repo.get_category_by_id(category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Category not found"
+            )
+        
+        # Get category name before deletion for response message
+        category_name = category.name
+        
+        # Delete category with cascade deletion (includes removing aspects from teacher evaluations)
+        success = await self.aspect_repo.delete_category(category_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete category"
+            )
+        
+        # Recalculate all aggregates since aspects were removed from evaluations
+        if self.evaluation_repo:
+            await self.evaluation_repo.recalculate_all_aggregates()
+        
+        return MessageResponse(
+            message=f"Category '{category_name}' and all associated aspects deleted successfully"
+        )
+    
     async def get_all_categories(self, include_inactive: bool = False) -> List[EvaluationCategorySummary]:
         """Get all evaluation categories."""
         categories = await self.aspect_repo.get_all_categories(include_inactive)

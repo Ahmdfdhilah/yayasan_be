@@ -93,6 +93,20 @@ async def update_category(
     return await aspect_service.update_category(category_id, category_data, current_user.get("id"))
 
 
+@router.delete(
+    "/categories/{category_id}",
+    response_model=MessageResponse,
+    summary="Delete evaluation category with cascade deletion"
+)
+async def delete_category(
+    category_id: int,
+    current_user: dict = Depends(admin_required),
+    aspect_service: EvaluationAspectService = Depends(get_aspect_service)
+):
+    """Delete evaluation category and all associated aspects. Also removes all aspects from teacher evaluations. Requires admin role."""
+    return await aspect_service.delete_category(category_id)
+
+
 @router.get(
     "/categories",
     response_model=List[EvaluationCategoryResponse],

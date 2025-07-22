@@ -2,7 +2,7 @@
 
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
-from sqlalchemy import select, and_, or_, func, update, delete, case, distinct
+from sqlalchemy import select, and_, or_, func, update, delete, case, distinct, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
@@ -264,8 +264,8 @@ class RPPSubmissionRepository:
             query = query.join(User, RPPSubmission.teacher_id == User.id)
             conditions.append(
                 or_(
-                    func.lower(User.full_name).like(search_term),
-                    func.lower(User.username).like(search_term)
+                    func.lower(func.cast(User.profile.op('->')('name'), String)).like(search_term),
+                    func.lower(User.email).like(search_term)
                 )
             )
         

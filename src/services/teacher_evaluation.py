@@ -397,6 +397,9 @@ class TeacherEvaluationService:
                 evaluation.id, item_data, created_by
             )
 
+        # Force recalculate aggregates after all items are created
+        await self.evaluation_repo.force_recalculate_aggregates(evaluation.id)
+
         # Return updated evaluation with items
         updated_evaluation = await self.evaluation_repo.get_evaluation_by_id(
             evaluation.id

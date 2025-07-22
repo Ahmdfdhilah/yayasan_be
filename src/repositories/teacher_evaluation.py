@@ -2,7 +2,7 @@
 
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
-from sqlalchemy import select, and_, or_, func, update, delete, desc
+from sqlalchemy import select, and_, or_, func, update, delete, desc, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -209,8 +209,8 @@ class TeacherEvaluationRepository:
             conditions.append(
                 TeacherEvaluation.teacher.has(
                     or_(
-                        func.lower(User.full_name).like(search_term),
-                        func.lower(User.username).like(search_term)
+                        func.lower(func.cast(User.profile.op('->')('name'), String)).like(search_term),
+                        func.lower(User.email).like(search_term)
                     )
                 )
             )
@@ -496,10 +496,56 @@ class TeacherEvaluationRepository:
     
     async def _recalculate_evaluation_aggregates(self, evaluation_id: int) -> None:
         """Recalculate aggregates for parent evaluation."""
-        evaluation = await self.get_evaluation_by_id(evaluation_id)
-        if evaluation:
-            evaluation.recalculate_aggregates()
+        # First flush any pending changes to ensure we get the latest data
+        await self.session.flush()
+        
+        # Get the evaluation with a fresh query to ensure we have all items
+        query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.items)
+        ).where(TeacherEvaluation.id == evaluation_id)
+        
+        result = await self.session.execute(query)
+        evaluation = result.scalar_one_or_none()
+        
+        if evaluation and evaluation.items:
+            # Calculate directly instead of using model method
+            total_score = sum(item.score for item in evaluation.items)
+            average_score = total_score / len(evaluation.items) if evaluation.items else 0.0
+            final_grade = total_score * 1.25
+            
+            # Update the evaluation directly
+            evaluation.total_score = total_score
+            evaluation.average_score = average_score
+            evaluation.final_grade = final_grade
+            evaluation.last_updated = datetime.utcnow()
+            evaluation.updated_at = datetime.utcnow()
+            
             await self.session.commit()
+            
+    async def force_recalculate_aggregates(self, evaluation_id: int) -> None:
+        """Force recalculate aggregates using direct SQL update."""
+        # Update aggregates using SQL
+        update_query = update(TeacherEvaluation).where(
+            TeacherEvaluation.id == evaluation_id
+        ).values(
+            total_score=(
+                select(func.coalesce(func.sum(TeacherEvaluationItem.score), 0))
+                .where(TeacherEvaluationItem.teacher_evaluation_id == evaluation_id)
+            ),
+            average_score=(
+                select(func.coalesce(func.avg(TeacherEvaluationItem.score), 0.0))
+                .where(TeacherEvaluationItem.teacher_evaluation_id == evaluation_id)
+            ),
+            final_grade=(
+                select(func.coalesce(func.sum(TeacherEvaluationItem.score) * 1.25, 0.0))
+                .where(TeacherEvaluationItem.teacher_evaluation_id == evaluation_id)
+            ),
+            last_updated=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        
+        await self.session.execute(update_query)
+        await self.session.commit()
     
     async def _create_items_for_all_aspects(self, evaluation_id: int, created_by: Optional[int] = None) -> None:
         """Create evaluation items for all active aspects."""

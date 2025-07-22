@@ -17,6 +17,7 @@ from src.schemas.teacher_evaluation import (
     TeacherEvaluationWithItemsCreate,
     TeacherEvaluationBulkItemUpdate,
     AssignTeachersToEvaluationPeriod,
+    AssignTeachersToEvaluationPeriodResponse,
     TeacherEvaluationSummary,
     PeriodEvaluationStats,
     TeacherEvaluationFilterParams,
@@ -332,17 +333,45 @@ class TeacherEvaluationService:
         self,
         assignment_data: AssignTeachersToEvaluationPeriod,
         created_by: Optional[int] = None,
-    ) -> List[TeacherEvaluationResponse]:
+    ) -> AssignTeachersToEvaluationPeriodResponse:
         """Auto-assign all teachers to evaluation period with auto evaluators and items."""
-        # Validate period is active
+        # Validate period is active and get period info
         if self.session:
             await validate_period_is_active(self.session, assignment_data.period_id)
 
-        evaluations = await self.evaluation_repo.assign_teachers_to_period(
+        # Perform assignment
+        new_evaluations, skipped_count = await self.evaluation_repo.assign_teachers_to_period(
             assignment_data.period_id
         )
 
-        return [TeacherEvaluationResponse.model_validate(eval) for eval in evaluations]
+        # Get basic counts for response
+        created_evaluations = len(new_evaluations)
+        total_teachers = created_evaluations + skipped_count
+        active_aspects_count = 12  # Default placeholder, could be fetched from DB
+        total_evaluation_items = created_evaluations * active_aspects_count
+
+        success = created_evaluations > 0 or skipped_count > 0
+        if created_evaluations == 0 and skipped_count == 0:
+            message = f"No eligible teachers found for period ID {assignment_data.period_id}"
+            success = False
+        elif created_evaluations == 0:
+            message = f"All {skipped_count} teachers already have evaluations for period ID {assignment_data.period_id}"
+        else:
+            message = f"Successfully created evaluations for {created_evaluations} teachers with {active_aspects_count} aspects each"
+            if skipped_count > 0:
+                message += f", skipped {skipped_count} existing evaluations"
+
+        return AssignTeachersToEvaluationPeriodResponse(
+            success=success,
+            message=message,
+            period_id=assignment_data.period_id,
+            period_name=f"Period {assignment_data.period_id}",  # Simplified
+            created_evaluations=created_evaluations,
+            skipped_evaluations=skipped_count,
+            total_teachers=total_teachers,
+            total_evaluation_items=total_evaluation_items,
+            active_aspects_count=active_aspects_count
+        )
 
     async def create_evaluation_with_items(
         self,

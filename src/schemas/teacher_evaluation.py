@@ -144,7 +144,8 @@ class TeacherEvaluationFilterParams(PaginationParams):
     teacher_id: Optional[int] = Field(None, description="Filter by teacher ID")
     evaluator_id: Optional[int] = Field(None, description="Filter by evaluator ID")
     period_id: Optional[int] = Field(None, description="Filter by period ID")
-    final_grade: float = Field(None, description="Filter by final grade")
+    search: Optional[str] = Field(None, min_length=1, max_length=100, description="Search by teacher name")
+    final_grade: Optional[float] = Field(None, description="Filter by final grade")
     min_average_score: Optional[float] = Field(None, ge=1.0, le=4.0, description="Minimum average score")
     max_average_score: Optional[float] = Field(None, ge=1.0, le=4.0, description="Maximum average score")
     has_final_notes: Optional[bool] = Field(None, description="Filter by presence of final notes")
@@ -155,6 +156,34 @@ class TeacherEvaluationFilterParams(PaginationParams):
 class AssignTeachersToEvaluationPeriod(BaseModel):
     """Schema for assigning teachers to evaluation period."""
     period_id: int = Field(..., description="Period to assign teachers to")
+
+
+class AssignTeachersToEvaluationPeriodResponse(BaseModel):
+    """Schema for response when assigning teachers to evaluation period."""
+    success: bool = Field(..., description="Whether the assignment was successful")
+    message: str = Field(..., description="Summary message")
+    period_id: int = Field(..., description="Period ID for which evaluations were created")
+    period_name: str = Field(..., description="Period name")
+    created_evaluations: int = Field(..., description="Number of new evaluations created")
+    skipped_evaluations: int = Field(..., description="Number of evaluations skipped (already exist)")
+    total_teachers: int = Field(..., description="Total number of eligible teachers")
+    total_evaluation_items: int = Field(..., description="Total number of evaluation items created")
+    active_aspects_count: int = Field(..., description="Number of active evaluation aspects")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "message": "Successfully created evaluations for 25 teachers with 12 aspects each",
+                "period_id": 5,
+                "period_name": "Semester 1 - 2024/2025", 
+                "created_evaluations": 25,
+                "skipped_evaluations": 0,
+                "total_teachers": 25,
+                "total_evaluation_items": 300,
+                "active_aspects_count": 12
+            }
+        }
 
 
 # Individual update schemas

@@ -260,6 +260,7 @@ async def get_submissions(
     period_id: Optional[int] = Query(None, description="Filter by period ID"),
     status: Optional[RPPSubmissionStatus] = Query(None, description="Filter by status"),
     reviewer_id: Optional[int] = Query(None, description="Filter by reviewer ID"),
+    search: Optional[str] = Query(None, min_length=1, max_length=100, description="Search by teacher name"),
     limit: int = Query(100, ge=1, le=500, description="Number of items per page"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     current_user: dict = Depends(get_current_active_user),
@@ -279,6 +280,7 @@ async def get_submissions(
         period_id=period_id,
         status=status,
         reviewer_id=reviewer_id,
+        search=search,
     )
 
     # Role-based access control

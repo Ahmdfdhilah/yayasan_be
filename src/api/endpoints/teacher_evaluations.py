@@ -17,6 +17,7 @@ from src.schemas.teacher_evaluation import (
     TeacherEvaluationWithItemsCreate,
     TeacherEvaluationBulkItemUpdate,
     AssignTeachersToEvaluationPeriod,
+    AssignTeachersToEvaluationPeriodResponse,
     TeacherEvaluationSummary,
     PeriodEvaluationStats,
     TeacherEvaluationFilterParams,
@@ -245,6 +246,7 @@ async def get_teacher_evaluations_filtered(
     teacher_id: Optional[int] = Query(None, description="Filter by teacher ID"),
     evaluator_id: Optional[int] = Query(None, description="Filter by evaluator ID"),
     period_id: Optional[int] = Query(None, description="Filter by period ID"),
+    search: Optional[str] = Query(None, min_length=1, max_length=100, description="Search by teacher name"),
     final_grade: Optional[float] = Query(
         None, description="Filter by final grade"
     ),
@@ -274,6 +276,7 @@ async def get_teacher_evaluations_filtered(
         teacher_id=teacher_id,
         evaluator_id=evaluator_id,
         period_id=period_id,
+        search=search,
         final_grade=final_grade,
         min_average_score=min_average_score,
         max_average_score=max_average_score,
@@ -322,7 +325,7 @@ async def get_evaluations_by_period(
 
 @router.post(
     "/assign-teachers-to-period",
-    response_model=List[TeacherEvaluationResponse],
+    response_model=AssignTeachersToEvaluationPeriodResponse,
     summary="Assign teachers to period",
 )
 async def assign_teachers_to_period(

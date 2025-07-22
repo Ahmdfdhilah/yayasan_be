@@ -121,11 +121,32 @@ class GenerateRPPSubmissionsRequest(BaseModel):
     period_id: int = Field(..., description="Period ID to generate submissions for")
 
 
-class GenerateRPPSubmissionsResponse(MessageResponse):
+class GenerateRPPSubmissionsResponse(BaseModel):
     """Schema for admin generation response."""
-    generated_count: int = Field(..., description="Number of submissions generated")
+    success: bool = Field(..., description="Whether the generation was successful")
+    message: str = Field(..., description="Summary message")
+    period_id: int = Field(..., description="Period ID for which submissions were generated")
+    period_name: str = Field(..., description="Period name")
+    generated_count: int = Field(..., description="Number of new submissions created")
     skipped_count: int = Field(..., description="Number of submissions skipped (already exist)")
-    total_teachers: int = Field(..., description="Total number of teachers processed")
+    total_teachers: int = Field(..., description="Total number of eligible teachers")
+    items_per_submission: int = Field(default=3, description="Number of RPP items per submission")
+    total_items_created: int = Field(..., description="Total number of submission items created")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "message": "Successfully generated 15 submissions for 15 teachers",
+                "period_id": 5,
+                "period_name": "Semester 1 - 2024/2025",
+                "generated_count": 15,
+                "skipped_count": 0,
+                "total_teachers": 15,
+                "items_per_submission": 3,
+                "total_items_created": 45
+            }
+        }
 
 
 # ===== LIST RESPONSES =====
@@ -148,6 +169,7 @@ class RPPSubmissionFilter(BaseModel):
     period_id: Optional[int] = None
     status: Optional[RPPSubmissionStatus] = None
     reviewer_id: Optional[int] = None
+    search: Optional[str] = Field(None, min_length=1, max_length=100, description="Search by teacher name")
     organization_id: Optional[int] = None  # For filtering by organization
     submitter_role: Optional[str] = None  # For filtering by submitter role (guru, kepala_sekolah)
     

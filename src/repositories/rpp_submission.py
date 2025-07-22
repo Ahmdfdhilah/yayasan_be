@@ -256,6 +256,19 @@ class RPPSubmissionRepository:
             conditions.append(RPPSubmission.status == filters.status)
         if filters.reviewer_id:
             conditions.append(RPPSubmission.reviewer_id == filters.reviewer_id)
+        
+        # Search by teacher name
+        if filters.search:
+            search_term = f"%{filters.search.lower()}%"
+            # Make sure User is joined if search is provided
+            query = query.join(User, RPPSubmission.teacher_id == User.id)
+            conditions.append(
+                or_(
+                    func.lower(User.full_name).like(search_term),
+                    func.lower(User.username).like(search_term)
+                )
+            )
+        
         if filters.submitted_after:
             conditions.append(RPPSubmission.submitted_at >= filters.submitted_after)
         if filters.submitted_before:
@@ -288,7 +301,7 @@ class RPPSubmissionRepository:
         
         # Get total count
         count_query = select(func.count(distinct(RPPSubmission.id))).where(and_(*conditions))
-        if filters.organization_id or filters.submitter_role:
+        if filters.organization_id or filters.submitter_role or filters.search:
             count_query = count_query.join(User, RPPSubmission.teacher_id == User.id)
         if filters.submitter_role:
             count_query = count_query.join(User.user_roles)

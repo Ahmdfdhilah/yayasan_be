@@ -203,6 +203,18 @@ class TeacherEvaluationRepository:
         if filters.period_id:
             conditions.append(TeacherEvaluation.period_id == filters.period_id)
         
+        # Search by teacher name
+        if filters.search:
+            search_term = f"%{filters.search.lower()}%"
+            conditions.append(
+                TeacherEvaluation.teacher.has(
+                    or_(
+                        func.lower(User.full_name).like(search_term),
+                        func.lower(User.username).like(search_term)
+                    )
+                )
+            )
+        
         if filters.final_grade:
             conditions.append(TeacherEvaluation.final_grade == filters.final_grade)
         
@@ -227,8 +239,10 @@ class TeacherEvaluationRepository:
         if conditions:
             base_query = base_query.where(and_(*conditions))
         
-        # Count total
+        # Count total (need to join User for search functionality)
         count_query = select(func.count(TeacherEvaluation.id))
+        if filters.search:
+            count_query = count_query.join(User, TeacherEvaluation.teacher_id == User.id)
         if conditions:
             count_query = count_query.where(and_(*conditions))
         
@@ -279,14 +293,18 @@ class TeacherEvaluationRepository:
     
     # ===== BULK OPERATIONS =====
     
-    async def assign_teachers_to_period(self, period_id: int) -> List[TeacherEvaluation]:
+    async def assign_teachers_to_period(self, period_id: int) -> Tuple[List[TeacherEvaluation], int]:
         """Auto-assign all teachers and kepala sekolah to evaluation period.
         
         Logic:
         - Teachers (guru) are evaluated by their kepala sekolah
         - Kepala sekolah are evaluated by any admin
+        
+        Returns:
+        - Tuple[List[newly created evaluations], count of skipped existing evaluations]
         """
-        evaluations = []
+        new_evaluations = []
+        skipped_count = 0
         
         # Get all organizations that have kepala sekolah
         organizations_query = select(User.organization_id).distinct().join(User.user_roles).where(
@@ -325,7 +343,7 @@ class TeacherEvaluationRepository:
                 # Check if evaluation already exists
                 existing = await self.get_teacher_evaluation_by_period(teacher.id, period_id, evaluator.id)
                 if existing:
-                    evaluations.append(existing)
+                    skipped_count += 1
                     continue
                 
                 # Create new evaluation
@@ -340,7 +358,7 @@ class TeacherEvaluationRepository:
                 # Always create items for all active aspects
                 await self._create_items_for_all_aspects(evaluation.id, created_by=evaluator.id)
                 
-                evaluations.append(evaluation)
+                new_evaluations.append(evaluation)
             
             # 2. Also create evaluation for kepala sekolah (evaluated by admin)
             # Get first admin as default evaluator for kepala sekolah
@@ -356,7 +374,9 @@ class TeacherEvaluationRepository:
                 existing_ks = await self.get_teacher_evaluation_by_period(
                     evaluator.id, period_id, admin_evaluator.id
                 )
-                if not existing_ks:
+                if existing_ks:
+                    skipped_count += 1
+                else:
                     # Create evaluation for kepala sekolah
                     ks_evaluation_data = TeacherEvaluationCreate(
                         teacher_id=evaluator.id,  # kepala sekolah as teacher
@@ -373,11 +393,9 @@ class TeacherEvaluationRepository:
                         ks_evaluation.id, created_by=admin_evaluator.id
                     )
                     
-                    evaluations.append(ks_evaluation)
-                else:
-                    evaluations.append(existing_ks)
+                    new_evaluations.append(ks_evaluation)
         
-        return evaluations
+        return new_evaluations, skipped_count
     
     # ===== STATISTICS AND ANALYTICS =====
     

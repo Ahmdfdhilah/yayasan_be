@@ -95,14 +95,15 @@ class RPPSubmissionService:
                 detail="Pengguna bukan seorang guru atau kepala sekolah"
             )
     
-    async def _validate_period_exists(self, period_id: int) -> None:
-        """Validate that period exists."""
+    async def _validate_period_exists(self, period_id: int):
+        """Validate that period exists and return period object."""
         period = await self.period_repo.get_by_id(period_id)
         if not period:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=get_message("period", "not_found")
             )
+        return period
     
     async def _validate_file_exists(self, file_id: int) -> None:
         """Validate that file exists."""
@@ -373,19 +374,39 @@ class RPPSubmissionService:
         self, generate_data: GenerateRPPSubmissionsRequest
     ) -> GenerateRPPSubmissionsResponse:
         """Generate submissions for all teachers in a period."""
-        # Validate period
-        await self._validate_period_exists(generate_data.period_id)
+        # Validate period and get period info
+        period = await self._validate_period_exists(generate_data.period_id)
         
         # Generate submissions
         generated, skipped, total = await self.rpp_repo.generate_submissions_for_period(
             generate_data.period_id
         )
         
+        # Calculate total items created (3 items per submission)
+        items_per_submission = 3
+        total_items_created = generated * items_per_submission
+        
+        success = True
+        if generated == 0 and skipped == 0:
+            message = f"No teachers found for period '{period.period_name}'"
+            success = False
+        elif generated == 0:
+            message = f"All {skipped} teachers already have submissions for period '{period.period_name}'"
+        else:
+            message = f"Successfully generated {generated} submissions for {generated} teachers"
+            if skipped > 0:
+                message += f", skipped {skipped} existing submissions"
+        
         return GenerateRPPSubmissionsResponse(
-            message=f"Generated {generated} submissions, skipped {skipped} existing ones",
+            success=success,
+            message=message,
+            period_id=generate_data.period_id,
+            period_name=period.period_name,
             generated_count=generated,
             skipped_count=skipped,
-            total_teachers=total
+            total_teachers=total,
+            items_per_submission=items_per_submission,
+            total_items_created=total_items_created
         )
     
     # ===== STATISTICS OPERATIONS =====

@@ -493,6 +493,9 @@ class EvaluationAspectService:
                 detail="Category not found"
             )
         
+        # Access the name before any update operations to avoid lazy loading issues
+        category_name = category.name
+        
         success = await self.aspect_repo.update_category_order(
             order_data.category_id, 
             order_data.new_order
@@ -508,7 +511,7 @@ class EvaluationAspectService:
         await self.aspect_repo.fix_category_ordering_gaps()
         
         return MessageResponse(
-            message=f"Successfully updated category '{category.name}' order to {order_data.new_order}"
+            message=f"Successfully updated category '{category_name}' order to {order_data.new_order}"
         )
     
     # ===== ORDERING METHODS =====

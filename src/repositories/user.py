@@ -46,7 +46,11 @@ class UserRepository:
     async def get_by_id(self, user_id: int) -> Optional[User]:
         """Get user by ID."""
         from sqlalchemy.orm import selectinload
-        query = select(User).options(selectinload(User.user_roles)).where(
+        from src.models.organization import Organization
+        query = select(User).options(
+            selectinload(User.user_roles),
+            selectinload(User.organization)
+        ).where(
             and_(User.id == user_id, User.deleted_at.is_(None))
         )
         result = await self.session.execute(query)
@@ -54,7 +58,10 @@ class UserRepository:
     
     async def get_by_email(self, email: str) -> Optional[User]:
         """Get user by email."""
-        query = select(User).where(
+        from sqlalchemy.orm import selectinload
+        query = select(User).options(
+            selectinload(User.organization)
+        ).where(
             and_(User.email == email.lower(), User.deleted_at.is_(None))
         )
         result = await self.session.execute(query)
@@ -144,8 +151,11 @@ class UserRepository:
     
     async def get_all_users_filtered(self, filters: UserFilterParams) -> Tuple[List[User], int]:
         """Get users with filters and pagination."""
-        # Base query
-        query = select(User).where(User.deleted_at.is_(None))
+        from sqlalchemy.orm import selectinload
+        # Base query with organization loading
+        query = select(User).options(
+            selectinload(User.organization)
+        ).where(User.deleted_at.is_(None))
         count_query = select(func.count(User.id)).where(User.deleted_at.is_(None))
         
         # Apply filters

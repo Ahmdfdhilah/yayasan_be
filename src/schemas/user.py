@@ -74,6 +74,7 @@ class UserResponse(BaseModel):
     email: str
     profile: Dict[str, Any]
     organization_id: Optional[int] = None
+    organization_name: Optional[str] = Field(None, description="Organization name")
     status: UserStatus
     last_login_at: Optional[datetime] = None
     created_at: datetime
@@ -87,11 +88,21 @@ class UserResponse(BaseModel):
     @classmethod
     def from_user_model(cls, user, roles: List[str] = None) -> "UserResponse":
         """Create UserResponse from User model."""
+        organization_name = None
+        # Check if organization is loaded and avoid lazy loading
+        try:
+            if hasattr(user, '__dict__') and 'organization' in user.__dict__ and user.organization:
+                organization_name = user.organization.name
+        except:
+            # If there's any issue accessing organization, keep it as None
+            pass
+        
         return cls(
             id=user.id,
             email=user.email,
             profile=user.profile or {},
             organization_id=user.organization_id,
+            organization_name=organization_name,
             status=user.status,
             last_login_at=user.last_login_at,
             created_at=user.created_at,

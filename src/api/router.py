@@ -13,6 +13,7 @@ from src.api.endpoints import (
     media_files,
     dashboard,
     rpp_submissions,
+    articles,
 )
 
 # Create main API router
@@ -136,6 +137,19 @@ api_router.include_router(
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},
         404: {"description": "Resource not found"},
+        422: {"description": "Validation Error"},
+    }
+)
+
+# Articles - untuk pengelolaan artikel/konten
+api_router.include_router(
+    articles.router,
+    prefix="/articles",
+    tags=["Articles"],
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Article not found"},
         422: {"description": "Validation Error"},
     }
 )

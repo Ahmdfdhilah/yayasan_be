@@ -8,6 +8,7 @@ from .user import User, PasswordResetToken
 from .organization import Organization
 from .user_role import UserRole
 from .media_file import MediaFile
+from .article import Article
 
 # PKG System models
 from .period import Period
@@ -44,6 +45,7 @@ __all__ = [
     "Organization",
     "UserRole",
     "MediaFile",
+    "Article",
     
     # PKG System models
     "Period",

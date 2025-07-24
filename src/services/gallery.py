@@ -6,8 +6,7 @@ from fastapi import HTTPException, status
 from src.repositories.gallery import GalleryRepository
 from src.schemas.gallery import (
     GalleryCreate, GalleryUpdate, GalleryResponse, GalleryListResponse,
-    GallerySummary, GalleryFilterParams, GalleryOrderUpdate, GalleryBulkOrderUpdate,
-    OrderUpdateResult, BulkOrderUpdateResponse
+    GallerySummary, GalleryFilterParams
 )
 from src.schemas.shared import MessageResponse
 
@@ -173,99 +172,17 @@ class GalleryService:
         updated_gallery = await self.gallery_repo.get_by_id(gallery_id)
         return GalleryResponse.from_gallery_model(updated_gallery)
     
-    async def bulk_update_order(self, bulk_order_data: GalleryBulkOrderUpdate, updated_by: Optional[int] = None) -> BulkOrderUpdateResponse:
-        """Bulk update display orders for multiple gallery items."""
-        successful_updates = []
-        failed_updates = []
-        
-        # Validate all gallery items exist first
-        gallery_orders = {}
-        for item in bulk_order_data.items:
-            gallery = await self.gallery_repo.get_by_id(item.gallery_id)
-            if gallery:
-                gallery_orders[item.gallery_id] = gallery.display_order
-            else:
-                failed_updates.append(OrderUpdateResult(
-                    gallery_id=item.gallery_id,
-                    old_order=0,
-                    new_order=item.new_order,
-                    success=False,
-                    message="Gallery item not found"
-                ))
-        
-        # Prepare order mappings for bulk operation
-        order_mappings = []
-        for item in bulk_order_data.items:
-            if item.gallery_id in gallery_orders:
-                old_order = gallery_orders[item.gallery_id]
-                order_mappings.append({
-                    "gallery_id": item.gallery_id,
-                    "new_order": item.new_order
-                })
-                successful_updates.append(OrderUpdateResult(
-                    gallery_id=item.gallery_id,
-                    old_order=old_order,
-                    new_order=item.new_order,
-                    success=True,
-                    message="Order updated successfully"
-                ))
-        
-        # Execute bulk reorder
-        try:
-            success_count = await self.gallery_repo.reorder_items(order_mappings, updated_by)
-            
-            # If some items failed during bulk operation, move them to failed list
-            if success_count != len(order_mappings):
-                # This is a simplified approach - in real scenario you'd want more detailed error handling
-                pass
-            
-        except Exception as e:
-            # Move all to failed if bulk operation fails
-            for update in successful_updates:
-                update.success = False
-                update.message = f"Bulk operation failed: {str(e)}"
-                failed_updates.append(update)
-            successful_updates = []
-        
-        return BulkOrderUpdateResponse(
-            successful_updates=successful_updates,
-            failed_updates=failed_updates,
-            total_processed=len(bulk_order_data.items),
-            success_count=len(successful_updates),
-            failure_count=len(failed_updates)
-        )
-    
-    async def normalize_gallery_orders(self) -> MessageResponse:
-        """Normalize all gallery display orders to remove gaps."""
-        updated_count = await self.gallery_repo.normalize_orders()
-        return MessageResponse(
-            message=f"Gallery orders normalized. {updated_count} items updated."
-        )
-    
-    async def get_order_conflicts(self) -> Dict[str, Any]:
-        """Get gallery items that have conflicting display orders."""
-        conflicts = await self.gallery_repo.get_order_conflicts()
-        return {
-            "conflicts": conflicts,
-            "total_conflicts": len(conflicts),
-            "needs_normalization": len(conflicts) > 0
-        }
     
     async def get_gallery_statistics(self) -> Dict[str, Any]:
         """Get gallery statistics."""
-        total_galleries = len(await self.gallery_repo.get_all_filtered(GalleryFilterParams())[0])
-        active_galleries = await self.gallery_repo.count_active_galleries()
-        inactive_galleries = total_galleries - active_galleries
-        max_order = await self.gallery_repo.get_max_display_order()
-        conflicts = await self.gallery_repo.get_order_conflicts()
+        galleries, total_count = await self.gallery_repo.get_all_filtered(GalleryFilterParams())
+        active_count = sum(1 for gallery in galleries if gallery.is_active)
+        inactive_count = total_count - active_count
         
         return {
-            "total_galleries": total_galleries,
-            "active_galleries": active_galleries,
-            "inactive_galleries": inactive_galleries,
-            "max_display_order": max_order,
-            "order_conflicts": len(conflicts),
-            "needs_normalization": len(conflicts) > 0
+            "total_galleries": total_count,
+            "active_galleries": active_count,
+            "inactive_galleries": inactive_count
         }
     
     # ===== PRIVATE HELPER METHODS =====

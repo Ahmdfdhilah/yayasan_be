@@ -1,7 +1,7 @@
 """Gallery management endpoints with advanced ordering."""
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
-from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, UploadFile, File, Form
+from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -13,12 +13,17 @@ from src.schemas.gallery import (
     GalleryResponse,
     GalleryListResponse,
     GallerySummary,
-    GalleryFilterParams,
-    GalleryBulkOrderUpdate,
-    BulkOrderUpdateResponse
+    GalleryFilterParams
 )
 from src.schemas.shared import MessageResponse
 from src.auth.permissions import get_current_active_user, require_roles
+from src.utils.direct_file_upload import (
+    DirectFileUploader,
+    get_gallery_multipart,
+    get_article_multipart_update,
+    process_image_upload,
+    merge_data_with_image_url
+)
 
 router = APIRouter()
 
@@ -34,16 +39,38 @@ async def get_gallery_service(session: AsyncSession = Depends(get_db)) -> Galler
 
 @router.post("/", response_model=GalleryResponse, summary="Create a new gallery item")
 async def create_gallery(
-    gallery_data: GalleryCreate,
+    form_data: Tuple[Dict[str, Any], UploadFile] = Depends(get_gallery_multipart()),
     current_user: dict = Depends(admin_required),
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
-    Create a new gallery item.
+    Create a new gallery item with multipart form data.
     
     Requires admin role. If display_order is specified and position is occupied,
     existing items will be shifted down automatically.
+    
+    **Form Data:**
+    - data: JSON string containing gallery item data
+    - image: Image file for gallery (required)
+    
+    **JSON Data Fields:**
+    - title: Image title (required)
+    - excerpt: Short description (optional)
+    - is_active: Active status (optional, default: true)
+    - display_order: Display order (optional, default: 0)
     """
+    json_data, image = form_data
+    
+    # Handle image upload (required for gallery)
+    uploader = DirectFileUploader()
+    image_url = await uploader.upload_file(image, "galleries")
+    
+    # Merge image URL with JSON data
+    complete_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Create gallery data object
+    gallery_data = GalleryCreate(**complete_data)
+    
     return await gallery_service.create_gallery(gallery_data, current_user["id"])
 
 
@@ -114,17 +141,6 @@ async def get_gallery_statistics(
     return await gallery_service.get_gallery_statistics()
 
 
-@router.get("/order-conflicts", summary="Get gallery order conflicts")
-async def get_order_conflicts(
-    current_user: dict = Depends(admin_required),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-):
-    """
-    Get gallery items that have conflicting display orders.
-    
-    Requires admin role.
-    """
-    return await gallery_service.get_order_conflicts()
 
 
 @router.get("/summaries", response_model=List[GallerySummary], summary="Get gallery summaries")
@@ -169,15 +185,37 @@ async def get_gallery(
 @router.put("/{gallery_id}", response_model=GalleryResponse, summary="Update gallery")
 async def update_gallery(
     gallery_id: int,
-    gallery_data: GalleryUpdate,
+    form_data: Tuple[Dict[str, Any], Optional[UploadFile]] = Depends(get_article_multipart_update()),  # Use article multipart update for optional image
     current_user: dict = Depends(admin_required),
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
-    Update gallery item.
+    Update gallery item with multipart form data.
     
     Requires admin role. If display_order is changed, positions will be automatically adjusted.
+    
+    **Form Data:**
+    - data: JSON string containing gallery update data
+    - image: New image file for gallery (optional for updates)
+    
+    **JSON Data Fields (all optional):**
+    - title: Image title
+    - excerpt: Short description
+    - is_active: Active status
+    - display_order: Display order
     """
+    json_data, image = form_data
+    
+    # Handle image upload if provided
+    uploader = DirectFileUploader()
+    image_url = await process_image_upload(image, "galleries", uploader)
+    
+    # Merge image URL with JSON data
+    complete_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Create gallery update data object
+    gallery_data = GalleryUpdate(**complete_data)
+    
     return await gallery_service.update_gallery(gallery_id, gallery_data, current_user["id"])
 
 
@@ -209,7 +247,7 @@ async def toggle_active_status(
     return await gallery_service.toggle_active_status(gallery_id, current_user["id"])
 
 
-# ===== ORDERING ENDPOINTS =====
+# ===== ORDERING ENDPOINT =====
 
 @router.patch("/{gallery_id}/order", response_model=GalleryResponse, summary="Update gallery display order")
 async def update_gallery_order(
@@ -223,89 +261,4 @@ async def update_gallery_order(
     
     Requires admin role. Other items will be automatically repositioned to accommodate the change.
     """
-    return await gallery_service.update_single_order(gallery_id, new_order, current_user["id"])
-
-
-@router.post("/bulk-order", response_model=BulkOrderUpdateResponse, summary="Bulk update gallery orders")
-async def bulk_update_gallery_order(
-    bulk_order_data: GalleryBulkOrderUpdate,
-    current_user: dict = Depends(admin_required),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-):
-    """
-    Bulk update display orders for multiple gallery items.
-    
-    Requires admin role. Allows you to reorder multiple items in a single operation.
-    
-    Example request body:
-    ```json
-    {
-        "items": [
-            {"gallery_id": 1, "new_order": 3},
-            {"gallery_id": 2, "new_order": 1},
-            {"gallery_id": 3, "new_order": 2}
-        ]
-    }
-    ```
-    """
-    return await gallery_service.bulk_update_order(bulk_order_data, current_user["id"])
-
-
-@router.post("/normalize-orders", response_model=MessageResponse, summary="Normalize gallery orders")
-async def normalize_gallery_orders(
-    current_user: dict = Depends(admin_required),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-):
-    """
-    Normalize all gallery display orders to remove gaps (1, 2, 3, ...).
-    
-    Requires admin role. Useful for cleaning up order conflicts or gaps in numbering.
-    """
-    return await gallery_service.normalize_gallery_orders()
-
-
-# ===== UTILITY ENDPOINTS =====
-
-@router.get("/export/ordered", response_model=List[GalleryResponse], summary="Export all galleries in order")
-async def export_galleries_ordered(
-    current_user: dict = Depends(admin_required),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-):
-    """
-    Export all active gallery items ordered by display_order.
-    
-    Requires admin role. Useful for backup or migration purposes.
-    """
-    return await gallery_service.get_active_galleries()
-
-
-@router.post("/move-up/{gallery_id}", response_model=GalleryResponse, summary="Move gallery up one position")
-async def move_gallery_up(
-    gallery_id: int,
-    current_user: dict = Depends(admin_required),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-):
-    """
-    Move gallery item up one position in display order.
-    
-    Requires admin role. Convenient shortcut for single-step reordering.
-    """
-    gallery = await gallery_service.get_gallery(gallery_id)
-    new_order = max(1, gallery.display_order - 1)
-    return await gallery_service.update_single_order(gallery_id, new_order, current_user["id"])
-
-
-@router.post("/move-down/{gallery_id}", response_model=GalleryResponse, summary="Move gallery down one position")
-async def move_gallery_down(
-    gallery_id: int,
-    current_user: dict = Depends(admin_required),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-):
-    """
-    Move gallery item down one position in display order.
-    
-    Requires admin role. Convenient shortcut for single-step reordering.
-    """
-    gallery = await gallery_service.get_gallery(gallery_id)
-    new_order = gallery.display_order + 1
     return await gallery_service.update_single_order(gallery_id, new_order, current_user["id"])

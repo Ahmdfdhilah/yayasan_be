@@ -57,15 +57,6 @@ class GalleryUpdate(BaseModel):
         return img_url.strip() if img_url else None
 
 
-class GalleryOrderUpdate(BaseModel):
-    """Schema for updating gallery item order."""
-    gallery_id: int = Field(..., description="Gallery item ID")
-    new_order: int = Field(..., ge=0, description="New display order")
-
-
-class GalleryBulkOrderUpdate(BaseModel):
-    """Schema for bulk updating gallery order."""
-    items: List[GalleryOrderUpdate] = Field(..., min_length=1, description="List of order updates")
 
 
 # ===== RESPONSE SCHEMAS =====
@@ -151,21 +142,3 @@ class GalleryFilterParams(BaseModel):
     sort_order: str = Field(default="asc", pattern="^(asc|desc)$", description="Sort order")
 
 
-# ===== ORDER RESPONSE SCHEMAS =====
-
-class OrderUpdateResult(BaseModel):
-    """Result of order update operation."""
-    gallery_id: int
-    old_order: int
-    new_order: int
-    success: bool
-    message: Optional[str] = None
-
-
-class BulkOrderUpdateResponse(BaseModel):
-    """Response for bulk order update."""
-    successful_updates: List[OrderUpdateResult]
-    failed_updates: List[OrderUpdateResult]
-    total_processed: int
-    success_count: int
-    failure_count: int

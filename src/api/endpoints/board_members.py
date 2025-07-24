@@ -1,7 +1,7 @@
 """Board member management endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
-from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, UploadFile, File, Form
+from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -17,6 +17,13 @@ from src.schemas.board_member import (
 )
 from src.schemas.shared import MessageResponse
 from src.auth.permissions import get_current_active_user, require_roles
+from src.utils.direct_file_upload import (
+    DirectFileUploader,
+    get_board_member_multipart,
+    get_board_member_multipart_update,
+    process_image_upload,
+    merge_data_with_image_url
+)
 
 router = APIRouter()
 
@@ -32,15 +39,38 @@ async def get_board_member_service(session: AsyncSession = Depends(get_db)) -> B
 
 @router.post("/", response_model=BoardMemberResponse, summary="Create a new board member")
 async def create_board_member(
-    board_member_data: BoardMemberCreate,
+    form_data: Tuple[Dict[str, Any], UploadFile] = Depends(get_board_member_multipart()),
     current_user: dict = Depends(admin_required),
     board_member_service: BoardMemberService = Depends(get_board_member_service),
 ):
     """
-    Create a new board member.
+    Create a new board member with multipart form data.
     
     Requires admin role.
+    
+    **Form Data:**
+    - data: JSON string containing board member data
+    - image: Image file for profile picture (required)
+    
+    **JSON Data Fields:**
+    - name: Board member name (required)
+    - position: Position/title (required)
+    - description: Bio or description (optional)
+    - is_active: Active status (optional, default: true)
+    - display_order: Display order (optional, default: 0)
     """
+    json_data, image = form_data
+    
+    # Handle image upload (required)
+    uploader = DirectFileUploader()
+    image_url = await uploader.upload_file(image, "board_members")
+    
+    # Merge image URL with JSON data
+    complete_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Create board member data object
+    board_member_data = BoardMemberCreate(**complete_data)
+    
     return await board_member_service.create_board_member(board_member_data, current_user["id"])
 
 
@@ -166,15 +196,38 @@ async def get_board_member(
 @router.put("/{board_member_id}", response_model=BoardMemberResponse, summary="Update board member")
 async def update_board_member(
     board_member_id: int,
-    board_member_data: BoardMemberUpdate,
+    form_data: Tuple[Dict[str, Any], Optional[UploadFile]] = Depends(get_board_member_multipart_update()),
     current_user: dict = Depends(admin_required),
     board_member_service: BoardMemberService = Depends(get_board_member_service),
 ):
     """
-    Update board member.
+    Update board member with multipart form data.
     
     Requires admin role.
+    
+    **Form Data:**
+    - data: JSON string containing board member update data
+    - image: New image file for profile picture (optional for updates)
+    
+    **JSON Data Fields (all optional):**
+    - name: Board member name
+    - position: Position/title
+    - description: Bio or description
+    - is_active: Active status
+    - display_order: Display order
     """
+    json_data, image = form_data
+    
+    # Handle image upload if provided
+    uploader = DirectFileUploader()
+    image_url = await process_image_upload(image, "board_members", uploader)
+    
+    # Merge image URL with JSON data
+    complete_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Create board member update data object
+    board_member_data = BoardMemberUpdate(**complete_data)
+    
     return await board_member_service.update_board_member(board_member_id, board_member_data, current_user["id"])
 
 
@@ -192,8 +245,8 @@ async def delete_board_member(
     return await board_member_service.delete_board_member(board_member_id, current_user["id"])
 
 
-@router.patch("/{board_member_id}/display-order", response_model=BoardMemberResponse, summary="Update board member display order")
-async def update_display_order(
+@router.patch("/{board_member_id}/order", response_model=BoardMemberResponse, summary="Update board member display order")
+async def update_board_member_order(
     board_member_id: int,
     new_order: int = Body(..., ge=0, description="New display order"),
     current_user: dict = Depends(admin_required),
@@ -202,7 +255,7 @@ async def update_display_order(
     """
     Update display order for a board member.
     
-    Requires admin role.
+    Requires admin role. Other items will be automatically repositioned to accommodate the change.
     """
     return await board_member_service.update_display_order(board_member_id, new_order)
 

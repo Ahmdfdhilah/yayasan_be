@@ -1,7 +1,7 @@
 """Article management endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
-from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, UploadFile, File, Form
+from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -19,6 +19,13 @@ from src.schemas.article import (
 )
 from src.schemas.shared import MessageResponse
 from src.auth.permissions import get_current_active_user, require_roles
+from src.utils.direct_file_upload import (
+    DirectFileUploader,
+    get_article_multipart,
+    get_article_multipart_update,
+    process_image_upload,
+    merge_data_with_image_url
+)
 
 router = APIRouter()
 
@@ -37,15 +44,40 @@ async def get_article_service(session: AsyncSession = Depends(get_db)) -> Articl
 
 @router.post("/", response_model=ArticleResponse, summary="Create a new article")
 async def create_article(
-    article_data: ArticleCreate,
+    form_data: Tuple[Dict[str, Any], UploadFile] = Depends(get_article_multipart()),
     current_user: dict = Depends(get_current_active_user),
     article_service: ArticleService = Depends(get_article_service),
 ):
     """
-    Create a new article.
+    Create a new article with multipart form data.
     
     Requires authentication. All users can create articles.
+    
+    **Form Data:**
+    - data: JSON string containing article data
+    - image: Image file for article (required)
+    
+    **JSON Data Fields:**
+    - title: Article title (required)
+    - description: Full article content (required)  
+    - slug: URL-friendly slug (required)
+    - excerpt: Short summary (optional)
+    - category: Article category (required)
+    - is_published: Publication status (optional, default: false)
+    - published_at: Publication date (optional)
     """
+    json_data, image = form_data
+    
+    # Handle image upload (required)
+    uploader = DirectFileUploader()
+    image_url = await uploader.upload_file(image, "articles")
+    
+    # Merge image URL with JSON data
+    complete_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Create article data object
+    article_data = ArticleCreate(**complete_data)
+    
     return await article_service.create_article(article_data, current_user["id"])
 
 
@@ -230,15 +262,40 @@ async def get_article_by_slug(
 @router.put("/{article_id}", response_model=ArticleResponse, summary="Update article")
 async def update_article(
     article_id: int,
-    article_data: ArticleUpdate,
+    form_data: Tuple[Dict[str, Any], Optional[UploadFile]] = Depends(get_article_multipart_update()),
     current_user: dict = Depends(get_current_active_user),
     article_service: ArticleService = Depends(get_article_service),
 ):
     """
-    Update article.
+    Update article with multipart form data.
     
     Requires authentication. Users can only update their own articles unless they are admin.
+    
+    **Form Data:**
+    - data: JSON string containing article update data
+    - image: New image file for article (optional for updates)
+    
+    **JSON Data Fields (all optional):**
+    - title: Article title
+    - description: Full article content
+    - slug: URL-friendly slug
+    - excerpt: Short summary
+    - category: Article category
+    - is_published: Publication status
+    - published_at: Publication date
     """
+    json_data, image = form_data
+    
+    # Handle image upload if provided
+    uploader = DirectFileUploader()
+    image_url = await process_image_upload(image, "articles", uploader)
+    
+    # Merge image URL with JSON data
+    complete_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Create article update data object
+    article_data = ArticleUpdate(**complete_data)
+    
     return await article_service.update_article(article_id, article_data, current_user["id"])
 
 

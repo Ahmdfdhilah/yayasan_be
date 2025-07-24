@@ -13,7 +13,6 @@ class GalleryBase(BaseModel):
     img_url: str = Field(..., min_length=1, max_length=500, description="Image URL")
     title: str = Field(..., min_length=1, max_length=255, description="Image title")
     excerpt: Optional[str] = Field(None, max_length=500, description="Short description")
-    is_active: bool = Field(default=True, description="Active status")
     display_order: int = Field(default=0, ge=0, description="Order for display")
     
     @field_validator('title')
@@ -41,7 +40,6 @@ class GalleryUpdate(BaseModel):
     img_url: Optional[str] = Field(None, min_length=1, max_length=500)
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     excerpt: Optional[str] = Field(None, max_length=500)
-    is_active: Optional[bool] = None
     display_order: Optional[int] = Field(None, ge=0)
     
     @field_validator('title')
@@ -67,7 +65,6 @@ class GalleryResponse(BaseModel):
     img_url: str
     title: str
     excerpt: Optional[str] = None
-    is_active: bool
     display_order: int
     created_at: str
     updated_at: Optional[str] = None
@@ -85,7 +82,6 @@ class GalleryResponse(BaseModel):
             img_url=gallery.img_url,
             title=gallery.title,
             excerpt=gallery.excerpt,
-            is_active=gallery.is_active,
             display_order=gallery.display_order,
             created_at=gallery.created_at.isoformat() if gallery.created_at else "",
             updated_at=gallery.updated_at.isoformat() if gallery.updated_at else None,
@@ -107,7 +103,6 @@ class GallerySummary(BaseModel):
     id: int
     img_url: str
     title: str
-    is_active: bool
     display_order: int
     
     @classmethod
@@ -117,7 +112,6 @@ class GallerySummary(BaseModel):
             id=gallery.id,
             img_url=gallery.img_url,
             title=gallery.title,
-            is_active=gallery.is_active,
             display_order=gallery.display_order
         )
     
@@ -135,7 +129,6 @@ class GalleryFilterParams(BaseModel):
     
     # Search and filtering
     search: Optional[str] = Field(default=None, description="Search in title")
-    is_active: Optional[bool] = Field(default=None, description="Filter by active status")
     
     # Sorting
     sort_by: str = Field(default="display_order", description="Sort field")

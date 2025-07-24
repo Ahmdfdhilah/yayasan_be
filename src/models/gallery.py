@@ -15,7 +15,6 @@ class Gallery(BaseModel, SQLModel, table=True):
     img_url: str = Field(max_length=500, nullable=False, description="Image URL")
     title: str = Field(max_length=255, nullable=False, index=True, description="Image title")
     excerpt: Optional[str] = Field(max_length=500, default=None, description="Short description")
-    is_active: bool = Field(default=True, description="Active status")
     display_order: int = Field(default=0, description="Order for display", index=True)
     
     def __repr__(self) -> str:

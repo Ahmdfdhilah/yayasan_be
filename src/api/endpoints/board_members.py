@@ -56,7 +56,6 @@ async def create_board_member(
     - name: Board member name (required)
     - position: Position/title (required)
     - description: Bio or description (optional)
-    - is_active: Active status (optional, default: true)
     - display_order: Display order (optional, default: 0)
     """
     json_data, image = form_data
@@ -79,7 +78,6 @@ async def get_board_members(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Search in name or position"),
-    is_active: Optional[bool] = Query(None, description="Filter by active status"),
     sort_by: str = Query("display_order", description="Sort field"),
     sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order"),
     board_member_service: BoardMemberService = Depends(get_board_member_service),
@@ -93,24 +91,23 @@ async def get_board_members(
         page=page,
         size=size,
         search=search,
-        is_active=is_active,
         sort_by=sort_by,
         sort_order=sort_order
     )
     return await board_member_service.get_board_members(filters)
 
 
-@router.get("/active", response_model=List[BoardMemberResponse], summary="Get active board members")
-async def get_active_board_members(
+@router.get("/all", response_model=List[BoardMemberResponse], summary="Get all board members")
+async def get_all_board_members(
     limit: Optional[int] = Query(None, ge=1, le=100, description="Limit number of results"),
     board_member_service: BoardMemberService = Depends(get_board_member_service),
 ):
     """
-    Get active board members only.
+    Get all board members.
     
     Public endpoint - no authentication required.
     """
-    return await board_member_service.get_active_board_members(limit)
+    return await board_member_service.get_all_board_members(limit)
 
 
 @router.get("/position/{position}", response_model=List[BoardMemberResponse], summary="Get board members by position")
@@ -130,7 +127,6 @@ async def get_board_members_by_position(
 async def search_board_members(
     q: str = Query(..., min_length=1, description="Search term"),
     limit: Optional[int] = Query(None, ge=1, le=100, description="Limit number of results"),
-    active_only: bool = Query(True, description="Only return active members"),
     board_member_service: BoardMemberService = Depends(get_board_member_service),
 ):
     """
@@ -138,7 +134,7 @@ async def search_board_members(
     
     Public endpoint - no authentication required.
     """
-    return await board_member_service.search_board_members(q, active_only, limit)
+    return await board_member_service.search_board_members(q, limit)
 
 
 @router.get("/statistics", summary="Get board member statistics")
@@ -159,7 +155,6 @@ async def get_board_member_summaries(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Search term"),
-    is_active: Optional[bool] = Query(None, description="Filter by active status"),
     sort_by: str = Query("display_order", description="Sort field"),
     sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order"),
     board_member_service: BoardMemberService = Depends(get_board_member_service),
@@ -173,7 +168,6 @@ async def get_board_member_summaries(
         page=page,
         size=size,
         search=search,
-        is_active=is_active,
         sort_by=sort_by,
         sort_order=sort_order
     )
@@ -213,7 +207,6 @@ async def update_board_member(
     - name: Board member name
     - position: Position/title
     - description: Bio or description
-    - is_active: Active status
     - display_order: Display order
     """
     json_data, image = form_data
@@ -260,15 +253,3 @@ async def update_board_member_order(
     return await board_member_service.update_display_order(board_member_id, new_order)
 
 
-@router.patch("/{board_member_id}/toggle-active", response_model=BoardMemberResponse, summary="Toggle board member active status")
-async def toggle_active_status(
-    board_member_id: int,
-    current_user: dict = Depends(admin_required),
-    board_member_service: BoardMemberService = Depends(get_board_member_service),
-):
-    """
-    Toggle active status of a board member.
-    
-    Requires admin role.
-    """
-    return await board_member_service.toggle_active_status(board_member_id, current_user["id"])

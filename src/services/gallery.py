@@ -112,14 +112,14 @@ class GalleryService:
             pages=(total + filters.size - 1) // filters.size
         )
     
-    async def get_active_galleries(self, limit: Optional[int] = None) -> List[GalleryResponse]:
-        """Get active gallery items only."""
-        galleries = await self.gallery_repo.get_active_galleries(limit)
+    async def get_all_galleries(self, limit: Optional[int] = None) -> List[GalleryResponse]:
+        """Get all gallery items."""
+        galleries = await self.gallery_repo.get_all_galleries(limit)
         return [GalleryResponse.from_gallery_model(gallery) for gallery in galleries]
     
-    async def search_galleries(self, search_term: str, active_only: bool = True, limit: Optional[int] = None) -> List[GalleryResponse]:
+    async def search_galleries(self, search_term: str, limit: Optional[int] = None) -> List[GalleryResponse]:
         """Search gallery items by title."""
-        galleries = await self.gallery_repo.search_galleries(search_term, active_only, limit)
+        galleries = await self.gallery_repo.search_galleries(search_term, limit)
         return [GalleryResponse.from_gallery_model(gallery) for gallery in galleries]
     
     async def get_gallery_summaries(self, filters: GalleryFilterParams) -> List[GallerySummary]:
@@ -127,27 +127,6 @@ class GalleryService:
         galleries, _ = await self.gallery_repo.get_all_filtered(filters)
         return [GallerySummary.from_gallery_model(gallery) for gallery in galleries]
     
-    async def toggle_active_status(self, gallery_id: int, updated_by: Optional[int] = None) -> GalleryResponse:
-        """Toggle active status of a gallery item."""
-        # Check if gallery exists
-        existing_gallery = await self.gallery_repo.get_by_id(gallery_id)
-        if not existing_gallery:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Gallery item not found"
-            )
-        
-        # Toggle active status
-        update_data = GalleryUpdate(is_active=not existing_gallery.is_active)
-        updated_gallery = await self.gallery_repo.update(gallery_id, update_data, updated_by)
-        
-        if not updated_gallery:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to toggle active status"
-            )
-        
-        return GalleryResponse.from_gallery_model(updated_gallery)
     
     # ===== ADVANCED ORDERING OPERATIONS =====
     
@@ -176,13 +155,9 @@ class GalleryService:
     async def get_gallery_statistics(self) -> Dict[str, Any]:
         """Get gallery statistics."""
         galleries, total_count = await self.gallery_repo.get_all_filtered(GalleryFilterParams())
-        active_count = sum(1 for gallery in galleries if gallery.is_active)
-        inactive_count = total_count - active_count
         
         return {
-            "total_galleries": total_count,
-            "active_galleries": active_count,
-            "inactive_galleries": inactive_count
+            "total_galleries": total_count
         }
     
     # ===== PRIVATE HELPER METHODS =====

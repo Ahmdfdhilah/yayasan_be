@@ -23,7 +23,6 @@ class GalleryRepository:
             img_url=gallery_data.img_url,
             title=gallery_data.title,
             excerpt=gallery_data.excerpt,
-            is_active=gallery_data.is_active,
             display_order=gallery_data.display_order,
             created_by=created_by
         )
@@ -96,9 +95,6 @@ class GalleryRepository:
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)
         
-        if filters.is_active is not None:
-            query = query.where(Gallery.is_active == filters.is_active)
-            count_query = count_query.where(Gallery.is_active == filters.is_active)
         
         # Apply sorting
         if filters.sort_by == "title":
@@ -128,13 +124,10 @@ class GalleryRepository:
         
         return list(galleries), total
     
-    async def get_active_galleries(self, limit: Optional[int] = None) -> List[Gallery]:
-        """Get active gallery items only."""
+    async def get_all_galleries(self, limit: Optional[int] = None) -> List[Gallery]:
+        """Get all gallery items."""
         query = select(Gallery).where(
-            and_(
-                Gallery.deleted_at.is_(None),
-                Gallery.is_active == True
-            )
+            Gallery.deleted_at.is_(None)
         ).order_by(Gallery.display_order.asc())
         
         if limit:
@@ -143,15 +136,13 @@ class GalleryRepository:
         result = await self.session.execute(query)
         return list(result.scalars().all())
     
-    async def search_galleries(self, search_term: str, active_only: bool = True, limit: Optional[int] = None) -> List[Gallery]:
+    async def search_galleries(self, search_term: str, limit: Optional[int] = None) -> List[Gallery]:
         """Search gallery items by title."""
         filters = [
             Gallery.deleted_at.is_(None),
             Gallery.title.ilike(f"%{search_term}%")
         ]
         
-        if active_only:
-            filters.append(Gallery.is_active == True)
         
         query = select(Gallery).where(and_(*filters)).order_by(Gallery.display_order.asc())
         
@@ -306,24 +297,18 @@ class GalleryRepository:
         return success_count
     
     async def get_all_ordered(self) -> List[Gallery]:
-        """Get all active gallery items ordered by display_order."""
+        """Get all gallery items ordered by display_order."""
         query = select(Gallery).where(
-            and_(
-                Gallery.deleted_at.is_(None),
-                Gallery.is_active == True
-            )
+            Gallery.deleted_at.is_(None)
         ).order_by(Gallery.display_order.asc())
         
         result = await self.session.execute(query)
         return list(result.scalars().all())
     
-    async def count_active_galleries(self) -> int:
-        """Count active gallery items."""
+    async def count_all_galleries(self) -> int:
+        """Count all gallery items."""
         query = select(func.count(Gallery.id)).where(
-            and_(
-                Gallery.deleted_at.is_(None),
-                Gallery.is_active == True
-            )
+            Gallery.deleted_at.is_(None)
         )
         result = await self.session.execute(query)
         return result.scalar() or 0

@@ -56,7 +56,6 @@ async def create_gallery(
     **JSON Data Fields:**
     - title: Image title (required)
     - excerpt: Short description (optional)
-    - is_active: Active status (optional, default: true)
     - display_order: Display order (optional, default: 0)
     """
     json_data, image = form_data
@@ -79,7 +78,6 @@ async def get_galleries(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Search in title"),
-    is_active: Optional[bool] = Query(None, description="Filter by active status"),
     sort_by: str = Query("display_order", description="Sort field"),
     sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order"),
     gallery_service: GalleryService = Depends(get_gallery_service),
@@ -93,31 +91,29 @@ async def get_galleries(
         page=page,
         size=size,
         search=search,
-        is_active=is_active,
         sort_by=sort_by,
         sort_order=sort_order
     )
     return await gallery_service.get_galleries(filters)
 
 
-@router.get("/active", response_model=List[GalleryResponse], summary="Get active galleries")
-async def get_active_galleries(
+@router.get("/all", response_model=List[GalleryResponse], summary="Get all galleries")
+async def get_all_galleries(
     limit: Optional[int] = Query(None, ge=1, le=100, description="Limit number of results"),
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
-    Get active gallery items only, ordered by display_order.
+    Get all gallery items, ordered by display_order.
     
     Public endpoint - no authentication required.
     """
-    return await gallery_service.get_active_galleries(limit)
+    return await gallery_service.get_all_galleries(limit)
 
 
 @router.get("/search", response_model=List[GalleryResponse], summary="Search galleries")
 async def search_galleries(
     q: str = Query(..., min_length=1, description="Search term"),
     limit: Optional[int] = Query(None, ge=1, le=100, description="Limit number of results"),
-    active_only: bool = Query(True, description="Only return active items"),
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
@@ -125,7 +121,7 @@ async def search_galleries(
     
     Public endpoint - no authentication required.
     """
-    return await gallery_service.search_galleries(q, active_only, limit)
+    return await gallery_service.search_galleries(q, limit)
 
 
 @router.get("/statistics", summary="Get gallery statistics")
@@ -148,7 +144,6 @@ async def get_gallery_summaries(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Search term"),
-    is_active: Optional[bool] = Query(None, description="Filter by active status"),
     sort_by: str = Query("display_order", description="Sort field"),
     sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order"),
     gallery_service: GalleryService = Depends(get_gallery_service),
@@ -162,7 +157,6 @@ async def get_gallery_summaries(
         page=page,
         size=size,
         search=search,
-        is_active=is_active,
         sort_by=sort_by,
         sort_order=sort_order
     )
@@ -201,7 +195,6 @@ async def update_gallery(
     **JSON Data Fields (all optional):**
     - title: Image title
     - excerpt: Short description
-    - is_active: Active status
     - display_order: Display order
     """
     json_data, image = form_data
@@ -233,18 +226,6 @@ async def delete_gallery(
     return await gallery_service.delete_gallery(gallery_id, current_user["id"])
 
 
-@router.patch("/{gallery_id}/toggle-active", response_model=GalleryResponse, summary="Toggle gallery active status")
-async def toggle_active_status(
-    gallery_id: int,
-    current_user: dict = Depends(admin_required),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-):
-    """
-    Toggle active status of a gallery item.
-    
-    Requires admin role.
-    """
-    return await gallery_service.toggle_active_status(gallery_id, current_user["id"])
 
 
 # ===== ORDERING ENDPOINT =====

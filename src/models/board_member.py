@@ -16,7 +16,6 @@ class BoardMember(BaseModel, SQLModel, table=True):
     position: str = Field(max_length=255, nullable=False, description="Position/title in the board")
     img_url: Optional[str] = Field(max_length=500, default=None, description="Profile image URL")
     description: Optional[str] = Field(default=None, description="Bio or description")
-    is_active: bool = Field(default=True, description="Active status")
     display_order: int = Field(default=0, description="Order for display")
     
     def __repr__(self) -> str:

@@ -94,9 +94,9 @@ class BoardMemberService:
             pages=(total + filters.size - 1) // filters.size
         )
     
-    async def get_active_board_members(self, limit: Optional[int] = None) -> List[BoardMemberResponse]:
-        """Get active board members only."""
-        board_members = await self.board_member_repo.get_active_members(limit)
+    async def get_all_board_members(self, limit: Optional[int] = None) -> List[BoardMemberResponse]:
+        """Get all board members."""
+        board_members = await self.board_member_repo.get_all_members(limit)
         return [BoardMemberResponse.from_board_member_model(board_member) for board_member in board_members]
     
     async def get_board_members_by_position(self, position: str) -> List[BoardMemberResponse]:
@@ -126,9 +126,9 @@ class BoardMemberService:
         updated_board_member = await self.board_member_repo.get_by_id(board_member_id)
         return BoardMemberResponse.from_board_member_model(updated_board_member)
     
-    async def search_board_members(self, search_term: str, active_only: bool = True, limit: Optional[int] = None) -> List[BoardMemberResponse]:
+    async def search_board_members(self, search_term: str, limit: Optional[int] = None) -> List[BoardMemberResponse]:
         """Search board members by name or position."""
-        board_members = await self.board_member_repo.search_members(search_term, active_only, limit)
+        board_members = await self.board_member_repo.search_members(search_term, limit)
         return [BoardMemberResponse.from_board_member_model(board_member) for board_member in board_members]
     
     async def get_board_member_summaries(self, filters: BoardMemberFilterParams) -> List[BoardMemberSummary]:
@@ -136,36 +136,11 @@ class BoardMemberService:
         board_members, _ = await self.board_member_repo.get_all_filtered(filters)
         return [BoardMemberSummary.from_board_member_model(board_member) for board_member in board_members]
     
-    async def toggle_active_status(self, board_member_id: int, updated_by: Optional[int] = None) -> BoardMemberResponse:
-        """Toggle active status of a board member."""
-        # Check if board member exists
-        existing_board_member = await self.board_member_repo.get_by_id(board_member_id)
-        if not existing_board_member:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Board member not found"
-            )
-        
-        # Toggle active status
-        update_data = BoardMemberUpdate(is_active=not existing_board_member.is_active)
-        updated_board_member = await self.board_member_repo.update(board_member_id, update_data, updated_by)
-        
-        if not updated_board_member:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to toggle active status"
-            )
-        
-        return BoardMemberResponse.from_board_member_model(updated_board_member)
     
     async def get_board_member_statistics(self) -> dict:
         """Get board member statistics."""
         total_members = len(await self.board_member_repo.get_all_filtered(BoardMemberFilterParams())[0])
-        active_members = await self.board_member_repo.count_active_members()
-        inactive_members = total_members - active_members
         
         return {
-            "total_members": total_members,
-            "active_members": active_members,
-            "inactive_members": inactive_members
+            "total_members": total_members
         }

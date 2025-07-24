@@ -24,7 +24,6 @@ class BoardMemberRepository:
             position=board_member_data.position,
             img_url=board_member_data.img_url,
             description=board_member_data.description,
-            is_active=board_member_data.is_active,
             display_order=board_member_data.display_order,
             created_by=created_by
         )
@@ -100,9 +99,6 @@ class BoardMemberRepository:
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)
         
-        if filters.is_active is not None:
-            query = query.where(BoardMember.is_active == filters.is_active)
-            count_query = count_query.where(BoardMember.is_active == filters.is_active)
         
         # Apply sorting
         if filters.sort_by == "name":
@@ -134,13 +130,10 @@ class BoardMemberRepository:
         
         return list(board_members), total
     
-    async def get_active_members(self, limit: Optional[int] = None) -> List[BoardMember]:
-        """Get active board members only."""
+    async def get_all_members(self, limit: Optional[int] = None) -> List[BoardMember]:
+        """Get all board members."""
         query = select(BoardMember).where(
-            and_(
-                BoardMember.deleted_at.is_(None),
-                BoardMember.is_active == True
-            )
+            BoardMember.deleted_at.is_(None)
         ).order_by(BoardMember.display_order.asc())
         
         if limit:
@@ -184,18 +177,15 @@ class BoardMemberRepository:
         max_order = result.scalar()
         return max_order or 0
     
-    async def count_active_members(self) -> int:
-        """Count active board members."""
+    async def count_all_members(self) -> int:
+        """Count all board members."""
         query = select(func.count(BoardMember.id)).where(
-            and_(
-                BoardMember.deleted_at.is_(None),
-                BoardMember.is_active == True
-            )
+            BoardMember.deleted_at.is_(None)
         )
         result = await self.session.execute(query)
         return result.scalar() or 0
     
-    async def search_members(self, search_term: str, active_only: bool = True, limit: Optional[int] = None) -> List[BoardMember]:
+    async def search_members(self, search_term: str, limit: Optional[int] = None) -> List[BoardMember]:
         """Search board members by name or position."""
         filters = [
             BoardMember.deleted_at.is_(None),
@@ -205,8 +195,6 @@ class BoardMemberRepository:
             )
         ]
         
-        if active_only:
-            filters.append(BoardMember.is_active == True)
         
         query = select(BoardMember).where(and_(*filters)).order_by(BoardMember.display_order.asc())
         

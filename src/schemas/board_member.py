@@ -14,7 +14,6 @@ class BoardMemberBase(BaseModel):
     position: str = Field(..., min_length=1, max_length=255, description="Position/title in the board")
     img_url: Optional[str] = Field(None, max_length=500, description="Profile image URL")
     description: Optional[str] = Field(None, description="Bio or description")
-    is_active: bool = Field(default=True, description="Active status")
     display_order: int = Field(default=0, ge=0, description="Order for display")
     
     @field_validator('name')
@@ -43,7 +42,6 @@ class BoardMemberUpdate(BaseModel):
     position: Optional[str] = Field(None, min_length=1, max_length=255)
     img_url: Optional[str] = Field(None, max_length=500)
     description: Optional[str] = None
-    is_active: Optional[bool] = None
     display_order: Optional[int] = Field(None, ge=0)
     
     @field_validator('name')
@@ -68,7 +66,6 @@ class BoardMemberResponse(BaseModel):
     position: str
     img_url: Optional[str] = None
     description: Optional[str] = None
-    is_active: bool
     display_order: int
     created_at: str
     updated_at: Optional[str] = None
@@ -87,7 +84,6 @@ class BoardMemberResponse(BaseModel):
             position=board_member.position,
             img_url=board_member.img_url,
             description=board_member.description,
-            is_active=board_member.is_active,
             display_order=board_member.display_order,
             created_at=board_member.created_at.isoformat() if board_member.created_at else "",
             updated_at=board_member.updated_at.isoformat() if board_member.updated_at else None,
@@ -110,7 +106,6 @@ class BoardMemberSummary(BaseModel):
     name: str
     position: str
     img_url: Optional[str] = None
-    is_active: bool
     display_order: int
     
     @classmethod
@@ -121,7 +116,6 @@ class BoardMemberSummary(BaseModel):
             name=board_member.name,
             position=board_member.position,
             img_url=board_member.img_url,
-            is_active=board_member.is_active,
             display_order=board_member.display_order
         )
     
@@ -139,7 +133,6 @@ class BoardMemberFilterParams(BaseModel):
     
     # Search and filtering
     search: Optional[str] = Field(default=None, description="Search in name or position")
-    is_active: Optional[bool] = Field(default=None, description="Filter by active status")
     
     # Sorting
     sort_by: str = Field(default="display_order", description="Sort field")

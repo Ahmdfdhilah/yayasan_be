@@ -9,6 +9,9 @@ from .organization import Organization
 from .user_role import UserRole
 from .media_file import MediaFile
 from .article import Article
+from .board_member import BoardMember
+from .gallery import Gallery
+from .message import Message, MessageStatus
 
 # PKG System models
 from .period import Period
@@ -46,6 +49,10 @@ __all__ = [
     "UserRole",
     "MediaFile",
     "Article",
+    "BoardMember",
+    "Gallery",
+    "Message",
+    "MessageStatus",
     
     # PKG System models
     "Period",

@@ -14,6 +14,9 @@ from src.api.endpoints import (
     dashboard,
     rpp_submissions,
     articles,
+    board_members,
+    galleries,
+    messages,
 )
 
 # Create main API router
@@ -151,6 +154,46 @@ api_router.include_router(
         403: {"description": "Forbidden"},
         404: {"description": "Article not found"},
         422: {"description": "Validation Error"},
+    }
+)
+
+# Board Members - untuk pengelolaan anggota dewan
+api_router.include_router(
+    board_members.router,
+    prefix="/board-members",
+    tags=["Board Members"],
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Board member not found"},
+        422: {"description": "Validation Error"},
+    }
+)
+
+# Galleries - untuk pengelolaan galeri gambar dengan ordering
+api_router.include_router(
+    galleries.router,
+    prefix="/galleries",
+    tags=["Galleries"],
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Gallery item not found"},
+        422: {"description": "Validation Error"},
+    }
+)
+
+# Messages - untuk pesan dari public dengan sanitasi
+api_router.include_router(
+    messages.router,
+    prefix="/messages",
+    tags=["Messages"],
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Message not found"},
+        422: {"description": "Validation Error"},
+        429: {"description": "Too Many Requests"},
     }
 )
 

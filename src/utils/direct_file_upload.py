@@ -200,3 +200,24 @@ def merge_data_with_image_url(json_data: Dict[str, Any], image_url: Optional[str
     if image_url:
         json_data["img_url"] = image_url
     return json_data
+
+def get_organization_multipart():
+    """Dependency for organization multipart form data (image optional)."""
+    def _get_data(
+        data: str = Form(..., description="JSON data for organization"),
+        image: Optional[UploadFile] = File(None, description="Organization logo/image file (optional)")
+    ) -> Tuple[Dict[str, Any], Optional[UploadFile]]:
+        json_data = parse_json_form_data(data)
+        return json_data, image
+    return _get_data
+
+
+def get_organization_multipart_update():
+    """Dependency for organization multipart form data (image optional for updates)."""
+    def _get_data(
+        data: str = Form(..., description="JSON data for organization"),
+        image: Optional[UploadFile] = File(None, description="Organization logo/image file (optional)")
+    ) -> Tuple[Dict[str, Any], Optional[UploadFile]]:
+        json_data = parse_json_form_data(data)
+        return json_data, image
+    return _get_data

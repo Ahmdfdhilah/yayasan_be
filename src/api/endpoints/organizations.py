@@ -1,7 +1,7 @@
 """Organization management endpoints for unified schema system."""
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from typing import Dict, Any, Optional, List
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
+from typing import Dict, Any, Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -16,6 +16,13 @@ from src.schemas.organization import (
 from src.schemas.shared import MessageResponse
 # Remove OrganizationType import as it's no longer used
 from src.auth.permissions import get_current_active_user, require_roles
+from src.utils.direct_file_upload import (
+    DirectFileUploader,
+    get_organization_multipart,
+    get_organization_multipart_update,
+    process_image_upload,
+    merge_data_with_image_url
+)
 
 router = APIRouter()
 
@@ -33,19 +40,36 @@ async def get_organization_service(session: AsyncSession = Depends(get_db)) -> O
 
 @router.post("/", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED, summary="Create organization")
 async def create_organization(
-    org_data: OrganizationCreate,
+    form_data: Tuple[Dict[str, Any], Optional[UploadFile]] = Depends(get_organization_multipart()),
     current_user: dict = Depends(admin_required),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """
-    Create a new organization.
+    Create a new organization with multipart form data.
     
     **Requires admin privileges.**
     
-    - **name**: Organization name (must be unique)
-    - **description**: Optional description
-    - **head_id**: Optional ID of user to assign as organization head
+    **Form Data:**
+    - data: JSON string containing organization data
+    - image: Organization logo/image file (optional)
+    
+    **JSON Data Fields:**
+    - name: Organization name (must be unique)
+    - description: Optional description
+    - head_id: Optional ID of user to assign as organization head
     """
+    json_data, image = form_data
+    
+    # Handle image upload if provided
+    uploader = DirectFileUploader()
+    image_url = await process_image_upload(image, "organizations", uploader)
+    
+    # Merge image URL with JSON data
+    complete_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Create organization data object
+    org_data = OrganizationCreate(**complete_data)
+    
     return await org_service.create_organization(org_data)
 
 
@@ -145,17 +169,33 @@ async def get_organization(
 @router.put("/{org_id}", response_model=OrganizationResponse, summary="Update organization")
 async def update_organization(
     org_id: int,
-    org_data: OrganizationUpdate,
+    form_data: Tuple[Dict[str, Any], Optional[UploadFile]] = Depends(get_organization_multipart_update()),
     current_user: dict = Depends(admin_or_manager),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """
-    Update organization information.
+    Update organization information with multipart form data.
     
     **Requires admin or manager privileges.**
     
-    Can update name, description, and head assignment.
+    **Form Data:**
+    - data: JSON string containing organization update data
+    - image: Organization logo/image file (optional)
+    
+    Can update name, description, head assignment, and image.
     """
+    json_data, image = form_data
+    
+    # Handle image upload if provided
+    uploader = DirectFileUploader()
+    image_url = await process_image_upload(image, "organizations", uploader)
+    
+    # Merge image URL with JSON data
+    complete_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Create organization update data object
+    org_data = OrganizationUpdate(**complete_data)
+    
     return await org_service.update_organization(org_id, org_data)
 
 

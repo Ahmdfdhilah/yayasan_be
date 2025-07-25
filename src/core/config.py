@@ -2,7 +2,7 @@
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import PostgresDsn, field_validator
-from typing import Any, Dict, Optional, List
+from typing import Any, ClassVar, Dict, Optional, List
 
 
 class Settings(BaseSettings):
@@ -103,6 +103,74 @@ class Settings(BaseSettings):
     EMAIL_SENDER_EMAIL: str = "noreply@yourapp.com"
     EMAIL_SENDER_NAME: str = "Government Auth System"
     EMAIL_RESET_URL_BASE: str = "http://localhost:5173/reset-password"
+
+       # Configure bleach for HTML sanitization
+    ALLOWED_TAGS: ClassVar[list[str]] = [
+        # Existing tags
+        "a", "abbr", "acronym", "b", "blockquote", "br", "code", "div", 
+        "em", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", 
+        "li", "ol", "p", "pre", "span", "strong", "table", "tbody", 
+        "td", "th", "thead", "tr", "ul",
+        # Additional ReactQuill tags
+        "sub", "sup", "video", "iframe",  # for subscript, superscript, video
+    ]
+
+    ALLOWED_ATTRIBUTES: ClassVar[dict[str, list[str]]] = {
+        # Existing attributes
+        "a": ["href", "title", "target", "rel"],
+        "abbr": ["title"],
+        "acronym": ["title"],
+        "img": ["src", "alt", "title", "width", "height", "loading"],
+        "div": ["class", "id", "style"],
+        "span": ["class", "id", "style"],
+        "table": ["class", "id", "border", "style"],
+        "td": ["colspan", "rowspan", "style"],
+        "th": ["colspan", "rowspan", "scope", "style"],
+        "p": ["style", "class"],
+        "h1": ["style", "class"],
+        "h2": ["style", "class"],
+        "h3": ["style", "class"],
+        "h4": ["style", "class"],
+        "h5": ["style", "class"],
+        "h6": ["style", "class"],
+        "blockquote": ["style", "class"],
+        "li": ["style", "class"],
+        "ol": ["style", "class", "type"],
+        "ul": ["style", "class", "type"],
+        # Additional ReactQuill attributes
+        "video": ["src", "controls", "width", "height", "style", "class"],
+        "iframe": ["src", "width", "height", "frameborder", "allowfullscreen", "style", "class"],
+        "code": ["class", "style"],
+        "pre": ["class", "style"],
+        "sup": ["style", "class"],
+        "sub": ["style", "class"],
+        "br": ["clear"],
+    }
+
+    ALLOWED_CSS_PROPERTIES: ClassVar[list[str]] = [
+        # Existing properties
+        "text-align", "text-decoration", "text-transform", "color",
+        "font-family", "font-size", "font-weight", "font-style",
+        "margin", "margin-top", "margin-right", "margin-bottom", "margin-left", 
+        "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
+        "background-color", "background",
+        "border", "border-style", "border-width", "border-color", "border-radius",
+        "border-top", "border-right", "border-bottom", "border-left",
+        "width", "height", "min-width", "max-width", "min-height", "max-height",
+        "position", "top", "right", "bottom", "left", "float",
+        "display", "visibility", "opacity",
+        "flex", "flex-direction", "justify-content", "align-items",
+        "grid-template-columns", "grid-gap",
+        "line-height", "white-space", "cursor",
+        # Additional ReactQuill properties
+        "text-indent", "vertical-align", "letter-spacing", "word-spacing",
+        "list-style", "list-style-type", "list-style-position",
+        "overflow", "overflow-x", "overflow-y", "z-index",
+        "transition", "transform", "box-shadow",
+    ]
+    
+    # Allowed protocols for links
+    ALLOWED_PROTOCOLS: ClassVar[list[str]] = ["http", "https", "mailto", "tel"]
 
     # Password Reset Settings
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 1

@@ -14,7 +14,7 @@ class Article(BaseModel, SQLModel, table=True):
     
     id: int = Field(primary_key=True)
     title: str = Field(max_length=255, nullable=False, index=True)
-    description: str = Field(nullable=False, description="Full article content")
+    description: str = Field(nullable=False, description="Full article HTML content")
     slug: str = Field(max_length=255, unique=True, nullable=False, index=True)
     excerpt: Optional[str] = Field(max_length=500, default=None, description="Short summary")
     img_url: Optional[str] = Field(max_length=500, default=None, description="Article image URL")

@@ -19,7 +19,9 @@ class Organization(BaseModel, SQLModel, table=True):
     
     id: int = Field(primary_key=True)
     name: str = Field(max_length=255, nullable=False, index=True)
-    description: Optional[str] = Field(default=None)
+    description: Optional[str] = Field(default=None, description="Full HTML description")
+    excerpt: Optional[str] = Field(max_length=500, default=None, description="Short summary excerpt")
+    img_url: Optional[str] = Field(max_length=500, default=None, description="Organization image URL")
     
     # Head/Principal of the organization
     head_id: Optional[int] = Field(

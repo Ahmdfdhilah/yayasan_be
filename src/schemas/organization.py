@@ -17,6 +17,8 @@ class OrganizationBase(BaseModel):
     """Base organization schema."""
     name: str = Field(..., min_length=1, max_length=255, description="Organization name")
     description: Optional[str] = Field(None, description="Organization description")
+    excerpt: Optional[str] = Field(None, max_length=500, description="Short summary excerpt")
+    img_url: Optional[str] = Field(None, max_length=500, description="Organization image URL")
     head_id: Optional[int] = Field(None, description="ID of the organization head/principal")
     
     @field_validator('name')
@@ -37,6 +39,8 @@ class OrganizationUpdate(BaseModel):
     """Schema for updating an organization."""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
+    excerpt: Optional[str] = Field(None, max_length=500, description="Short summary excerpt")
+    img_url: Optional[str] = Field(None, max_length=500, description="Organization image URL")
     head_id: Optional[int] = Field(None, description="ID of the organization head/principal")
     
     @field_validator('name')
@@ -53,6 +57,8 @@ class OrganizationResponse(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
+    excerpt: Optional[str] = None
+    img_url: Optional[str] = None
     head_id: Optional[int] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -69,6 +75,8 @@ class OrganizationResponse(BaseModel):
             id=org.id,
             name=org.name,
             description=org.description,
+            excerpt=org.excerpt,
+            img_url=org.img_url,
             head_id=org.head_id,
             created_at=org.created_at,
             updated_at=org.updated_at,
@@ -90,6 +98,8 @@ class OrganizationSummary(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
+    excerpt: Optional[str] = None
+    img_url: Optional[str] = None
     user_count: int = Field(default=0, description="Number of users")
     created_at: datetime
     
@@ -100,6 +110,8 @@ class OrganizationSummary(BaseModel):
             id=org.id,
             name=org.name,
             description=org.description,
+            excerpt=org.excerpt,
+            img_url=org.img_url,
             user_count=user_count,
             created_at=org.created_at
         )

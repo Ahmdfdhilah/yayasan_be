@@ -17,6 +17,7 @@ from .message import Message, MessageStatus
 from .period import Period
 from .rpp_submission import RPPSubmission
 from .rpp_submission_item import RPPSubmissionItem
+from .evaluation_category import EvaluationCategory
 from .evaluation_aspect import EvaluationAspect
 from .teacher_evaluation import TeacherEvaluation
 from .teacher_evaluation_item import TeacherEvaluationItem
@@ -58,6 +59,7 @@ __all__ = [
     "Period",
     "RPPSubmission",
     "RPPSubmissionItem",
+    "EvaluationCategory",
     "EvaluationAspect",
     "TeacherEvaluation",
     "TeacherEvaluationItem",

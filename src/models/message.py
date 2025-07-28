@@ -7,13 +7,14 @@ from sqlmodel import Field, SQLModel
 from sqlalchemy import Enum as SQLEnum, Column
 
 from .base import BaseModel
+from .enums import MessagePriority
 
 
 class MessageStatus(str, Enum):
     """Message status enumeration."""
-    UNREAD = "unread"
-    READ = "read"
-    ARCHIVED = "archived"
+    UNREAD = "UNREAD"
+    READ = "READ"
+    ARCHIVED = "ARCHIEVED"
 
 
 class Message(BaseModel, SQLModel, table=True):

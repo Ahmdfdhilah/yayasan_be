@@ -70,11 +70,13 @@ class PeriodService:
     
     async def get_periods(
         self,
-        filter_params: Optional[PeriodFilter] = None,
-        skip: int = 0,
-        limit: int = 100
+        filter_params: PeriodFilter
     ) -> PeriodListResponse:
         """Get filtered periods with pagination."""
+        # Convert page/size to skip/limit for repository
+        skip = (filter_params.page - 1) * filter_params.size
+        limit = filter_params.size
+        
         periods, total = await self.period_repo.get_filtered(filter_params, skip, limit)
         
         period_responses = [PeriodResponse.from_orm(period) for period in periods]
@@ -82,9 +84,9 @@ class PeriodService:
         return PeriodListResponse(
             items=period_responses,
             total=total,
-            page=skip // limit + 1,
-            size=limit,
-            pages=(total + limit - 1) // limit
+            page=filter_params.page,
+            size=filter_params.size,
+            pages=(total + filter_params.size - 1) // filter_params.size
         )
     
     async def get_active_period(self) -> PeriodResponse:

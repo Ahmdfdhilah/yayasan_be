@@ -12,6 +12,7 @@ from src.schemas.teacher_evaluation import (
     TeacherEvaluationCreate,
     TeacherEvaluationUpdate,
     TeacherEvaluationResponse,
+    TeacherEvaluationDetailResponse,
     TeacherEvaluationListResponse,
     TeacherEvaluationItemCreate,
     TeacherEvaluationItemResponse,
@@ -74,7 +75,7 @@ async def create_teacher_evaluation(
 
 @router.post(
     "/with-items",
-    response_model=TeacherEvaluationResponse,
+    response_model=TeacherEvaluationDetailResponse,
     summary="Create evaluation with items",
 )
 async def create_evaluation_with_items(
@@ -98,7 +99,7 @@ async def create_evaluation_with_items(
 
 @router.get(
     "/{evaluation_id}",
-    response_model=TeacherEvaluationResponse,
+    response_model=TeacherEvaluationDetailResponse,
     summary="Get teacher evaluation by ID",
 )
 async def get_teacher_evaluation(
@@ -218,7 +219,7 @@ async def delete_evaluation_item(
 
 @router.patch(
     "/{evaluation_id}/bulk-items",
-    response_model=TeacherEvaluationResponse,
+    response_model=TeacherEvaluationDetailResponse,
     summary="Bulk update items",
 )
 async def bulk_update_evaluation_items(
@@ -292,26 +293,25 @@ async def get_teacher_evaluations_filtered(
 
 
 @router.get(
-    "/teacher/{teacher_id}/period/{period_id}/evaluator/{evaluator_id}",
-    response_model=TeacherEvaluationResponse,
-    summary="Get teacher evaluation by period and evaluator",
+    "/teacher/{teacher_id}/period/{period_id}",
+    response_model=TeacherEvaluationDetailResponse,
+    summary="Get teacher evaluation by period",
 )
 async def get_teacher_evaluation_by_period(
     teacher_id: int,
     period_id: int,
-    evaluator_id: int,
     current_user: dict = Depends(get_current_active_user),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service),
 ):
-    """Get teacher evaluation for specific period and evaluator."""
+    """Get teacher evaluation for specific period."""
     return await service.get_teacher_evaluation_by_period(
-        teacher_id, period_id, evaluator_id, current_user
+        teacher_id, period_id, current_user
     )
 
 
 @router.get(
     "/period/{period_id}",
-    response_model=List[TeacherEvaluationResponse],
+    response_model=List[TeacherEvaluationDetailResponse],
     summary="Get evaluations by period",
 )
 async def get_evaluations_by_period(

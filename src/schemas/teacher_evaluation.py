@@ -104,6 +104,10 @@ class TeacherEvaluationResponse(BaseResponse):
     teacher: Optional[UserResponse] = None
     evaluator: Optional[UserResponse] = None
     period: Optional[PeriodResponse] = None
+
+
+class TeacherEvaluationDetailResponse(TeacherEvaluationResponse):
+    """Schema for detailed teacher evaluation response with items."""
     items: List[TeacherEvaluationItemResponse] = Field(default_factory=list)
 
 

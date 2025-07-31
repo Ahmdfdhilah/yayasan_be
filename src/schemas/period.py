@@ -74,6 +74,11 @@ class PeriodActivate(BaseModel):
 
 class PeriodFilter(BaseModel):
     """Schema for filtering periods."""
+    # Pagination
+    page: int = Field(default=1, ge=1, description="Page number")
+    size: int = Field(default=10, ge=1, le=100, description="Items per page")
+    
+    # Filtering
     academic_year: Optional[str] = None
     semester: Optional[str] = None
     is_active: Optional[bool] = None

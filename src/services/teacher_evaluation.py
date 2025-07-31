@@ -11,6 +11,7 @@ from src.schemas.teacher_evaluation import (
     TeacherEvaluationCreate,
     TeacherEvaluationUpdate,
     TeacherEvaluationResponse,
+    TeacherEvaluationDetailResponse,
     TeacherEvaluationListResponse,
     TeacherEvaluationItemCreate,
     TeacherEvaluationItemUpdate,
@@ -56,6 +57,18 @@ class TeacherEvaluationService:
             
         return TeacherEvaluationResponse.model_validate(response_data)
 
+    def _to_detail_response(self, evaluation) -> TeacherEvaluationDetailResponse:
+        """Convert evaluation model to detail response with items and organization_name populated."""
+        response_data = evaluation.__dict__.copy()
+        
+        # Add organization_name from teacher's organization
+        if hasattr(evaluation, 'teacher') and evaluation.teacher and hasattr(evaluation.teacher, 'organization') and evaluation.teacher.organization:
+            response_data['organization_name'] = evaluation.teacher.organization.name
+        else:
+            response_data['organization_name'] = None
+            
+        return TeacherEvaluationDetailResponse.model_validate(response_data)
+
     # ===== PARENT EVALUATION OPERATIONS =====
 
     async def create_evaluation(
@@ -82,17 +95,16 @@ class TeacherEvaluationService:
                 detail="Cannot create evaluation for admin users",
             )
 
-        # Check if evaluation already exists for this teacher-period-evaluator combination
+        # Check if evaluation already exists for this teacher-period combination
         existing = await self.evaluation_repo.get_teacher_evaluation_by_period(
             evaluation_data.teacher_id,
             evaluation_data.period_id,
-            evaluation_data.evaluator_id,
         )
 
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Teacher evaluation already exists for this period and evaluator",
+                detail="Teacher evaluation already exists for this period",
             )
 
         evaluation = await self.evaluation_repo.create_evaluation(
@@ -102,7 +114,7 @@ class TeacherEvaluationService:
 
     async def get_evaluation(
         self, evaluation_id: int, current_user: dict = None
-    ) -> TeacherEvaluationResponse:
+    ) -> TeacherEvaluationDetailResponse:
         """Get teacher evaluation by ID with access control."""
         evaluation = await self.evaluation_repo.get_evaluation_by_id(evaluation_id)
 
@@ -132,7 +144,7 @@ class TeacherEvaluationService:
                         detail="Access denied: Can only view your own evaluations",
                     )
 
-        return self._to_response(evaluation)
+        return self._to_detail_response(evaluation)
 
     async def update_evaluation_notes(
         self,
@@ -232,7 +244,7 @@ class TeacherEvaluationService:
         evaluation_id: int,
         bulk_data: TeacherEvaluationBulkItemUpdate,
         updated_by: Optional[int] = None,
-    ) -> TeacherEvaluationResponse:
+    ) -> TeacherEvaluationDetailResponse:
         """Bulk update multiple evaluation items."""
         # Validate evaluation exists
         evaluation = await self.evaluation_repo.get_evaluation_by_id(evaluation_id)
@@ -260,7 +272,7 @@ class TeacherEvaluationService:
         updated_evaluation = await self.evaluation_repo.get_evaluation_by_id(
             evaluation_id
         )
-        return self._to_response(updated_evaluation)
+        return self._to_detail_response(updated_evaluation)
 
     # ===== QUERY OPERATIONS =====
 
@@ -312,9 +324,8 @@ class TeacherEvaluationService:
         self,
         teacher_id: int,
         period_id: int,
-        evaluator_id: int,
         current_user: dict = None,
-    ) -> TeacherEvaluationResponse:
+    ) -> TeacherEvaluationDetailResponse:
         """Get teacher evaluation for specific period."""
         # Access control
         if current_user and (
@@ -334,7 +345,7 @@ class TeacherEvaluationService:
                     )
 
         evaluation = await self.evaluation_repo.get_teacher_evaluation_by_period(
-            teacher_id, period_id, evaluator_id
+            teacher_id, period_id
         )
 
         if not evaluation:
@@ -343,11 +354,11 @@ class TeacherEvaluationService:
                 detail="Teacher evaluation not found for this period",
             )
 
-        return self._to_response(evaluation)
+        return self._to_detail_response(evaluation)
 
     async def get_evaluations_by_period(
         self, period_id: int, current_user: dict = None
-    ) -> List[TeacherEvaluationResponse]:
+    ) -> List[TeacherEvaluationDetailResponse]:
         """Get all evaluations for a specific period."""
         organization_id = None
 
@@ -359,7 +370,7 @@ class TeacherEvaluationService:
             period_id, organization_id
         )
 
-        return [self._to_response(eval) for eval in evaluations]
+        return [self._to_detail_response(eval) for eval in evaluations]
 
     # ===== BULK OPERATIONS =====
 
@@ -411,7 +422,7 @@ class TeacherEvaluationService:
         self,
         evaluation_data: TeacherEvaluationWithItemsCreate,
         created_by: Optional[int] = None,
-    ) -> TeacherEvaluationResponse:
+    ) -> TeacherEvaluationDetailResponse:
         """Create evaluation with multiple items at once."""
         # Validate that teacher is not an admin user
         teacher = await self.user_repo.get_by_id(evaluation_data.teacher_id)
@@ -454,7 +465,7 @@ class TeacherEvaluationService:
         updated_evaluation = await self.evaluation_repo.get_evaluation_by_id(
             evaluation.id
         )
-        return self._to_response(updated_evaluation)
+        return self._to_detail_response(updated_evaluation)
 
     # ===== STATISTICS AND ANALYTICS =====
 

@@ -43,11 +43,7 @@ async def create_period(
 
 @router.get("/", response_model=PeriodListResponse, summary="Get periods with filters")
 async def get_periods(
-    academic_year: Optional[str] = Query(None),
-    semester: Optional[str] = Query(None),
-    is_active: Optional[bool] = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
+    filters: PeriodFilter = Depends(),
     current_user: dict = Depends(get_current_active_user),
     period_service: PeriodService = Depends(get_period_service)
 ):
@@ -56,13 +52,7 @@ async def get_periods(
     
     All authenticated users can view periods.
     """
-    filter_params = PeriodFilter(
-        academic_year=academic_year,
-        semester=semester,
-        is_active=is_active
-    )
-    
-    return await period_service.get_periods(filter_params, skip, limit)
+    return await period_service.get_periods(filters)
 
 
 @router.get("/active", response_model=PeriodResponse, summary="Get active period")

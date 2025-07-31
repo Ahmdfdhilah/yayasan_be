@@ -182,8 +182,7 @@ class TeacherEvaluationRepository:
         base_query = select(TeacherEvaluation).options(
             selectinload(TeacherEvaluation.teacher).selectinload(User.organization),
             selectinload(TeacherEvaluation.evaluator),
-            selectinload(TeacherEvaluation.period)
-            # Remove items join for get all - too much data
+            selectinload(TeacherEvaluation.period),
         )
         
         conditions = []
@@ -263,8 +262,8 @@ class TeacherEvaluationRepository:
         
         return list(evaluations), total_count
     
-    async def get_teacher_evaluation_by_period(self, teacher_id: int, period_id: int, evaluator_id: int) -> Optional[TeacherEvaluation]:
-        """Get teacher evaluation for specific period and evaluator."""
+    async def get_teacher_evaluation_by_period(self, teacher_id: int, period_id: int) -> Optional[TeacherEvaluation]:
+        """Get teacher evaluation for specific period."""
         query = select(TeacherEvaluation).options(
             selectinload(TeacherEvaluation.teacher).selectinload(User.organization),
             selectinload(TeacherEvaluation.evaluator),
@@ -273,8 +272,7 @@ class TeacherEvaluationRepository:
         ).where(
             and_(
                 TeacherEvaluation.teacher_id == teacher_id,
-                TeacherEvaluation.period_id == period_id,
-                TeacherEvaluation.evaluator_id == evaluator_id
+                TeacherEvaluation.period_id == period_id
             )
         )
         
@@ -373,8 +371,8 @@ class TeacherEvaluationRepository:
             teachers = teachers_result.scalars().all()
             
             for teacher in teachers:
-                # Check if evaluation already exists
-                existing = await self.get_teacher_evaluation_by_period(teacher.id, period_id, evaluator.id)
+                # Check if evaluation already exists for this teacher in this period
+                existing = await self.get_teacher_evaluation_by_period(teacher.id, period_id)
                 if existing:
                     skipped_count += 1
                     continue
@@ -405,7 +403,7 @@ class TeacherEvaluationRepository:
             if admin_evaluator:
                 # Check if kepala sekolah evaluation already exists
                 existing_ks = await self.get_teacher_evaluation_by_period(
-                    evaluator.id, period_id, admin_evaluator.id
+                    evaluator.id, period_id
                 )
                 if existing_ks:
                     skipped_count += 1

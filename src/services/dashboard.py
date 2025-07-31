@@ -281,30 +281,8 @@ class DashboardService:
     
     async def _get_teacher_evaluation_stats(self, teacher_id: int, period_id: Optional[int]) -> TeacherEvaluationDashboardStats:
         """Get evaluation statistics for a specific teacher."""
-        from src.schemas.teacher_evaluation import TeacherEvaluationFilterParams
-        
-        # Get ALL teacher evaluations with pagination
-        all_evaluations = []
-        skip = 0
-        limit = 100
-        
-        while True:
-            filters = TeacherEvaluationFilterParams(
-                teacher_id=teacher_id,
-                period_id=period_id,
-                skip=skip,
-                limit=limit
-            )
-            
-            evaluations, total = await self.evaluation_repo.get_evaluations_filtered(filters)
-            all_evaluations.extend(evaluations)
-            
-            if len(evaluations) < limit or skip + limit >= total:
-                break
-            
-            skip += limit
-        
-        evaluations = all_evaluations
+        # Get ALL teacher evaluations with items loaded
+        evaluations = await self.evaluation_repo.get_evaluations_by_teacher_and_period(teacher_id, period_id)
         
         total = len(evaluations)
         
@@ -375,29 +353,8 @@ class DashboardService:
     async def _get_organization_evaluation_stats(self, org_id: Optional[int], period_id: Optional[int]) -> TeacherEvaluationDashboardStats:
         """Get evaluation statistics for an organization."""
         if period_id:
-            # Get raw evaluation data to calculate proper averages
-            from src.schemas.teacher_evaluation import TeacherEvaluationFilterParams
-            
-            # Get ALL evaluations for the organization/period
-            all_evaluations = []
-            skip = 0
-            limit = 100
-            
-            while True:
-                filters = TeacherEvaluationFilterParams(
-                    period_id=period_id,
-                    organization_id=org_id,
-                    skip=skip,
-                    limit=limit
-                )
-                
-                evaluations, total = await self.evaluation_repo.get_evaluations_filtered(filters)
-                all_evaluations.extend(evaluations)
-                
-                if len(evaluations) < limit or skip + limit >= total:
-                    break
-                
-                skip += limit
+            # Get ALL evaluations for the organization/period with items loaded
+            all_evaluations = await self.evaluation_repo.get_evaluations_by_period(period_id, org_id)
             
             # Calculate statistics from raw data
             total_evaluations = len(all_evaluations)
@@ -473,28 +430,8 @@ class DashboardService:
     async def _get_system_evaluation_stats(self, period_id: Optional[int]) -> TeacherEvaluationDashboardStats:
         """Get system-wide evaluation statistics."""
         if period_id:
-            # Get raw evaluation data to calculate proper averages
-            from src.schemas.teacher_evaluation import TeacherEvaluationFilterParams
-            
-            # Get ALL evaluations for the period (system-wide)
-            all_evaluations = []
-            skip = 0
-            limit = 100
-            
-            while True:
-                filters = TeacherEvaluationFilterParams(
-                    period_id=period_id,
-                    skip=skip,
-                    limit=limit
-                )
-                
-                evaluations, total = await self.evaluation_repo.get_evaluations_filtered(filters)
-                all_evaluations.extend(evaluations)
-                
-                if len(evaluations) < limit or skip + limit >= total:
-                    break
-                
-                skip += limit
+            # Get ALL evaluations for the period with items loaded
+            all_evaluations = await self.evaluation_repo.get_evaluations_by_period(period_id)
             
             # Calculate statistics from raw data
             total_evaluations = len(all_evaluations)

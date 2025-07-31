@@ -182,8 +182,8 @@ class TeacherEvaluationRepository:
         base_query = select(TeacherEvaluation).options(
             selectinload(TeacherEvaluation.teacher).selectinload(User.organization),
             selectinload(TeacherEvaluation.evaluator),
-            selectinload(TeacherEvaluation.period),
-            selectinload(TeacherEvaluation.items).selectinload(TeacherEvaluationItem.aspect)
+            selectinload(TeacherEvaluation.period)
+            # Remove items join for get all - too much data
         )
         
         conditions = []
@@ -292,6 +292,21 @@ class TeacherEvaluationRepository:
         
         if organization_id:
             query = query.join(TeacherEvaluation.teacher).where(User.organization_id == organization_id)
+        
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def get_evaluations_by_teacher_and_period(self, teacher_id: int, period_id: Optional[int] = None) -> List[TeacherEvaluation]:
+        """Get all evaluations for a specific teacher and optionally period."""
+        query = select(TeacherEvaluation).options(
+            selectinload(TeacherEvaluation.teacher).selectinload(User.organization),
+            selectinload(TeacherEvaluation.evaluator),
+            selectinload(TeacherEvaluation.period),
+            selectinload(TeacherEvaluation.items).selectinload(TeacherEvaluationItem.aspect)
+        ).where(TeacherEvaluation.teacher_id == teacher_id)
+        
+        if period_id:
+            query = query.where(TeacherEvaluation.period_id == period_id)
         
         result = await self.session.execute(query)
         return list(result.scalars().all())

@@ -12,6 +12,7 @@ from src.schemas.teacher_evaluation import (
     TeacherEvaluationCreate,
     TeacherEvaluationUpdate,
     TeacherEvaluationResponse,
+    TeacherEvaluationListResponse,
     TeacherEvaluationItemCreate,
     TeacherEvaluationItemResponse,
     TeacherEvaluationWithItemsCreate,
@@ -240,7 +241,7 @@ async def bulk_update_evaluation_items(
 
 
 @router.get(
-    "/", response_model=Dict[str, Any], summary="Get filtered teacher evaluations"
+    "/", response_model=TeacherEvaluationListResponse, summary="Get filtered teacher evaluations"
 )
 async def get_teacher_evaluations_filtered(
     teacher_id: Optional[int] = Query(None, description="Filter by teacher ID"),

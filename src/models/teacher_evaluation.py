@@ -58,7 +58,11 @@ class TeacherEvaluation(BaseModel, SQLModel, table=True):
     @property
     def item_count(self) -> int:
         """Get count of evaluation items."""
-        return len(self.items) if self.items else 0
+        try:
+            return len(self.items) if self.items else 0
+        except Exception:
+            # Return 0 if items can't be loaded (e.g., in async context without proper session)
+            return 0
     
     @property
     def completion_percentage(self) -> float:

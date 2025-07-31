@@ -11,6 +11,7 @@ from src.schemas.teacher_evaluation import (
     TeacherEvaluationCreate,
     TeacherEvaluationUpdate,
     TeacherEvaluationResponse,
+    TeacherEvaluationListResponse,
     TeacherEvaluationItemCreate,
     TeacherEvaluationItemUpdate,
     TeacherEvaluationItemResponse,
@@ -265,7 +266,7 @@ class TeacherEvaluationService:
 
     async def get_evaluations_filtered(
         self, filters: TeacherEvaluationFilterParams, current_user: dict = None
-    ) -> Dict[str, Any]:
+    ) -> TeacherEvaluationListResponse:
         """Get filtered list of teacher evaluations with access control."""
         organization_id = None
 
@@ -295,15 +296,17 @@ class TeacherEvaluationService:
             filters, organization_id
         )
 
-        return {
-            "items": [
-                self._to_response(eval) for eval in evaluations
-            ],
-            "total_count": total_count,
-            "page": (filters.skip // filters.limit) + 1 if filters.limit > 0 else 1,
-            "size": filters.limit,
-            "has_next": (filters.skip + filters.limit) < total_count,
-        }
+        # Calculate pagination
+        page = (filters.skip // filters.limit) + 1 if filters.limit > 0 else 1
+        pages = (total_count + filters.limit - 1) // filters.limit if filters.limit > 0 else 1
+
+        return TeacherEvaluationListResponse(
+            items=[self._to_response(eval) for eval in evaluations],
+            total=total_count,
+            page=page,
+            size=filters.limit,
+            pages=pages
+        )
 
     async def get_teacher_evaluation_by_period(
         self,

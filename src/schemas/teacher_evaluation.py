@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
-from .shared import BaseResponse, PaginationParams
+from .shared import BaseResponse, PaginationParams, BaseListResponse
 from .user import UserResponse
 from .evaluation_aspect import EvaluationAspectResponse
 from .period import PeriodResponse
@@ -105,6 +105,11 @@ class TeacherEvaluationResponse(BaseResponse):
     evaluator: Optional[UserResponse] = None
     period: Optional[PeriodResponse] = None
     items: List[TeacherEvaluationItemResponse] = Field(default_factory=list)
+
+
+class TeacherEvaluationListResponse(BaseListResponse[TeacherEvaluationResponse]):
+    """Paginated response for teacher evaluations list."""
+    pass
 
 
 class TeacherEvaluationSummary(BaseModel):

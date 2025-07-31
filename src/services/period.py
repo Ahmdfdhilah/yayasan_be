@@ -2,6 +2,7 @@
 
 from typing import Optional, List, Dict, Any
 from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.repositories.period import PeriodRepository
 from src.schemas.period import (
@@ -15,8 +16,9 @@ from src.utils.messages import get_message
 class PeriodService:
     """Period service for universal period management."""
     
-    def __init__(self, period_repo: PeriodRepository):
+    def __init__(self, period_repo: PeriodRepository, session: AsyncSession = None):
         self.period_repo = period_repo
+        self.session = session
     
     async def create_period(self, period_data: PeriodCreate, created_by: Optional[int] = None) -> PeriodResponse:
         """Create a new period."""
@@ -180,23 +182,52 @@ class PeriodService:
     
     async def delete_period(self, period_id: int) -> MessageResponse:
         """Delete a period if it has no associated data."""
+        # Check if period exists
+        period = await self.period_repo.get_by_id(period_id)
+        if not period:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Period not found"
+            )
+        
+        # Check for associated data before attempting deletion
+        from src.repositories.teacher_evaluation import TeacherEvaluationRepository
+        from src.repositories.rpp_submission import RPPSubmissionRepository
+        
+        # Count associated evaluations and submissions
+        eval_repo = TeacherEvaluationRepository(self.session)
+        rpp_repo = RPPSubmissionRepository(self.session) if self.session else None
+        
+        eval_count = len(await eval_repo.get_evaluations_by_period(period_id))
+        rpp_count = 0
+        
+        if rpp_repo:
+            rpp_submissions = await rpp_repo.get_submissions_by_period(period_id)
+            rpp_count = len(rpp_submissions)
+        
+        if eval_count > 0 or rpp_count > 0:
+            detail_parts = []
+            if eval_count > 0:
+                detail_parts.append(f"{eval_count} teacher evaluation(s)")
+            if rpp_count > 0:
+                detail_parts.append(f"{rpp_count} RPP submission(s)")
+            
+            detail = f"Cannot delete period. It has associated: {', '.join(detail_parts)}"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=detail
+            )
+        
+        # Safe to delete
         success = await self.period_repo.delete(period_id)
         
         if not success:
-            # Try to get the period to check if it exists
-            period = await self.period_repo.get_by_id(period_id)
-            if not period:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Period not found"
-                )
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Cannot delete period with associated evaluations or submissions"
-                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete period"
+            )
         
-        return MessageResponse(message="Period deleted successfully")
+        return MessageResponse(message=f"Period '{period.academic_year} - {period.semester}' deleted successfully")
     
     async def validate_period_dates(self, start_date, end_date) -> bool:
         """Validate period dates."""

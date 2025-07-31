@@ -24,7 +24,7 @@ admin_or_manager = require_roles(["admin", "kepala_sekolah"])
 async def get_period_service(session: AsyncSession = Depends(get_db)) -> PeriodService:
     """Get period service dependency."""
     period_repo = PeriodRepository(session)
-    return PeriodService(period_repo)
+    return PeriodService(period_repo, session)
 
 
 @router.post("/", response_model=PeriodResponse, summary="Create new period")

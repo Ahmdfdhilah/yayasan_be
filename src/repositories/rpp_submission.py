@@ -608,3 +608,15 @@ class RPPSubmissionRepository:
         
         result = await self.session.execute(query)
         return list(result.scalars().all())
+    
+    async def get_submissions_by_period(self, period_id: int) -> List[RPPSubmission]:
+        """Get all submissions for a specific period."""
+        query = select(RPPSubmission).where(
+            and_(
+                RPPSubmission.period_id == period_id,
+                RPPSubmission.deleted_at.is_(None)
+            )
+        ).order_by(RPPSubmission.created_at.desc())
+        
+        result = await self.session.execute(query)
+        return list(result.scalars().all())

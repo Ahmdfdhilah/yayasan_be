@@ -53,58 +53,18 @@ class UserSeeder:
         
         organizations = [
             {
-                "name": "SMA Negeri 1 Jakarta",
-                "description": "Sekolah Menengah Atas Negeri 1 Jakarta",
+                "name": "SD Al-Hikmah Tafatur",
+                "description": "<h2>Sekolah Dasar Al-Hikmah Tafatur</h2><p>Sekolah dasar yang berfokus pada pembentukan karakter islami dan prestasi akademik unggul. Kami mengintegrasikan kurikulum nasional dengan nilai-nilai keislaman untuk menciptakan generasi yang berakhlak mulia dan berprestasi.</p><h3>Visi Kami:</h3><p>Menjadi sekolah dasar terdepan dalam menghasilkan lulusan yang beriman, bertaqwa, berakhlak mulia, dan berprestasi akademik tinggi.</p><h3>Misi Kami:</h3><ul><li>Menyelenggarakan pendidikan berkualitas dengan pendekatan holistik</li><li>Mengembangkan potensi siswa secara optimal melalui pembelajaran inovatif</li><li>Menanamkan nilai-nilai islami dalam setiap aspek kehidupan</li><li>Membangun kemitraan yang kuat dengan orang tua dan masyarakat</li></ul>",
                 "head_id": None
             },
             {
-                "name": "SMA Negeri 2 Bandung", 
-                "description": "Sekolah Menengah Atas Negeri 2 Bandung",
+                "name": "SMP Al-Hikmah Tafatur",
+                "description": "<h2>Sekolah Menengah Pertama Al-Hikmah Tafatur</h2><p>Sekolah menengah pertama yang mengembangkan potensi siswa melalui pendidikan berkualitas dengan landasan nilai-nilai islami. Kami mempersiapkan siswa untuk menghadapi tantangan pendidikan tingkat selanjutnya dengan bekal akademik dan spiritual yang kuat.</p><h3>Keunggulan Kami:</h3><ul><li>Program bilingual (Bahasa Indonesia dan Bahasa Inggris)</li><li>Laboratorium sains dan komputer yang lengkap</li><li>Ekstrakurikuler yang beragam dan berprestasi</li><li>Pembinaan karakter islami terintegrasi</li></ul><h3>Fasilitas:</h3><p>Gedung bertingkat dengan ruang kelas ber-AC, laboratorium IPA, laboratorium komputer, perpustakaan digital, masjid, lapangan olahraga, dan kantin sehat.</p>",
                 "head_id": None
             },
             {
-                "name": "SMA Negeri 3 Surabaya",
-                "description": "Sekolah Menengah Atas Negeri 3 Surabaya",
-                "head_id": None
-            },
-            {
-                "name": "SMP Negeri 1 Yogyakarta",
-                "description": "Sekolah Menengah Pertama Negeri 1 Yogyakarta",
-                "head_id": None
-            },
-            {
-                "name": "SMP Negeri 2 Semarang",
-                "description": "Sekolah Menengah Pertama Negeri 2 Semarang",
-                "head_id": None
-            },
-            {
-                "name": "SMP Negeri 3 Medan", 
-                "description": "Sekolah Menengah Pertama Negeri 3 Medan",
-                "head_id": None
-            },
-            {
-                "name": "SMP Negeri 4 Makassar",
-                "description": "Sekolah Menengah Pertama Negeri 4 Makassar",
-                "head_id": None
-            },
-            {
-                "name": "SDN Cendekia Bogor",
-                "description": "Sekolah Dasar Negeri Cendekia Bogor",
-                "head_id": None
-            },
-            {
-                "name": "SDN Harapan Depok",
-                "description": "Sekolah Dasar Negeri Harapan Depok",
-                "head_id": None
-            },
-            {
-                "name": "SDN Maju Tangerang",
-                "description": "Sekolah Dasar Negeri Maju Tangerang",
-                "head_id": None
-            },
-            {
-                "name": "SDN Cerdas Bekasi",
-                "description": "Sekolah Dasar Negeri Cerdas Bekasi",
+                "name": "SMA Al-Hikmah Tafatur",
+                "description": "<h2>Sekolah Menengah Atas Al-Hikmah Tafatur</h2><p>Sekolah menengah atas unggulan yang mempersiapkan siswa untuk memasuki perguruan tinggi terbaik dengan bekal akademik, spiritual, dan kepemimpinan yang mumpuni. Kami menawarkan program IPA, IPS, dan Bahasa dengan standar internasional.</p><h3>Program Unggulan:</h3><ul><li>Kelas Akselerasi untuk siswa berprestasi</li><li>Program Tahfidz Al-Quran</li><li>Olimpiade Sains Nasional (OSN)</li><li>Program pertukaran pelajar internasional</li><li>Bimbingan SBMPTN dan ujian masuk PTN</li></ul><h3>Prestasi:</h3><p>Juara 1 Olimpiade Matematika Tingkat Provinsi 2023, Juara 2 Kompetisi Sains Nasional 2023, 95% lulusan diterima di PTN favorit.</p><h3>Alumni Terbaik:</h3><p>Banyak alumni yang berhasil meraih beasiswa di universitas dalam dan luar negeri, serta menjadi pemimpin di berbagai bidang.</p>",
                 "head_id": None
             }
         ]
@@ -151,17 +111,9 @@ class UserSeeder:
         
         # School data for generating realistic names
         school_data = [
-            {"type": "SMA", "location": "Jakarta", "domain": "sman1jakarta"},
-            {"type": "SMA", "location": "Bandung", "domain": "sman2bandung"},
-            {"type": "SMA", "location": "Surabaya", "domain": "sman3surabaya"},
-            {"type": "SMP", "location": "Yogyakarta", "domain": "smpn1yogya"},
-            {"type": "SMP", "location": "Semarang", "domain": "smpn2semarang"},
-            {"type": "SMP", "location": "Medan", "domain": "smpn3medan"},
-            {"type": "SMP", "location": "Makassar", "domain": "smpn4makassar"},
-            {"type": "SD", "location": "Bogor", "domain": "sdncendekia"},
-            {"type": "SD", "location": "Depok", "domain": "sdnharapan"},
-            {"type": "SD", "location": "Tangerang", "domain": "sdnmaju"},
-            {"type": "SD", "location": "Bekasi", "domain": "sdncerdas"}
+            {"type": "SD", "location": "Jakarta", "domain": "sd-alhikmah"},
+            {"type": "SMP", "location": "Jakarta", "domain": "smp-alhikmah"},
+            {"type": "SMA", "location": "Jakarta", "domain": "sma-alhikmah"}
         ]
         
         # Teacher names pool
@@ -175,16 +127,15 @@ class UserSeeder:
         
         # Principal names
         principal_names = [
-            "Dr. Ahmad Susanto, M.Pd", "Dra. Sri Mulyani, M.M", "Prof. Bambang Wijayanto, M.Pd",
-            "Dr. Siti Nurhaliza, M.Pd", "Drs. Rudi Setiawan, M.M", "Dr. Linda Sari, M.Pd",
-            "Drs. Hendra Pratama, M.Pd", "Dr. Maya Indah, M.M", "Prof. Andi Gunawan, M.Pd",
-            "Dra. Dewi Lestari, M.Pd", "Dr. Budi Santoso, M.M"
+            "Dr. Ahmad Taufiq, M.Pd.I",
+            "Dra. Siti Khadijah, M.Pd", 
+            "Prof. Dr. Abdullah Rahman, M.A"
         ]
         
         phone_counter = 892
         nip_counter = 1001
         
-        # Generate users for 11 organizations
+        # Generate users for 3 organizations
         for org_idx, org in organizations.items():
             school_info = school_data[org_idx]
             
@@ -430,35 +381,118 @@ class UserSeeder:
         await self.session.commit()
         return created_periods
     
-    def generate_articles_data(self, count=15):
+    def generate_articles_data(self, count=10):
         """Generate article data using faker."""
-        categories = ["Pengumuman", "Tutorial", "Update", "Event", "Tips", "Berita", "Panduan", "Info"]
-        colors = ["4f46e5", "059669", "dc2626", "7c3aed", "ea580c", "10b981", "f59e0b", "8b5cf6"]
-        
-        articles_data = []
-        for i in range(count):
-            category = random.choice(categories)
-            color = random.choice(colors)
-            title = f"{category}: {self.fake.sentence(nb_words=6)}"
-            
-            articles_data.append({
-                "title": title,
-                "description": f"<p>{self.fake.paragraph(nb_sentences=3)}</p><p>{self.fake.paragraph(nb_sentences=2)}</p>",
-                "slug": f"{title.lower().replace(' ', '-').replace(':', '')}-{i+1}",
-                "excerpt": self.fake.sentence(nb_words=12),
-                "img_url": f"https://via.placeholder.com/800x400/{color}/ffffff?text={category}+{i+1}",
-                "category": category,
-                "is_published": random.choice([True, True, False]),  # 2/3 published
-                "published_at": self.fake.date_time_between(start_date='-2y', end_date='now')
-            })
+        articles_data = [
+            {
+                "title": "Pengumuman Pendaftaran Siswa Baru Tahun Ajaran 2024/2025",
+                "description": "<h2>Pendaftaran Siswa Baru T.A 2024/2025</h2><p>Yayasan Al-Hikmah Tafatur membuka pendaftaran siswa baru untuk tahun ajaran 2024/2025. Pendaftaran dibuka untuk semua jenjang mulai dari SD, SMP, hingga SMA.</p><h3>Persyaratan Umum:</h3><ul><li>Mengisi formulir pendaftaran online</li><li>Melampirkan foto copy ijazah dan SKHUN</li><li>Pas foto 3x4 sebanyak 4 lembar</li><li>Surat keterangan sehat dari dokter</li></ul><h3>Jadwal Pendaftaran:</h3><p><strong>Gelombang 1:</strong> 1 Januari - 28 Februari 2024<br><strong>Gelombang 2:</strong> 1 Maret - 30 April 2024</p><p>Untuk informasi lebih lanjut, silakan hubungi bagian admisi di setiap unit sekolah.</p>",
+                "slug": "pengumuman-pendaftaran-siswa-baru-2024-2025",
+                "excerpt": "Yayasan Al-Hikmah Tafatur membuka pendaftaran siswa baru untuk tahun ajaran 2024/2025 dengan berbagai program unggulan.",
+                "img_url": "https://via.placeholder.com/800x400/4f46e5/ffffff?text=Pendaftaran+Siswa+Baru",
+                "category": "Pengumuman",
+                "is_published": True,
+                "published_at": datetime(2024, 1, 15, 10, 0, 0)
+            },
+            {
+                "title": "Prestasi Membanggakan: Juara 1 Olimpiade Sains Nasional",
+                "description": "<h2>Prestasi Gemilang di Olimpiade Sains Nasional 2024</h2><p>Siswa SMA Al-Hikmah Tafatur berhasil meraih juara 1 pada Olimpiade Sains Nasional (OSN) bidang Matematika tingkat nasional. Ahmad Fadhil dari kelas XII IPA berhasil mengalahkan ratusan peserta dari seluruh Indonesia.</p><h3>Perjalanan Menuju Juara:</h3><p>Persiapan yang matang selama 8 bulan dengan bimbingan intensif dari guru pembina dan alumni yang berprestasi. Latihan soal dilakukan secara konsisten dengan materi yang mencakup tingkat nasional dan internasional.</p><blockquote><p>\"Ini adalah hasil kerja keras bersama. Dukungan sekolah, guru, dan keluarga sangat berarti dalam pencapaian ini.\" - Ahmad Fadhil</p></blockquote><p>Prestasi ini menambah deretan penghargaan yang telah diraih sekolah dan membuktikan kualitas pendidikan yang diberikan.</p>",
+                "slug": "prestasi-juara-1-olimpiade-sains-nasional",
+                "excerpt": "Siswa SMA Al-Hikmah Tafatur meraih juara 1 Olimpiade Sains Nasional bidang Matematika tingkat nasional.",
+                "img_url": "https://via.placeholder.com/800x400/059669/ffffff?text=Juara+OSN+2024",
+                "category": "Berita",
+                "is_published": True,
+                "published_at": datetime(2024, 3, 20, 14, 30, 0)
+            },
+            {
+                "title": "Program Tahfidz Al-Quran: Mencetak Generasi Qur'ani",
+                "description": "<h2>Program Tahfidz Al-Quran</h2><p>Program Tahfidz Al-Quran merupakan salah satu program unggulan di semua jenjang pendidikan Yayasan Al-Hikmah Tafatur. Program ini bertujuan untuk mencetak generasi yang hafal Al-Quran dengan pemahaman yang mendalam.</p><h3>Target Hafalan per Jenjang:</h3><ul><li><strong>SD:</strong> Juz 30 dan sebagian Juz 29</li><li><strong>SMP:</strong> 5 Juz (Juz 26-30)</li><li><strong>SMA:</strong> 10 Juz atau lebih</li></ul><h3>Metode Pembelajaran:</h3><p>Kami menggunakan metode <em>talaqqi</em> langsung dengan ustadz/ustadzah yang berpengalaman. Setiap siswa mendapat bimbingan personal untuk memastikan kualitas hafalan yang baik.</p><h3>Prestasi Program:</h3><p>Hingga tahun 2024, lebih dari 200 siswa telah menyelesaikan target hafalan dengan nilai excellent. Beberapa di antaranya bahkan berhasil menghafal 30 juz lengkap.</p>",
+                "slug": "program-tahfidz-alquran-generasi-qurani",
+                "excerpt": "Program Tahfidz Al-Quran sebagai program unggulan untuk mencetak generasi yang hafal Al-Quran dengan pemahaman mendalam.",
+                "img_url": "https://via.placeholder.com/800x400/7c3aed/ffffff?text=Program+Tahfidz",
+                "category": "Program",
+                "is_published": True,
+                "published_at": datetime(2024, 2, 10, 9, 15, 0)
+            },
+            {
+                "title": "Workshop Peningkatan Kompetensi Guru: Teknologi dalam Pembelajaran",
+                "description": "<h2>Workshop Teknologi dalam Pembelajaran</h2><p>Yayasan Al-Hikmah Tafatur mengadakan workshop peningkatan kompetensi guru dengan tema \"Integrasi Teknologi dalam Pembelajaran Modern\". Workshop ini diikuti oleh seluruh guru dari ketiga jenjang pendidikan.</p><h3>Materi Workshop:</h3><ul><li>Penggunaan platform pembelajaran digital</li><li>Pembuatan konten multimedia interaktif</li><li>Assessment online dan analisis hasil belajar</li><li>Gamifikasi dalam pembelajaran</li></ul><h3>Narasumber:</h3><p>Workshop dipimpin oleh Dr. Budi Santoso, M.Kom dari Institut Teknologi Bandung dan Dra. Siti Aminah, M.Pd dari Universitas Pendidikan Indonesia.</p><p>Diharapkan dengan workshop ini, guru-guru dapat lebih optimal dalam menggunakan teknologi untuk meningkatkan kualitas pembelajaran dan engagement siswa.</p>",
+                "slug": "workshop-teknologi-pembelajaran-guru",
+                "excerpt": "Workshop peningkatan kompetensi guru dalam mengintegrasikan teknologi untuk pembelajaran yang lebih efektif dan modern.",
+                "img_url": "https://via.placeholder.com/800x400/ea580c/ffffff?text=Workshop+Guru",
+                "category": "Event",
+                "is_published": True,
+                "published_at": datetime(2024, 4, 5, 8, 0, 0)
+            },
+            {
+                "title": "Panduan Orang Tua: Mendampingi Belajar Anak di Rumah",
+                "description": "<h2>Panduan Orang Tua dalam Mendampingi Belajar Anak</h2><p>Peran orang tua sangat penting dalam mendukung proses pembelajaran anak. Berikut adalah panduan praktis untuk orang tua dalam mendampingi belajar anak di rumah.</p><h3>Tips Efektif:</h3><ol><li><strong>Ciptakan Lingkungan Belajar yang Nyaman</strong><br>Siapkan ruang khusus untuk belajar dengan pencahayaan yang cukup dan minim gangguan.</li><li><strong>Atur Jadwal Belajar yang Konsisten</strong><br>Buatlah jadwal belajar harian yang konsisten dan sesuai dengan ritme belajar anak.</li><li><strong>Berikan Motivasi dan Dukungan</strong><br>Selalu berikan pujian atas usaha anak dan bantu mereka mengatasi kesulitan belajar.</li></ol><h3>Yang Harus Dihindari:</h3><ul><li>Membandingkan dengan anak lain</li><li>Memberikan tekanan berlebihan</li><li>Mengabaikan kesehatan mental anak</li></ul><p>Ingatlah bahwa setiap anak memiliki gaya belajar yang berbeda. Kenali karakteristik anak Anda dan sesuaikan pendekatan pembelajaran.</p>",
+                "slug": "panduan-orang-tua-mendampingi-belajar-anak",
+                "excerpt": "Panduan praktis untuk orang tua dalam mendampingi dan mendukung proses belajar anak di rumah dengan efektif.",
+                "img_url": "https://via.placeholder.com/800x400/10b981/ffffff?text=Panduan+Orang+Tua",
+                "category": "Panduan",
+                "is_published": True,
+                "published_at": datetime(2024, 3, 15, 16, 45, 0)
+            },
+            {
+                "title": "Kegiatan Ekstrakurikuler: Mengembangkan Bakat dan Minat Siswa",
+                "description": "<h2>Program Ekstrakurikuler Beragam</h2><p>Yayasan Al-Hikmah Tafatur menyediakan berbagai program ekstrakurikuler untuk mengembangkan bakat dan minat siswa di luar kegiatan akademik. Program ini dirancang untuk membentuk karakter dan soft skill siswa.</p><h3>Ekstrakurikuler yang Tersedia:</h3><h4>Bidang Olahraga:</h4><ul><li>Sepak Bola</li><li>Basket</li><li>Badminton</li><li>Tenis Meja</li><li>Karate</li></ul><h4>Bidang Seni dan Budaya:</h4><ul><li>Seni Qiro'ah</li><li>Kaligrafi</li><li>Teater</li><li>Musik</li><li>Tari Tradisional</li></ul><h4>Bidang Sains dan Teknologi:</h4><ul><li>Robotika</li><li>Coding Club</li><li>English Debate</li><li>Klub Sains</li></ul><p>Semua ekstrakurikuler dibimbing oleh instruktur berpengalaman dan alumni yang telah berprestasi di bidangnya masing-masing.</p>",
+                "slug": "ekstrakurikuler-mengembangkan-bakat-minat-siswa",
+                "excerpt": "Beragam program ekstrakurikuler untuk mengembangkan bakat, minat, dan soft skill siswa dalam berbagai bidang.",
+                "img_url": "https://via.placeholder.com/800x400/f59e0b/ffffff?text=Ekstrakurikuler",
+                "category": "Info",
+                "is_published": True,
+                "published_at": datetime(2024, 2, 28, 11, 20, 0)
+            },
+            {
+                "title": "Fasilitas Terbaru: Laboratorium Sains dan Komputer Modern",
+                "description": "<h2>Fasilitas Laboratorium Terbaru</h2><p>Sebagai komitmen dalam meningkatkan kualitas pendidikan, Yayasan Al-Hikmah Tafatur telah meresmikan laboratorium sains dan komputer dengan peralatan modern dan standar internasional.</p><h3>Laboratorium Sains:</h3><ul><li>Mikroskop digital dengan koneksi ke proyektor</li><li>Peralatan praktikum Fisika, Kimia, dan Biologi lengkap</li><li>Sistem ventilasi dan keamanan yang memadai</li><li>Kapasitas 30 siswa per sesi praktikum</li></ul><h3>Laboratorium Komputer:</h3><ul><li>40 unit komputer dengan spesifikasi terbaru</li><li>Software pembelajaran programming dan desain</li><li>Koneksi internet fiber optic berkecepatan tinggi</li><li>Sistem server untuk pembelajaran coding</li></ul><h3>Manfaat bagi Siswa:</h3><p>Dengan fasilitas ini, siswa dapat melakukan eksperimen dan praktikum dengan lebih optimal. Pembelajaran menjadi lebih interaktif dan siswa dapat langsung mengaplikasikan teori yang dipelajari.</p>",
+                "slug": "fasilitas-laboratorium-sains-komputer-modern",
+                "excerpt": "Fasilitas laboratorium sains dan komputer modern dengan peralatan terbaru untuk mendukung pembelajaran praktis siswa.",
+                "img_url": "https://via.placeholder.com/800x400/8b5cf6/ffffff?text=Lab+Modern",
+                "category": "Update",
+                "is_published": True,
+                "published_at": datetime(2024, 1, 30, 13, 10, 0)
+            },
+            {
+                "title": "Kemitraan dengan Universitas Terkemuka untuk Program Dual Degree",
+                "description": "<h2>Program Dual Degree dengan Universitas Partner</h2><p>SMA Al-Hikmah Tafatur menjalin kemitraan strategis dengan beberapa universitas terkemuka dalam dan luar negeri untuk program dual degree. Program ini memberikan kesempatan siswa untuk mendapatkan pengalaman pembelajaran tingkat universitas.</p><h3>Universitas Partner:</h3><ul><li>Universitas Indonesia (UI)</li><li>Institut Teknologi Bandung (ITB)</li><li>Universitas Gadjah Mada (UGM)</li><li>International Islamic University Malaysia (IIUM)</li><li>Al-Azhar University, Cairo</li></ul><h3>Keuntungan Program:</h3><ol><li>Mendapat kredit mata kuliah yang dapat diakui</li><li>Pengalaman pembelajaran dengan dosen universitas</li><li>Jalur masuk khusus ke universitas partner</li><li>Beasiswa untuk siswa berprestasi</li></ol><p>Program ini telah membantu banyak alumni untuk melanjutkan pendidikan ke jenjang yang lebih tinggi dengan persiapan yang matang.</p>",
+                "slug": "kemitraan-universitas-program-dual-degree",
+                "excerpt": "Program kemitraan dengan universitas terkemuka untuk memberikan pengalaman pembelajaran tingkat universitas kepada siswa SMA.",
+                "img_url": "https://via.placeholder.com/800x400/dc2626/ffffff?text=Partnership+University",
+                "category": "Program",
+                "is_published": True,
+                "published_at": datetime(2024, 4, 12, 15, 30, 0)
+            },
+            {
+                "title": "Tips Menghadapi Ujian: Strategi Sukses untuk Siswa",
+                "description": "<h2>Strategi Sukses Menghadapi Ujian</h2><p>Menghadapi ujian seringkali menjadi momen yang menegangkan bagi siswa. Berikut adalah tips dan strategi yang telah terbukti efektif untuk membantu siswa meraih hasil terbaik dalam ujian.</p><h3>Persiapan Jauh Hari:</h3><ol><li><strong>Buat Jadwal Belajar</strong><br>Susun jadwal belajar yang realistis, mulai dari 2-3 minggu sebelum ujian.</li><li><strong>Pahami Format Ujian</strong><br>Pelajari jenis soal, durasi, dan materi yang akan diujikan.</li><li><strong>Buat Ringkasan Materi</strong><br>Buat catatan ringkas dari setiap bab untuk memudahkan review.</li></ol><h3>Hari H Ujian:</h3><ul><li>Bangun lebih pagi dan sarapan bergizi</li><li>Baca doa dan tetap tenang</li><li>Baca instruksi soal dengan teliti</li><li>Mulai dari soal yang mudah terlebih dahulu</li><li>Manajemen waktu yang baik</li></ul><h3>Mindset yang Tepat:</h3><p>Ingatlah bahwa ujian adalah cara untuk mengukur pemahaman, bukan untuk menjatuhkan. Tetap percaya diri dan yakin dengan persiapan yang telah dilakukan.</p>",
+                "slug": "tips-menghadapi-ujian-strategi-sukses-siswa",
+                "excerpt": "Tips dan strategi praktis untuk membantu siswa mempersiapkan diri dan menghadapi ujian dengan lebih percaya diri dan sukses.",
+                "img_url": "https://via.placeholder.com/800x400/4f46e5/ffffff?text=Tips+Ujian",
+                "category": "Tips",
+                "is_published": True,
+                "published_at": datetime(2024, 3, 25, 7, 45, 0)
+            },
+            {
+                "title": "Peringatan Hari Raya Idul Fitri: Jadwal Libur dan Kegiatan Sekolah",
+                "description": "<h2>Peringatan Hari Raya Idul Fitri 1445 H</h2><p>Dalam rangka menyambut Hari Raya Idul Fitri 1445 H, Yayasan Al-Hikmah Tafatur mengucapkan Selamat Hari Raya Idul Fitri kepada seluruh civitas akademika. Mohon maaf lahir dan batin.</p><h3>Jadwal Libur:</h3><p><strong>Tanggal:</strong> 8 - 15 April 2024<br><strong>Masuk Kembali:</strong> Selasa, 16 April 2024</p><h3>Kegiatan Sebelum Libur:</h3><ul><li><strong>5 April 2024:</strong> Pengajian dan doa bersama</li><li><strong>6 April 2024:</strong> Pembagian THR untuk karyawan</li><li><strong>7 April 2024:</strong> Halal bi halal internal sekolah</li></ul><h3>Himbauan untuk Siswa dan Orang Tua:</h3><ol><li>Manfaatkan libur untuk quality time bersama keluarga</li><li>Tetap menjaga protokol kesehatan saat berkunjung</li><li>Jangan lupa untuk tetap membaca Al-Quran dan beribadah</li><li>Siapkan diri untuk masuk sekolah kembali</li></ol><p>Semoga Idul Fitri tahun ini membawa keberkahan dan kebahagiaan untuk kita semua. Taqabbalallahu minna wa minkum.</p>",
+                "slug": "peringatan-idul-fitri-jadwal-libur-kegiatan",
+                "excerpt": "Pengumuman jadwal libur Idul Fitri dan berbagai kegiatan peringatan yang akan dilaksanakan di lingkungan sekolah.",
+                "img_url": "https://via.placeholder.com/800x400/059669/ffffff?text=Idul+Fitri+1445H",
+                "category": "Pengumuman",
+                "is_published": False,
+                "published_at": datetime(2024, 4, 1, 12, 0, 0)
+            }
+        ]
         
         return articles_data
 
     async def create_articles(self):
-        """Create 15 sample articles."""
-        print("Creating 15 articles...")
+        """Create 10 sample articles."""
+        print("Creating 10 articles...")
         
-        articles_data = self.generate_articles_data(15)
+        articles_data = self.generate_articles_data(10)
         
         created_articles = []
         for article_data in articles_data:
@@ -484,35 +518,48 @@ class UserSeeder:
         await self.session.commit()
         return created_articles
     
-    def generate_gallery_data(self, count=15):
+    def generate_gallery_data(self, count=5):
         """Generate gallery data using faker."""
-        activities = [
-            "Kegiatan Pembelajaran", "Workshop PKG", "Evaluasi Guru", "Prestasi Siswa", 
-            "Fasilitas Sekolah", "Ekstrakurikuler", "Upacara Bendera", "Olahraga",
-            "Seni Budaya", "Kompetisi", "Seminar", "Pelatihan", "Kunjungan",
-            "Lomba", "Festival"
+        gallery_data = [
+            {
+                "img_url": "https://via.placeholder.com/600x400/4f46e5/ffffff?text=Gedung+Sekolah+Modern",
+                "title": "Gedung Sekolah Modern dengan Fasilitas Lengkap",
+                "excerpt": "Kompleks gedung sekolah Al-Hikmah Tafatur yang modern dengan fasilitas pembelajaran terdepan untuk mendukung aktivitas belajar mengajar.",
+                "display_order": 1
+            },
+            {
+                "img_url": "https://via.placeholder.com/600x400/059669/ffffff?text=Kegiatan+Pembelajaran",
+                "title": "Suasana Pembelajaran yang Kondusif dan Interaktif",
+                "excerpt": "Aktivitas pembelajaran di kelas dengan metode interactive learning yang memungkinkan siswa aktif berpartisipasi dalam diskusi dan praktik.",
+                "display_order": 2
+            },
+            {
+                "img_url": "https://via.placeholder.com/600x400/dc2626/ffffff?text=Prestasi+Siswa",
+                "title": "Prestasi Membanggakan di Berbagai Kompetisi",
+                "excerpt": "Para siswa Al-Hikmah Tafatur meraih berbagai prestasi di kompetisi akademik dan non-akademik tingkat regional maupun nasional.",
+                "display_order": 3
+            },
+            {
+                "img_url": "https://via.placeholder.com/600x400/7c3aed/ffffff?text=Kegiatan+Ekstrakurikuler",
+                "title": "Beragam Kegiatan Ekstrakurikuler yang Mengembangkan Bakat",
+                "excerpt": "Siswa mengikuti berbagai kegiatan ekstrakurikuler mulai dari olahraga, seni, hingga teknologi untuk mengembangkan potensi diri.",
+                "display_order": 4
+            },
+            {
+                "img_url": "https://via.placeholder.com/600x400/ea580c/ffffff?text=Program+Tahfidz",
+                "title": "Program Tahfidz Al-Quran sebagai Keunggulan Sekolah",
+                "excerpt": "Kegiatan program tahfidz Al-Quran yang menjadi ciri khas dan keunggulan sekolah dalam mencetak generasi Qur'ani yang berakhlak mulia.",
+                "display_order": 5
+            }
         ]
-        colors = ["4f46e5", "059669", "dc2626", "7c3aed", "ea580c", "10b981", "f59e0b", "8b5cf6"]
-        
-        gallery_data = []
-        for i in range(count):
-            activity = random.choice(activities)
-            color = random.choice(colors)
-            
-            gallery_data.append({
-                "img_url": f"https://via.placeholder.com/600x400/{color}/ffffff?text={activity.replace(' ', '+')}+{i+1}",
-                "title": f"{activity} - {self.fake.company()}",
-                "excerpt": self.fake.sentence(nb_words=10),
-                "display_order": i + 1
-            })
         
         return gallery_data
 
     async def create_gallery_items(self):
-        """Create 15 gallery items."""
-        print("Creating 15 gallery items...")
+        """Create 5 gallery items."""
+        print("Creating 5 gallery items...")
         
-        gallery_data = self.generate_gallery_data(15)
+        gallery_data = self.generate_gallery_data(5)
         
         created_gallery = []
         for gallery_item in gallery_data:
@@ -592,36 +639,39 @@ class UserSeeder:
         await self.session.commit()
         return created_messages
     
-    def generate_board_members_data(self, count=15):
+    def generate_board_members_data(self, count=3):
         """Generate board member data using faker."""
-        positions = [
-            "Ketua Dewan", "Wakil Ketua", "Sekretaris", "Bendahara", "Anggota Dewan",
-            "Komisaris", "Direktur", "Wakil Direktur", "Manajer", "Supervisor",
-            "Koordinator", "Kepala Divisi", "Wakil Kepala", "Penasehat", "Auditor"
+        board_data = [
+            {
+                "name": "Dr. H. Muhammad Farid, M.A",
+                "position": "Ketua",
+                "img_url": "https://via.placeholder.com/300x300/4f46e5/ffffff?text=MF",
+                "description": "<p>Dr. H. Muhammad Farid, M.A adalah seorang akademisi dan praktisi pendidikan dengan pengalaman lebih dari 20 tahun di bidang pendidikan Islam. Beliau meraih gelar doktor dari Universitas Al-Azhar, Mesir, dan memiliki visi untuk mengembangkan pendidikan Islam yang modern dan berkualitas.</p><p>Sebagai Ketua Yayasan Al-Hikmah Tafatur, beliau berkomitmen untuk memajukan pendidikan yang mengintegrasikan ilmu pengetahuan umum dengan nilai-nilai keislaman. Di bawah kepemimpinannya, yayasan telah berkembang pesat dan meraih berbagai prestasi.</p>",
+                "display_order": 1
+            },
+            {
+                "name": "Dra. Hj. Aminah Syarifah, M.Pd",
+                "position": "Wakil Ketua",
+                "img_url": "https://via.placeholder.com/300x300/059669/ffffff?text=AS",
+                "description": "<p>Dra. Hj. Aminah Syarifah, M.Pd adalah seorang pendidik berpengalaman dengan latar belakang pendidikan dan manajemen. Beliau memiliki pengalaman mengajar selama 25 tahun dan telah menjabat sebagai kepala sekolah di beberapa institusi pendidikan terkemuka.</p><p>Sebagai Wakil Ketua, beliau fokus pada pengembangan kurikulum dan peningkatan kualitas pembelajaran. Beliau juga aktif dalam berbagai organisasi profesi guru dan sering menjadi narasumber dalam seminar pendidikan nasional.</p>",
+                "display_order": 2
+            },
+            {
+                "name": "Ustadz Ahmad Zainuddin, Lc., M.A",
+                "position": "Sekretaris Jenderal",
+                "img_url": "https://via.placeholder.com/300x300/dc2626/ffffff?text=AZ",
+                "description": "<p>Ustadz Ahmad Zainuddin, Lc., M.A adalah lulusan Universitas Madinah, Arab Saudi, dengan spesialisasi dalam studi Islam dan manajemen pendidikan. Beliau memiliki kemampuan yang sangat baik dalam administrasi dan koordinasi program-program yayasan.</p><p>Sebagai Sekretaris Jenderal, beliau bertanggung jawab atas operasional harian yayasan dan koordinasi antar unit sekolah. Beliau juga aktif dalam pengembangan program tahfidz dan pembinaan spiritual siswa di semua jenjang pendidikan.</p>",
+                "display_order": 3
+            }
         ]
-        colors = ["4f46e5", "059669", "dc2626", "7c3aed", "ea580c", "10b981", "f59e0b", "8b5cf6"]
-        
-        board_data = []
-        for i in range(count):
-            position = positions[i] if i < len(positions) else random.choice(positions)
-            color = random.choice(colors)
-            name = self.fake.name()
-            
-            board_data.append({
-                "name": name,
-                "position": position,
-                "img_url": f"https://via.placeholder.com/300x300/{color}/ffffff?text={name.replace(' ', '+')[0:2]}",
-                "description": self.fake.paragraph(nb_sentences=3),
-                "display_order": i + 1
-            })
         
         return board_data
 
     async def create_board_members(self):
-        """Create 15 board members."""
-        print("Creating 15 board members...")
+        """Create 3 board members."""
+        print("Creating 3 board members...")
         
-        board_data = self.generate_board_members_data(15)
+        board_data = self.generate_board_members_data(3)
         
         created_board = []
         for board_item in board_data:
@@ -681,12 +731,16 @@ class UserSeeder:
             # First, remove head references from organizations
             await self.session.execute(text("UPDATE organizations SET head_id = NULL WHERE head_id IS NOT NULL"))
             
-            # Clear content tables
+            # Clear content tables (handle foreign key constraints)
             await self.session.execute(text("DELETE FROM messages"))
             await self.session.execute(text("DELETE FROM articles"))
             await self.session.execute(text("DELETE FROM galleries"))
-            await self.session.execute(text("DELETE FROM periods"))
             await self.session.execute(text("DELETE FROM board_members"))
+            
+            # Clear RPP submissions first to avoid foreign key constraint
+            await self.session.execute(text("DELETE FROM rpp_submissions"))
+            await self.session.execute(text("DELETE FROM teacher_evaluations"))
+            await self.session.execute(text("DELETE FROM periods"))
             
             # Clear user-related tables
             await self.session.execute(text("DELETE FROM user_roles"))

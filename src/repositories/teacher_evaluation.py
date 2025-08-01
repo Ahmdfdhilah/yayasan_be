@@ -316,7 +316,9 @@ class TeacherEvaluationRepository:
         
         Logic:
         - Teachers (guru) are evaluated by their kepala sekolah
-        - Kepala sekolah are evaluated by any admin
+        - Kepala sekolah are evaluated by admin users
+        
+        This ensures both guru and kepala_sekolah get evaluations, matching RPP submission logic.
         
         Returns:
         - Tuple[List[newly created evaluations], count of skipped existing evaluations]
@@ -346,7 +348,7 @@ class TeacherEvaluationRepository:
             if not evaluator:
                 continue  # Skip if no kepala sekolah found
             
-            # 1. Get all teachers in this organization and assign kepala sekolah as evaluator
+            # 1. Get all teachers and kepala sekolah in this organization and assign kepala sekolah as evaluator
             # Exclude users who have admin role
             admin_users_subquery = (
                 select(UserRole.user_id)
@@ -359,10 +361,13 @@ class TeacherEvaluationRepository:
                 )
             )
             
+            # Get teachers (guru) in this organization - kepala sekolah evaluates teachers
             teachers_query = select(User).join(User.user_roles).where(
                 and_(
                     User.organization_id == org_id,
                     User.user_roles.any(UserRole.role_name == UserRoleEnum.GURU.value),
+                    User.status == "active",
+                    User.deleted_at.is_(None),
                     ~User.id.in_(admin_users_subquery)  # Exclude admin users
                 )
             )
@@ -370,6 +375,7 @@ class TeacherEvaluationRepository:
             teachers_result = await self.session.execute(teachers_query)
             teachers = teachers_result.scalars().all()
             
+            # Create evaluations for teachers (evaluated by kepala sekolah)
             for teacher in teachers:
                 # Check if evaluation already exists for this teacher in this period
                 existing = await self.get_teacher_evaluation_by_period(teacher.id, period_id)
@@ -377,7 +383,7 @@ class TeacherEvaluationRepository:
                     skipped_count += 1
                     continue
                 
-                # Create new evaluation
+                # Create new evaluation (teacher evaluated by kepala sekolah)
                 evaluation_data = TeacherEvaluationCreate(
                     teacher_id=teacher.id,
                     evaluator_id=evaluator.id,
@@ -391,7 +397,7 @@ class TeacherEvaluationRepository:
                 
                 new_evaluations.append(evaluation)
             
-            # 2. Also create evaluation for kepala sekolah (evaluated by admin)
+            # 2. Also create evaluation for the kepala sekolah themselves (evaluated by admin)
             # Get first admin as default evaluator for kepala sekolah
             admin_query = select(User).join(User.user_roles).where(
                 User.user_roles.any(UserRole.role_name == UserRoleEnum.ADMIN.value)
@@ -408,7 +414,7 @@ class TeacherEvaluationRepository:
                 if existing_ks:
                     skipped_count += 1
                 else:
-                    # Create evaluation for kepala sekolah
+                    # Create evaluation for kepala sekolah (evaluated by admin)
                     ks_evaluation_data = TeacherEvaluationCreate(
                         teacher_id=evaluator.id,  # kepala sekolah as teacher
                         evaluator_id=admin_evaluator.id,  # admin as evaluator

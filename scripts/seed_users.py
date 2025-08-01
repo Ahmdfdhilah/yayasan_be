@@ -518,48 +518,66 @@ class UserSeeder:
         await self.session.commit()
         return created_articles
     
-    def generate_gallery_data(self, count=5):
-        """Generate gallery data using faker."""
+    def generate_gallery_data(self, count=8):
+        """Generate gallery data using faker with highlight system."""
         gallery_data = [
             {
                 "img_url": "https://via.placeholder.com/600x400/4f46e5/ffffff?text=Gedung+Sekolah+Modern",
                 "title": "Gedung Sekolah Modern dengan Fasilitas Lengkap",
                 "excerpt": "Kompleks gedung sekolah Al-Hikmah Tafatur yang modern dengan fasilitas pembelajaran terdepan untuk mendukung aktivitas belajar mengajar.",
-                "display_order": 1
+                "is_highlight": True
             },
             {
                 "img_url": "https://via.placeholder.com/600x400/059669/ffffff?text=Kegiatan+Pembelajaran",
                 "title": "Suasana Pembelajaran yang Kondusif dan Interaktif",
                 "excerpt": "Aktivitas pembelajaran di kelas dengan metode interactive learning yang memungkinkan siswa aktif berpartisipasi dalam diskusi dan praktik.",
-                "display_order": 2
+                "is_highlight": True
             },
             {
                 "img_url": "https://via.placeholder.com/600x400/dc2626/ffffff?text=Prestasi+Siswa",
                 "title": "Prestasi Membanggakan di Berbagai Kompetisi",
                 "excerpt": "Para siswa Al-Hikmah Tafatur meraih berbagai prestasi di kompetisi akademik dan non-akademik tingkat regional maupun nasional.",
-                "display_order": 3
+                "is_highlight": True
             },
             {
                 "img_url": "https://via.placeholder.com/600x400/7c3aed/ffffff?text=Kegiatan+Ekstrakurikuler",
                 "title": "Beragam Kegiatan Ekstrakurikuler yang Mengembangkan Bakat",
                 "excerpt": "Siswa mengikuti berbagai kegiatan ekstrakurikuler mulai dari olahraga, seni, hingga teknologi untuk mengembangkan potensi diri.",
-                "display_order": 4
+                "is_highlight": False
             },
             {
                 "img_url": "https://via.placeholder.com/600x400/ea580c/ffffff?text=Program+Tahfidz",
                 "title": "Program Tahfidz Al-Quran sebagai Keunggulan Sekolah",
                 "excerpt": "Kegiatan program tahfidz Al-Quran yang menjadi ciri khas dan keunggulan sekolah dalam mencetak generasi Qur'ani yang berakhlak mulia.",
-                "display_order": 5
+                "is_highlight": True
+            },
+            {
+                "img_url": "https://via.placeholder.com/600x400/8b5cf6/ffffff?text=Laboratorium+Sains",
+                "title": "Laboratorium Sains dan Komputer Terdepan",
+                "excerpt": "Fasilitas laboratorium sains dan komputer dengan peralatan modern untuk mendukung pembelajaran praktis dan eksperimen siswa.",
+                "is_highlight": False
+            },
+            {
+                "img_url": "https://via.placeholder.com/600x400/10b981/ffffff?text=Perpustakaan+Digital",
+                "title": "Perpustakaan Digital dengan Koleksi Lengkap",
+                "excerpt": "Perpustakaan modern dengan koleksi buku fisik dan digital yang lengkap serta ruang baca yang nyaman untuk siswa.",
+                "is_highlight": False
+            },
+            {
+                "img_url": "https://via.placeholder.com/600x400/f59e0b/ffffff?text=Masjid+Sekolah",
+                "title": "Masjid Sekolah sebagai Pusat Kegiatan Spiritual",
+                "excerpt": "Masjid sekolah yang menjadi pusat kegiatan spiritual dan pembinaan akhlak siswa dengan arsitektur yang indah dan fasilitas lengkap.",
+                "is_highlight": False
             }
         ]
         
         return gallery_data
 
     async def create_gallery_items(self):
-        """Create 5 gallery items."""
-        print("Creating 5 gallery items...")
+        """Create 8 gallery items with highlight system."""
+        print("Creating 8 gallery items...")
         
-        gallery_data = self.generate_gallery_data(5)
+        gallery_data = self.generate_gallery_data(8)
         
         created_gallery = []
         for gallery_item in gallery_data:
@@ -639,39 +657,53 @@ class UserSeeder:
         await self.session.commit()
         return created_messages
     
-    def generate_board_members_data(self, count=3):
-        """Generate board member data using faker."""
+    def generate_board_members_data(self, count=5):
+        """Generate board member data using faker with highlight system."""
         board_data = [
             {
                 "name": "Dr. H. Muhammad Farid, M.A",
                 "position": "Ketua",
                 "img_url": "https://via.placeholder.com/300x300/4f46e5/ffffff?text=MF",
                 "description": "<p>Dr. H. Muhammad Farid, M.A adalah seorang akademisi dan praktisi pendidikan dengan pengalaman lebih dari 20 tahun di bidang pendidikan Islam. Beliau meraih gelar doktor dari Universitas Al-Azhar, Mesir, dan memiliki visi untuk mengembangkan pendidikan Islam yang modern dan berkualitas.</p><p>Sebagai Ketua Yayasan Al-Hikmah Tafatur, beliau berkomitmen untuk memajukan pendidikan yang mengintegrasikan ilmu pengetahuan umum dengan nilai-nilai keislaman. Di bawah kepemimpinannya, yayasan telah berkembang pesat dan meraih berbagai prestasi.</p>",
-                "display_order": 1
+                "is_highlight": True
             },
             {
                 "name": "Dra. Hj. Aminah Syarifah, M.Pd",
                 "position": "Wakil Ketua",
                 "img_url": "https://via.placeholder.com/300x300/059669/ffffff?text=AS",
                 "description": "<p>Dra. Hj. Aminah Syarifah, M.Pd adalah seorang pendidik berpengalaman dengan latar belakang pendidikan dan manajemen. Beliau memiliki pengalaman mengajar selama 25 tahun dan telah menjabat sebagai kepala sekolah di beberapa institusi pendidikan terkemuka.</p><p>Sebagai Wakil Ketua, beliau fokus pada pengembangan kurikulum dan peningkatan kualitas pembelajaran. Beliau juga aktif dalam berbagai organisasi profesi guru dan sering menjadi narasumber dalam seminar pendidikan nasional.</p>",
-                "display_order": 2
+                "is_highlight": True
             },
             {
                 "name": "Ustadz Ahmad Zainuddin, Lc., M.A",
                 "position": "Sekretaris Jenderal",
                 "img_url": "https://via.placeholder.com/300x300/dc2626/ffffff?text=AZ",
                 "description": "<p>Ustadz Ahmad Zainuddin, Lc., M.A adalah lulusan Universitas Madinah, Arab Saudi, dengan spesialisasi dalam studi Islam dan manajemen pendidikan. Beliau memiliki kemampuan yang sangat baik dalam administrasi dan koordinasi program-program yayasan.</p><p>Sebagai Sekretaris Jenderal, beliau bertanggung jawab atas operasional harian yayasan dan koordinasi antar unit sekolah. Beliau juga aktif dalam pengembangan program tahfidz dan pembinaan spiritual siswa di semua jenjang pendidikan.</p>",
-                "display_order": 3
+                "is_highlight": True
+            },
+            {
+                "name": "Prof. Dr. H. Abdullah Rahman, M.A",
+                "position": "Bendahara",
+                "img_url": "https://via.placeholder.com/300x300/7c3aed/ffffff?text=AR",
+                "description": "<p>Prof. Dr. H. Abdullah Rahman, M.A adalah seorang profesor di bidang ekonomi Islam dengan pengalaman lebih dari 15 tahun dalam manajemen keuangan pendidikan. Beliau meraih gelar profesor dari Universitas Indonesia dan memiliki keahlian dalam pengelolaan keuangan institusi pendidikan.</p><p>Sebagai Bendahara, beliau bertanggung jawab atas perencanaan anggaran, pengelolaan keuangan, dan transparansi finansial yayasan. Beliau juga aktif dalam pengembangan program beasiswa untuk siswa berprestasi dari keluarga kurang mampu.</p>",
+                "is_highlight": False
+            },
+            {
+                "name": "Drs. H. Imam Nawawi, M.Si",
+                "position": "Anggota Dewan",
+                "img_url": "https://via.placeholder.com/300x300/ea580c/ffffff?text=IN",
+                "description": "<p>Drs. H. Imam Nawawi, M.Si adalah seorang praktisi manajemen dengan pengalaman lebih dari 18 tahun di berbagai institusi pendidikan. Beliau memiliki keahlian dalam bidang pengembangan SDM dan manajemen operasional.</p><p>Sebagai Anggota Dewan, beliau fokus pada pengembangan kualitas tenaga pendidik dan peningkatan sistem manajemen sekolah. Beliau juga berperan dalam menjalin kemitraan dengan berbagai lembaga pendidikan dan industri.</p>",
+                "is_highlight": False
             }
         ]
         
         return board_data
 
     async def create_board_members(self):
-        """Create 3 board members."""
-        print("Creating 3 board members...")
+        """Create 5 board members with highlight system."""
+        print("Creating 5 board members...")
         
-        board_data = self.generate_board_members_data(3)
+        board_data = self.generate_board_members_data(5)
         
         created_board = []
         for board_item in board_data:
@@ -802,9 +834,9 @@ class UserSeeder:
             print(f"\nUsers created: {len(users)}")
             print(f"Periods created: {len(periods)}")
             print(f"Articles created: {len(articles)}")
-            print(f"Gallery items created: {len(gallery)}")
+            print(f"Gallery items created: {len(gallery)} (4 highlighted, 4 normal)")
             print(f"Messages created: {len(messages)}")
-            print(f"Board members created: {len(board_members)}")
+            print(f"Board members created: {len(board_members)} (3 highlighted, 2 normal)")
             print("\nLogin credentials:")
             print("Admin: admin@tafatur.id / @Password123")
             print("Kepala Sekolah: kepsek@[school-domain].sch.id / @Password123")

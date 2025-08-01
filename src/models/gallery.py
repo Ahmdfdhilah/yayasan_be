@@ -15,10 +15,10 @@ class Gallery(BaseModel, SQLModel, table=True):
     img_url: str = Field(max_length=500, nullable=False, description="Image URL")
     title: str = Field(max_length=255, nullable=False, index=True, description="Image title")
     excerpt: Optional[str] = Field(max_length=500, default=None, description="Short description")
-    display_order: int = Field(default=0, description="Order for display", index=True)
+    is_highlight: bool = Field(default=False, description="Whether this gallery item is highlighted", index=True)
     
     def __repr__(self) -> str:
-        return f"<Gallery(id={self.id}, title={self.title}, display_order={self.display_order})>"
+        return f"<Gallery(id={self.id}, title={self.title}, is_highlight={self.is_highlight})>"
     
     @property
     def short_excerpt(self) -> str:

@@ -19,14 +19,6 @@ class GalleryService:
     
     async def create_gallery(self, gallery_data: GalleryCreate, created_by: Optional[int] = None) -> GalleryResponse:
         """Create a new gallery item."""
-        # If no display_order specified, set to next available
-        if gallery_data.display_order == 0:
-            max_order = await self.gallery_repo.get_max_display_order()
-            gallery_data.display_order = max_order + 1
-        else:
-            # Handle position insertion - shift existing items
-            await self._handle_order_insertion(gallery_data.display_order, created_by)
-        
         # Create gallery item in database
         gallery = await self.gallery_repo.create(gallery_data, created_by)
         
@@ -53,12 +45,6 @@ class GalleryService:
                 detail="Gallery item not found"
             )
         
-        # Handle display order change if specified
-        if gallery_data.display_order is not None and gallery_data.display_order != existing_gallery.display_order:
-            await self._handle_order_change(gallery_id, existing_gallery.display_order, gallery_data.display_order, updated_by)
-            # Remove display_order from update data as it's handled separately
-            gallery_data.display_order = None
-        
         # Update gallery in database
         updated_gallery = await self.gallery_repo.update(gallery_id, gallery_data, updated_by)
         if not updated_gallery:
@@ -70,8 +56,8 @@ class GalleryService:
         return GalleryResponse.from_gallery_model(updated_gallery)
     
     async def delete_gallery(self, gallery_id: int, deleted_by: Optional[int] = None) -> MessageResponse:
-        """Delete gallery item (soft delete) and handle order gaps."""
-        # Check if gallery exists and get its order
+        """Delete gallery item (soft delete)."""
+        # Check if gallery exists
         existing_gallery = await self.gallery_repo.get_by_id(gallery_id)
         if not existing_gallery:
             raise HTTPException(
@@ -85,15 +71,6 @@ class GalleryService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to delete gallery item"
-            )
-        
-        # Shift items after deleted item up to close the gap
-        max_order = await self.gallery_repo.get_max_display_order()
-        if existing_gallery.display_order < max_order:
-            await self.gallery_repo.shift_orders_up(
-                existing_gallery.display_order + 1, 
-                max_order, 
-                deleted_by
             )
         
         return MessageResponse(message="Gallery item deleted successfully")
@@ -128,60 +105,20 @@ class GalleryService:
         return [GallerySummary.from_gallery_model(gallery) for gallery in galleries]
     
     
-    # ===== ADVANCED ORDERING OPERATIONS =====
+    # ===== HIGHLIGHT OPERATIONS =====
     
-    async def update_single_order(self, gallery_id: int, new_order: int, updated_by: Optional[int] = None) -> GalleryResponse:
-        """Update display order for a single gallery item."""
-        # Check if gallery exists
-        existing_gallery = await self.gallery_repo.get_by_id(gallery_id)
-        if not existing_gallery:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Gallery item not found"
-            )
-        
-        old_order = existing_gallery.display_order
-        if old_order == new_order:
-            return GalleryResponse.from_gallery_model(existing_gallery)
-        
-        # Handle the order change
-        await self._handle_order_change(gallery_id, old_order, new_order, updated_by)
-        
-        # Return updated gallery
-        updated_gallery = await self.gallery_repo.get_by_id(gallery_id)
-        return GalleryResponse.from_gallery_model(updated_gallery)
+    async def get_highlighted_galleries(self, limit: Optional[int] = None) -> List[GalleryResponse]:
+        """Get all highlighted gallery items."""
+        galleries = await self.gallery_repo.get_highlighted_galleries(limit)
+        return [GalleryResponse.from_gallery_model(gallery) for gallery in galleries]
+    
+    async def get_non_highlighted_galleries(self, limit: Optional[int] = None) -> List[GalleryResponse]:
+        """Get all non-highlighted gallery items."""
+        galleries = await self.gallery_repo.get_non_highlighted_galleries(limit)
+        return [GalleryResponse.from_gallery_model(gallery) for gallery in galleries]
     
     
     async def get_gallery_statistics(self) -> Dict[str, Any]:
         """Get gallery statistics."""
-        galleries, total_count = await self.gallery_repo.get_all_filtered(GalleryFilterParams())
-        
-        return {
-            "total_galleries": total_count
-        }
+        return await self.gallery_repo.get_gallery_statistics()
     
-    # ===== PRIVATE HELPER METHODS =====
-    
-    async def _handle_order_insertion(self, new_order: int, updated_by: Optional[int] = None):
-        """Handle insertion of new item at specific order position."""
-        # Check if position is occupied
-        existing_item = await self.gallery_repo.get_item_at_order(new_order)
-        if existing_item:
-            # Shift all items from this position downward
-            max_order = await self.gallery_repo.get_max_display_order()
-            await self.gallery_repo.shift_orders_down(new_order, max_order, updated_by)
-    
-    async def _handle_order_change(self, gallery_id: int, old_order: int, new_order: int, updated_by: Optional[int] = None):
-        """Handle order change for existing item."""
-        if old_order == new_order:
-            return
-        
-        if new_order > old_order:
-            # Moving down: shift items in between up
-            await self.gallery_repo.shift_orders_up(old_order + 1, new_order, updated_by)
-        else:
-            # Moving up: shift items in between down
-            await self.gallery_repo.shift_orders_down(new_order, old_order - 1, updated_by)
-        
-        # Update the item's order
-        await self.gallery_repo.update_display_order(gallery_id, new_order, updated_by)

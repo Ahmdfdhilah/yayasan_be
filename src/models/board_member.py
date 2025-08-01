@@ -16,10 +16,10 @@ class BoardMember(BaseModel, SQLModel, table=True):
     position: str = Field(max_length=255, nullable=False, description="Position/title in the board")
     img_url: Optional[str] = Field(max_length=500, default=None, description="Profile image URL")
     description: Optional[str] = Field(default=None, description="Bio or description")
-    display_order: int = Field(default=0, description="Order for display")
+    is_highlight: bool = Field(default=False, description="Whether this board member is highlighted", index=True)
     
     def __repr__(self) -> str:
-        return f"<BoardMember(id={self.id}, name={self.name}, position={self.position})>"
+        return f"<BoardMember(id={self.id}, name={self.name}, position={self.position}, is_highlight={self.is_highlight})>"
     
     @property
     def short_description(self) -> str:

@@ -1,4 +1,4 @@
-"""Gallery management endpoints with advanced ordering."""
+"""Gallery management endpoints with highlight functionality."""
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, UploadFile, File, Form
 from typing import List, Optional, Dict, Any, Tuple
@@ -46,8 +46,7 @@ async def create_gallery(
     """
     Create a new gallery item with multipart form data.
     
-    Requires admin role. If display_order is specified and position is occupied,
-    existing items will be shifted down automatically.
+    Requires admin role.
     
     **Form Data:**
     - data: JSON string containing gallery item data
@@ -56,7 +55,7 @@ async def create_gallery(
     **JSON Data Fields:**
     - title: Image title (required)
     - excerpt: Short description (optional)
-    - display_order: Display order (optional, default: 0)
+    - is_highlight: Whether to highlight this gallery item (optional, default: false)
     """
     json_data, image = form_data
     
@@ -78,8 +77,9 @@ async def get_galleries(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Search in title"),
-    sort_by: str = Query("display_order", description="Sort field"),
-    sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order"),
+    is_highlighted: Optional[bool] = Query(None, description="Filter by highlight status"),
+    sort_by: str = Query("created_at", description="Sort field"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order"),
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
@@ -91,6 +91,7 @@ async def get_galleries(
         page=page,
         size=size,
         search=search,
+        is_highlighted=is_highlighted,
         sort_by=sort_by,
         sort_order=sort_order
     )
@@ -103,7 +104,7 @@ async def get_all_galleries(
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
-    Get all gallery items, ordered by display_order.
+    Get all gallery items, ordered by highlight status then creation date.
     
     Public endpoint - no authentication required.
     """
@@ -130,7 +131,7 @@ async def get_gallery_statistics(
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
-    Get gallery statistics including order conflicts.
+    Get gallery statistics including highlight counts.
     
     Requires admin role.
     """
@@ -144,8 +145,9 @@ async def get_gallery_summaries(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Search term"),
-    sort_by: str = Query("display_order", description="Sort field"),
-    sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order"),
+    is_highlighted: Optional[bool] = Query(None, description="Filter by highlight status"),
+    sort_by: str = Query("created_at", description="Sort field"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order"),
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
@@ -157,6 +159,7 @@ async def get_gallery_summaries(
         page=page,
         size=size,
         search=search,
+        is_highlighted=is_highlighted,
         sort_by=sort_by,
         sort_order=sort_order
     )
@@ -186,7 +189,7 @@ async def update_gallery(
     """
     Update gallery item with multipart form data.
     
-    Requires admin role. If display_order is changed, positions will be automatically adjusted.
+    Requires admin role.
     
     **Form Data:**
     - data: JSON string containing gallery update data
@@ -195,7 +198,7 @@ async def update_gallery(
     **JSON Data Fields (all optional):**
     - title: Image title
     - excerpt: Short description
-    - display_order: Display order
+    - is_highlight: Whether to highlight this gallery item
     """
     json_data, image = form_data
     
@@ -221,25 +224,52 @@ async def delete_gallery(
     """
     Delete gallery item (soft delete).
     
-    Requires admin role. Items after deleted item will be shifted up to close gaps.
+    Requires admin role.
     """
     return await gallery_service.delete_gallery(gallery_id, current_user["id"])
 
 
 
 
-# ===== ORDERING ENDPOINT =====
+# ===== HIGHLIGHT ENDPOINTS =====
 
-@router.patch("/{gallery_id}/order", response_model=GalleryResponse, summary="Update gallery display order")
-async def update_gallery_order(
+@router.get("/highlighted", response_model=List[GalleryResponse], summary="Get highlighted galleries")
+async def get_highlighted_galleries(
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Limit number of results"),
+    gallery_service: GalleryService = Depends(get_gallery_service),
+):
+    """
+    Get all highlighted gallery items.
+    
+    Public endpoint - no authentication required.
+    """
+    return await gallery_service.get_highlighted_galleries(limit)
+
+
+@router.get("/non-highlighted", response_model=List[GalleryResponse], summary="Get non-highlighted galleries")
+async def get_non_highlighted_galleries(
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Limit number of results"),
+    gallery_service: GalleryService = Depends(get_gallery_service),
+):
+    """
+    Get all non-highlighted gallery items.
+    
+    Public endpoint - no authentication required.
+    """
+    return await gallery_service.get_non_highlighted_galleries(limit)
+
+
+@router.patch("/{gallery_id}/highlight", response_model=GalleryResponse, summary="Toggle gallery highlight status")
+async def toggle_gallery_highlight(
     gallery_id: int,
-    new_order: int = Body(..., ge=0, description="New display order"),
+    is_highlight: bool = Body(..., description="Highlight status"),
     current_user: dict = Depends(admin_required),
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
-    Update display order for a gallery item.
+    Toggle highlight status for a gallery item.
     
-    Requires admin role. Other items will be automatically repositioned to accommodate the change.
+    Requires admin role.
     """
-    return await gallery_service.update_single_order(gallery_id, new_order, current_user["id"])
+    gallery_data = GalleryUpdate(is_highlight=is_highlight)
+    return await gallery_service.update_gallery(gallery_id, gallery_data, current_user["id"])

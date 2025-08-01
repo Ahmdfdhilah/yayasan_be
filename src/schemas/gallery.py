@@ -13,7 +13,7 @@ class GalleryBase(BaseModel):
     img_url: str = Field(..., min_length=1, max_length=500, description="Image URL")
     title: str = Field(..., min_length=1, max_length=255, description="Image title")
     excerpt: Optional[str] = Field(None, max_length=500, description="Short description")
-    display_order: int = Field(default=0, ge=0, description="Order for display")
+    is_highlight: bool = Field(default=False, description="Whether this gallery item is highlighted")
     
     @field_validator('title')
     @classmethod
@@ -40,7 +40,7 @@ class GalleryUpdate(BaseModel):
     img_url: Optional[str] = Field(None, min_length=1, max_length=500)
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     excerpt: Optional[str] = Field(None, max_length=500)
-    display_order: Optional[int] = Field(None, ge=0)
+    is_highlight: Optional[bool] = Field(None, description="Whether this gallery item is highlighted")
     
     @field_validator('title')
     @classmethod
@@ -65,7 +65,7 @@ class GalleryResponse(BaseModel):
     img_url: str
     title: str
     excerpt: Optional[str] = None
-    display_order: int
+    is_highlight: bool
     created_at: str
     updated_at: Optional[str] = None
     created_by: Optional[int] = None
@@ -82,7 +82,7 @@ class GalleryResponse(BaseModel):
             img_url=gallery.img_url,
             title=gallery.title,
             excerpt=gallery.excerpt,
-            display_order=gallery.display_order,
+            is_highlight=gallery.is_highlight,
             created_at=gallery.created_at.isoformat() if gallery.created_at else "",
             updated_at=gallery.updated_at.isoformat() if gallery.updated_at else None,
             created_by=gallery.created_by,
@@ -103,7 +103,7 @@ class GallerySummary(BaseModel):
     id: int
     img_url: str
     title: str
-    display_order: int
+    is_highlight: bool
     
     @classmethod
     def from_gallery_model(cls, gallery) -> "GallerySummary":
@@ -112,7 +112,7 @@ class GallerySummary(BaseModel):
             id=gallery.id,
             img_url=gallery.img_url,
             title=gallery.title,
-            display_order=gallery.display_order
+            is_highlight=gallery.is_highlight
         )
     
     model_config = ConfigDict(from_attributes=True)
@@ -129,9 +129,10 @@ class GalleryFilterParams(BaseModel):
     
     # Search and filtering
     search: Optional[str] = Field(default=None, description="Search in title")
+    is_highlighted: Optional[bool] = Field(default=None, description="Filter by highlight status")
     
     # Sorting
-    sort_by: str = Field(default="display_order", description="Sort field")
-    sort_order: str = Field(default="asc", pattern="^(asc|desc)$", description="Sort order")
+    sort_by: str = Field(default="created_at", description="Sort field")
+    sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sort order")
 
 

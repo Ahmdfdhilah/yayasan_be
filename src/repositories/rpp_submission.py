@@ -43,7 +43,7 @@ class RPPSubmissionRepository:
     async def get_submission_by_id(self, submission_id: int) -> Optional[RPPSubmission]:
         """Get submission by ID with related data."""
         query = select(RPPSubmission).options(
-            selectinload(RPPSubmission.teacher),
+            selectinload(RPPSubmission.teacher).selectinload(User.organization),
             selectinload(RPPSubmission.reviewer),
             selectinload(RPPSubmission.period),
             selectinload(RPPSubmission.items).selectinload(RPPSubmissionItem.file)
@@ -59,7 +59,7 @@ class RPPSubmissionRepository:
     ) -> Optional[RPPSubmission]:
         """Get submission by teacher and period."""
         query = select(RPPSubmission).options(
-            selectinload(RPPSubmission.teacher),
+            selectinload(RPPSubmission.teacher).selectinload(User.organization),
             selectinload(RPPSubmission.reviewer),
             selectinload(RPPSubmission.period),
             selectinload(RPPSubmission.items).selectinload(RPPSubmissionItem.file)
@@ -239,7 +239,7 @@ class RPPSubmissionRepository:
         """Get submissions with filtering and pagination."""
         # Build base query
         query = select(RPPSubmission).options(
-            selectinload(RPPSubmission.teacher),
+            selectinload(RPPSubmission.teacher).selectinload(User.organization),
             selectinload(RPPSubmission.reviewer),
             selectinload(RPPSubmission.period),
             selectinload(RPPSubmission.items).selectinload(RPPSubmissionItem.file)

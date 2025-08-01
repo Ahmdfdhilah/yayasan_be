@@ -102,6 +102,8 @@ class RPPSubmissionResponse(RPPSubmissionBase):
     
     # Nested data
     teacher_name: Optional[str] = Field(None, description="Teacher name")
+    teacher_position: Optional[str] = Field(None, description="Teacher position/job title")
+    organization_name: Optional[str] = Field(None, description="Organization/school name")
     reviewer_name: Optional[str] = Field(None, description="Reviewer name")
     period_name: Optional[str] = Field(None, description="Period name")
     items: List[RPPSubmissionItemResponse] = Field(default_factory=list, description="RPP submission items")

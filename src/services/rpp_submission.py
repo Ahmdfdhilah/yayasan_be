@@ -54,6 +54,8 @@ class RPPSubmissionService:
             completion_percentage=submission.completion_percentage,
             can_be_submitted=submission.can_be_submitted,
             teacher_name=submission.teacher.display_name if submission.teacher else None,
+            teacher_position=submission.teacher.profile.get('position') if submission.teacher and submission.teacher.profile else None,
+            organization_name=submission.teacher.organization.name if submission.teacher and submission.teacher.organization else None,
             reviewer_name=submission.reviewer.display_name if submission.reviewer else None,
             period_name=submission.period.period_name if submission.period else None,
             items=[self._convert_item_to_response(item) for item in submission.items],

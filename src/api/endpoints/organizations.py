@@ -82,11 +82,12 @@ async def list_organizations(
     has_head: Optional[bool] = Query(None, description="Filter organizations with/without head"),
     sort_by: str = Query("name", description="Sort field"),
     sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order"),
-    current_user: dict = Depends(get_current_active_user),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """
     Get paginated list of organizations with filtering.
+    
+    Public endpoint - no authentication required.
     
     **Available filters:**
     - Search by name or description
@@ -112,11 +113,12 @@ async def list_organizations(
 async def search_organizations(
     q: str = Query(..., min_length=1, description="Search term"),
     limit: int = Query(10, ge=1, le=50, description="Maximum results"),
-    current_user: dict = Depends(get_current_active_user),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """
     Search organizations by name or description.
+    
+    Public endpoint - no authentication required.
     """
     return await org_service.search_organizations(q, limit)
 
@@ -153,11 +155,12 @@ async def get_organization_analytics(
 @router.get("/{org_id}", response_model=OrganizationResponse, summary="Get organization by ID")
 async def get_organization(
     org_id: int,
-    current_user: dict = Depends(get_current_active_user),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """
     Get organization details by ID.
+    
+    Public endpoint - no authentication required.
     
     Returns detailed organization information including user count.
     """

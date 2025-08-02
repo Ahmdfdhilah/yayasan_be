@@ -1,6 +1,6 @@
 """User repository for unified schema system."""
 
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Tuple, Dict, Any, Union
 from datetime import datetime
 from sqlalchemy import select, and_, or_, func, update, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.user import User, PasswordResetToken
 from src.models.user_role import UserRole as UserRoleModel
 from src.models.enums import UserStatus, UserRole as UserRoleEnum
-from src.schemas.user import UserCreate, UserUpdate
+from src.schemas.user import UserCreate, UserUpdate, AdminUserUpdate
 from src.schemas.user import UserFilterParams
 from src.auth.jwt import get_password_hash
 
@@ -67,7 +67,7 @@ class UserRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    async def update(self, user_id: int, user_data: UserUpdate) -> Optional[User]:
+    async def update(self, user_id: int, user_data: Union[UserUpdate, AdminUserUpdate]) -> Optional[User]:
         """Update user information."""
         user = await self.get_by_id(user_id)
         if not user:

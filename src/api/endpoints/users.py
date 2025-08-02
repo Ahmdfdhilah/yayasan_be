@@ -10,6 +10,7 @@ from src.services.user import UserService
 from src.schemas.user import (
     UserCreate,
     UserUpdate,
+    AdminUserUpdate,
     UserResponse,
     UserListResponse,
     UserSummary,
@@ -181,13 +182,13 @@ async def get_user(user_id: int, user_service: UserService = Depends(get_user_se
 )
 async def update_user(
     user_id: int,
-    user_data: UserUpdate,
+    user_data: AdminUserUpdate,
     user_service: UserService = Depends(get_user_service),
 ):
     """
-    Update user information.
+    Update user information (admin operation).
 
-    Requires admin role.
+    Requires admin role. Allows updating email, profile, status, and organization.
     """
     return await user_service.update_user(user_id, user_data)
 

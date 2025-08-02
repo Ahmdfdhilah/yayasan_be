@@ -1,11 +1,11 @@
 """User service for unified schema system."""
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from fastapi import HTTPException, status
 
 from src.repositories.user import UserRepository
 from src.schemas.user import (
-    UserCreate, UserUpdate, UserResponse, UserListResponse, 
+    UserCreate, UserUpdate, AdminUserUpdate, UserResponse, UserListResponse, 
     UserChangePassword, UserSummary
 )
 from src.schemas.shared import MessageResponse
@@ -62,7 +62,7 @@ class UserService:
         user_roles = await self._get_user_roles(user.id)
         return UserResponse.from_user_model(user, user_roles)
     
-    async def update_user(self, user_id: int, user_data: UserUpdate) -> UserResponse:
+    async def update_user(self, user_id: int, user_data: Union[UserUpdate, AdminUserUpdate]) -> UserResponse:
         """Update user information."""
         # Check if user exists
         existing_user = await self.user_repo.get_by_id(user_id)

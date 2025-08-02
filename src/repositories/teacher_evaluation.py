@@ -442,9 +442,11 @@ class TeacherEvaluationRepository:
         total_evaluations = len(evaluations)
         completed_evaluations = len([e for e in evaluations if e.item_count > 0])
         
-        # Calculate statistics
+        # Calculate statistics - filter out null values
         if evaluations:
-            total_score = sum(e.total_score for e in evaluations)
+            # Only sum evaluations that have total_score (not null)
+            evaluated_evaluations = [e for e in evaluations if e.total_score is not None]
+            total_score = sum(e.total_score for e in evaluated_evaluations) if evaluated_evaluations else 0
             total_aspects = sum(e.item_count for e in evaluations)
             average_score = total_score / total_aspects if total_aspects > 0 else 0.0
             
@@ -466,17 +468,19 @@ class TeacherEvaluationRepository:
         
         completion_percentage = (completed_evaluations / total_evaluations * 100) if total_evaluations > 0 else 0.0
         
-        # Get top performers (top 5 by average score)
+        # Get top performers (top 5 by average score) - only include those with scores
         top_performers = []
         if evaluations:
-            sorted_evaluations = sorted(evaluations, key=lambda e: e.average_score, reverse=True)[:5]
+            # Filter out evaluations with null average_score
+            evaluations_with_scores = [e for e in evaluations if e.average_score is not None]
+            sorted_evaluations = sorted(evaluations_with_scores, key=lambda e: e.average_score, reverse=True)[:5]
             top_performers = [
                 {
                     "teacher_id": e.teacher_id,
                     "teacher_name": e.teacher.display_name if e.teacher else "Unknown",
-                    "total_score": e.total_score,
-                    "average_score": e.average_score,
-                    "final_grade": e.final_grade if e.final_grade else 0.0,
+                    "total_score": e.total_score or 0,
+                    "average_score": e.average_score or 0.0,
+                    "final_grade": e.final_grade or 0.0,
                     "final_grade_letter": self._get_grade_letter(e.final_grade) if e.final_grade else "None",
                     "organization_name": e.teacher.organization.name if (e.teacher and e.teacher.organization) else "Unknown"
                 }
@@ -491,12 +495,14 @@ class TeacherEvaluationRepository:
             
             for evaluation in evaluations:
                 for item in evaluation.items:
-                    aspect_name = item.aspect.aspect_name if item.aspect else f"Aspect {item.aspect_id}"
-                    if aspect_name not in aspect_scores:
-                        aspect_scores[aspect_name] = 0
-                        aspect_counts[aspect_name] = 0
-                    aspect_scores[aspect_name] += item.score
-                    aspect_counts[aspect_name] += 1
+                    # Only include items with non-null scores
+                    if item.score is not None:
+                        aspect_name = item.aspect.aspect_name if item.aspect else f"Aspect {item.aspect_id}"
+                        if aspect_name not in aspect_scores:
+                            aspect_scores[aspect_name] = 0
+                            aspect_counts[aspect_name] = 0
+                        aspect_scores[aspect_name] += item.score
+                        aspect_counts[aspect_name] += 1
             
             aspect_performance = [
                 {

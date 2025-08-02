@@ -383,11 +383,12 @@ class EvaluationAspectRepository:
                     break
             
             if not existing_item:
-                # Create new item with default grade C
+                # Create new item with null values - no default grade
                 new_item = TeacherEvaluationItem(
                     teacher_evaluation_id=evaluation.id,
                     aspect_id=aspect_id,
-                    grade=EvaluationGrade.C,  # Default grade
+                    grade=None,  # No default grade - starts as null
+                    score=None,  # No default score - starts as null
                     created_by=created_by
                 )
                 from datetime import datetime

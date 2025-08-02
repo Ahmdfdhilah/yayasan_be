@@ -19,6 +19,7 @@ from src.api.endpoints import (
     messages,
     mitra,
     program,
+    statistics,
 )
 
 # Create main API router
@@ -221,6 +222,19 @@ api_router.include_router(
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},
         404: {"description": "Program not found"},
+        422: {"description": "Validation Error"},
+    },
+)
+
+# Statistics - untuk pengelolaan statistik dengan ordering
+api_router.include_router(
+    statistics.router,
+    prefix="/statistics",
+    tags=["Statistics"],
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Statistic not found"},
         422: {"description": "Validation Error"},
     },
 )

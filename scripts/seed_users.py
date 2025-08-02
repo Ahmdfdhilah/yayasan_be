@@ -332,8 +332,7 @@ class UserSeeder:
         
         periods_data = []
         
-        # Generate periods from 2022 to 2029 (16 periods total)
-        for year in range(2022, 2030):
+        for year in range(2024, 2025):
             # Semester Ganjil (Odd) - July to December
             periods_data.append({
                 "academic_year": f"{year}/{year+1}",

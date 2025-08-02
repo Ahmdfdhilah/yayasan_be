@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 from sqlalchemy import select, and_, or_, func, update, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.models.organization import Organization
 from src.models.user import User
@@ -34,7 +35,9 @@ class OrganizationRepository:
     
     async def get_by_id(self, org_id: int) -> Optional[Organization]:
         """Get organization by ID."""
-        query = select(Organization).where(
+        query = select(Organization).options(
+            selectinload(Organization.head)
+        ).where(
             and_(Organization.id == org_id, Organization.deleted_at.is_(None))
         )
         result = await self.session.execute(query)

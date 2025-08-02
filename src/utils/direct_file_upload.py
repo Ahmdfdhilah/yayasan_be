@@ -171,6 +171,28 @@ def get_article_multipart_update():
     return _get_data
 
 
+def get_statistic_multipart():
+    """Dependency for statistic multipart form data (image optional)."""
+    def _get_data(
+        data: str = Form(..., description="JSON data for statistic"),
+        image: Optional[UploadFile] = File(None, description="Statistic icon image file (optional)")
+    ) -> Tuple[Dict[str, Any], Optional[UploadFile]]:
+        json_data = parse_json_form_data(data)
+        return json_data, image
+    return _get_data
+
+
+def get_statistic_multipart_update():
+    """Dependency for statistic multipart form data (image optional for updates)."""
+    def _get_data(
+        data: str = Form(..., description="JSON data for statistic"),
+        image: Optional[UploadFile] = File(None, description="Statistic icon image file (optional)")
+    ) -> Tuple[Dict[str, Any], Optional[UploadFile]]:
+        json_data = parse_json_form_data(data)
+        return json_data, image
+    return _get_data
+
+
 def get_gallery_multipart():
     """Dependency for gallery multipart form data."""
     def _get_data(

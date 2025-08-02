@@ -125,6 +125,35 @@ async def search_galleries(
     return await gallery_service.search_galleries(q, limit)
 
 
+
+# ===== HIGHLIGHT ENDPOINTS =====
+
+@router.get("/highlighted", response_model=List[GalleryResponse], summary="Get highlighted galleries")
+async def get_highlighted_galleries(
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Limit number of results"),
+    gallery_service: GalleryService = Depends(get_gallery_service),
+):
+    """
+    Get all highlighted gallery items.
+    
+    Public endpoint - no authentication required.
+    """
+    return await gallery_service.get_highlighted_galleries(limit)
+
+
+@router.get("/non-highlighted", response_model=List[GalleryResponse], summary="Get non-highlighted galleries")
+async def get_non_highlighted_galleries(
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Limit number of results"),
+    gallery_service: GalleryService = Depends(get_gallery_service),
+):
+    """
+    Get all non-highlighted gallery items.
+    
+    Public endpoint - no authentication required.
+    """
+    return await gallery_service.get_non_highlighted_galleries(limit)
+
+
 @router.get("/statistics", summary="Get gallery statistics")
 async def get_gallery_statistics(
     current_user: dict = Depends(admin_required),
@@ -229,34 +258,6 @@ async def delete_gallery(
     return await gallery_service.delete_gallery(gallery_id, current_user["id"])
 
 
-
-
-# ===== HIGHLIGHT ENDPOINTS =====
-
-@router.get("/highlighted", response_model=List[GalleryResponse], summary="Get highlighted galleries")
-async def get_highlighted_galleries(
-    limit: Optional[int] = Query(None, ge=1, le=100, description="Limit number of results"),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-):
-    """
-    Get all highlighted gallery items.
-    
-    Public endpoint - no authentication required.
-    """
-    return await gallery_service.get_highlighted_galleries(limit)
-
-
-@router.get("/non-highlighted", response_model=List[GalleryResponse], summary="Get non-highlighted galleries")
-async def get_non_highlighted_galleries(
-    limit: Optional[int] = Query(None, ge=1, le=100, description="Limit number of results"),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-):
-    """
-    Get all non-highlighted gallery items.
-    
-    Public endpoint - no authentication required.
-    """
-    return await gallery_service.get_non_highlighted_galleries(limit)
 
 
 @router.patch("/{gallery_id}/highlight", response_model=GalleryResponse, summary="Toggle gallery highlight status")

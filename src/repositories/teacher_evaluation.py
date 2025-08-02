@@ -536,15 +536,25 @@ class TeacherEvaluationRepository:
         evaluation = result.scalar_one_or_none()
         
         if evaluation and evaluation.items:
-            # Calculate directly instead of using model method
-            total_score = sum(item.score for item in evaluation.items)
-            average_score = total_score / len(evaluation.items) if evaluation.items else 0.0
-            final_grade = total_score * 1.25
+            # Filter out items with null scores and calculate aggregates
+            evaluated_items = [item for item in evaluation.items if item.score is not None]
             
-            # Update the evaluation directly
-            evaluation.total_score = total_score
-            evaluation.average_score = average_score
-            evaluation.final_grade = final_grade
+            if evaluated_items:
+                # Calculate from evaluated items only
+                total_score = sum(item.score for item in evaluated_items)
+                average_score = total_score / len(evaluated_items)
+                final_grade = total_score * 1.25
+                
+                # Update the evaluation directly
+                evaluation.total_score = total_score
+                evaluation.average_score = average_score
+                evaluation.final_grade = final_grade
+            else:
+                # No items evaluated yet, set to null
+                evaluation.total_score = None
+                evaluation.average_score = None
+                evaluation.final_grade = None
+            
             evaluation.last_updated = datetime.utcnow()
             evaluation.updated_at = datetime.utcnow()
             
@@ -552,21 +562,52 @@ class TeacherEvaluationRepository:
             
     async def force_recalculate_aggregates(self, evaluation_id: int) -> None:
         """Force recalculate aggregates using direct SQL update."""
-        # Update aggregates using SQL
+        # Update aggregates using SQL - only calculate from non-null scores
+        # Use CASE WHEN to set NULL if no non-null scores exist
         update_query = update(TeacherEvaluation).where(
             TeacherEvaluation.id == evaluation_id
         ).values(
             total_score=(
-                select(func.coalesce(func.sum(TeacherEvaluationItem.score), 0))
-                .where(TeacherEvaluationItem.teacher_evaluation_id == evaluation_id)
+                select(
+                    func.case(
+                        (func.count(TeacherEvaluationItem.score) > 0, func.sum(TeacherEvaluationItem.score)),
+                        else_=None
+                    )
+                )
+                .where(
+                    and_(
+                        TeacherEvaluationItem.teacher_evaluation_id == evaluation_id,
+                        TeacherEvaluationItem.score.is_not(None)
+                    )
+                )
             ),
             average_score=(
-                select(func.coalesce(func.avg(TeacherEvaluationItem.score), 0.0))
-                .where(TeacherEvaluationItem.teacher_evaluation_id == evaluation_id)
+                select(
+                    func.case(
+                        (func.count(TeacherEvaluationItem.score) > 0, func.avg(TeacherEvaluationItem.score)),
+                        else_=None
+                    )
+                )
+                .where(
+                    and_(
+                        TeacherEvaluationItem.teacher_evaluation_id == evaluation_id,
+                        TeacherEvaluationItem.score.is_not(None)
+                    )
+                )
             ),
             final_grade=(
-                select(func.coalesce(func.sum(TeacherEvaluationItem.score) * 1.25, 0.0))
-                .where(TeacherEvaluationItem.teacher_evaluation_id == evaluation_id)
+                select(
+                    func.case(
+                        (func.count(TeacherEvaluationItem.score) > 0, func.sum(TeacherEvaluationItem.score) * 1.25),
+                        else_=None
+                    )
+                )
+                .where(
+                    and_(
+                        TeacherEvaluationItem.teacher_evaluation_id == evaluation_id,
+                        TeacherEvaluationItem.score.is_not(None)
+                    )
+                )
             ),
             last_updated=datetime.utcnow(),
             updated_at=datetime.utcnow()
@@ -590,7 +631,8 @@ class TeacherEvaluationRepository:
                 item = TeacherEvaluationItem(
                     teacher_evaluation_id=evaluation_id,
                     aspect_id=aspect.id,
-                    grade=EvaluationGrade.C,  # Default grade
+                    grade=None,  # No default grade - starts as null
+                    score=None,  # No default score - starts as null
                     created_by=created_by
                 )
                 item.updated_at = datetime.utcnow()

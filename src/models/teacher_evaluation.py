@@ -30,10 +30,10 @@ class TeacherEvaluation(BaseModel, SQLModel, table=True):
     evaluator_id: int = Field(foreign_key="users.id", nullable=False, index=True)
     period_id: int = Field(foreign_key="periods.id", nullable=False, index=True)
     
-    # Auto-calculated aggregate fields
-    total_score: int = Field(default=0, description="Sum of all aspect scores")
-    average_score: float = Field(default=0.0, description="Average score across all aspects")
-    final_grade: float = Field(default=0.0, description="Final grade calculated as total_score * 1.25")
+    # Auto-calculated aggregate fields - nullable until evaluated
+    total_score: Optional[int] = Field(default=None, description="Sum of all aspect scores")
+    average_score: Optional[float] = Field(default=None, description="Average score across all aspects")
+    final_grade: Optional[float] = Field(default=None, description="Final grade calculated as total_score * 1.25")
     
     # Summary notes from evaluator
     final_notes: Optional[str] = Field(default=None, max_length=1000, description="Final evaluation summary")
@@ -71,11 +71,14 @@ class TeacherEvaluation(BaseModel, SQLModel, table=True):
         """Get completion percentage of evaluation aspects."""
         if not self.items:
             return 0.0
-        return 100.0  # All items are completed if they exist
+        evaluated_items = len([item for item in self.items if item.grade is not None])
+        return (evaluated_items / len(self.items)) * 100.0
     
     @property
     def final_grade_description(self) -> str:
         """Get description for the final grade."""
+        if self.final_grade is None:
+            return "Belum dinilai"
         if self.final_grade >= 87.5:  # 70 * 1.25 = 87.5 (equivalent to A grade)
             return "Excellent (A)"
         elif self.final_grade >= 62.5:  # 50 * 1.25 = 62.5 (equivalent to B grade)
@@ -88,14 +91,23 @@ class TeacherEvaluation(BaseModel, SQLModel, table=True):
     def recalculate_aggregates(self) -> None:
         """Recalculate total_score, average_score, and final_grade from items."""
         if not self.items:
-            self.total_score = 0
-            self.average_score = 0.0
-            self.final_grade = 0.0
+            self.total_score = None
+            self.average_score = None
+            self.final_grade = None
             return
         
-        # Calculate totals
-        self.total_score = sum(item.score for item in self.items)
-        self.average_score = self.total_score / len(self.items)
+        # Only calculate from items that have been evaluated (have score)
+        evaluated_items = [item for item in self.items if item.score is not None]
+        
+        if not evaluated_items:
+            self.total_score = None
+            self.average_score = None
+            self.final_grade = None
+            return
+        
+        # Calculate totals from evaluated items only
+        self.total_score = sum(item.score for item in evaluated_items)
+        self.average_score = self.total_score / len(evaluated_items)
         
         # Calculate final grade as total_score * 1.25
         self.final_grade = self.total_score * 1.25

@@ -24,7 +24,7 @@ class TeacherEvaluationBase(BaseModel):
 class TeacherEvaluationItemBase(BaseModel):
     """Base teacher evaluation item schema for individual aspects."""
     aspect_id: int = Field(..., description="ID of evaluation aspect")
-    grade: EvaluationGrade = Field(..., description="Evaluation grade (A, B, C, D)")
+    grade: Optional[EvaluationGrade] = Field(None, description="Evaluation grade (A, B, C, D) - nullable until evaluated")
     notes: Optional[str] = Field(None, max_length=500, description="Notes for this specific aspect")
 
 
@@ -72,8 +72,8 @@ class TeacherEvaluationItemResponse(BaseResponse):
     id: int
     teacher_evaluation_id: int
     aspect_id: int
-    grade: EvaluationGrade
-    score: int
+    grade: Optional[EvaluationGrade]  # Nullable until evaluated
+    score: Optional[int]  # Nullable until evaluated
     notes: Optional[str]
     evaluated_at: datetime
     created_at: Optional[datetime] = None
@@ -89,11 +89,11 @@ class TeacherEvaluationResponse(BaseResponse):
     
     id: int
     teacher_id: int
-    evaluator_id: int
+    evaluator_id: int 
     period_id: int
-    total_score: int
-    average_score: float
-    final_grade: float
+    total_score: Optional[int]  # Nullable until evaluated
+    average_score: Optional[float]  # Nullable until evaluated
+    final_grade: Optional[float]  # Nullable until evaluated
     final_notes: Optional[str]
     last_updated: datetime
     created_at: Optional[datetime] = None
@@ -125,9 +125,9 @@ class TeacherEvaluationSummary(BaseModel):
     period_id: int
     total_aspects: int
     completed_aspects: int
-    total_score: int
-    average_score: float
-    final_grade: float
+    total_score: Optional[int]  # Nullable until evaluated
+    average_score: Optional[float]  # Nullable until evaluated
+    final_grade: Optional[float]  # Nullable until evaluated
     completion_percentage: float
     last_updated: Optional[datetime] = None
 
@@ -141,7 +141,7 @@ class PeriodEvaluationStats(BaseModel):
     total_teachers: int
     completed_evaluations: int
     total_aspects_evaluated: int
-    average_score: float
+    average_score: Optional[float]  # Nullable if no evaluations completed
     final_grade_distribution: dict  # {"A": count, "B": count, "C": count, "D": count}
     completion_percentage: float
     top_performers: List[dict]  # Top teachers by final grade and average, includes total_score and organization_name

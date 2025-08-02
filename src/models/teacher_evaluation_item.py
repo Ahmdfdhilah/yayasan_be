@@ -66,7 +66,7 @@ class TeacherEvaluationItem(BaseModel, SQLModel, table=True):
     
     def __init__(self, **data):
         """Initialize with auto-calculated score from grade."""
-        if "grade" in data and "score" not in data:
+        if "grade" in data and data["grade"] is not None and "score" not in data:
             data["score"] = EvaluationGrade.get_score(data["grade"])
         super().__init__(**data)
     
@@ -80,12 +80,14 @@ class TeacherEvaluationItem(BaseModel, SQLModel, table=True):
     @property
     def grade_description(self) -> str:
         """Get description for the grade."""
+        if self.grade is None:
+            return "Belum dinilai"
         return EvaluationGrade.get_description(self.grade)
     
-    def update_grade(self, new_grade: EvaluationGrade, notes: Optional[str] = None) -> None:
+    def update_grade(self, new_grade: Optional[EvaluationGrade], notes: Optional[str] = None) -> None:
         """Update the evaluation grade and auto-calculate score."""
         self.grade = new_grade
-        self.score = EvaluationGrade.get_score(new_grade)
+        self.score = EvaluationGrade.get_score(new_grade) if new_grade is not None else None
         if notes is not None:
             self.notes = notes
         self.evaluated_at = datetime.utcnow()

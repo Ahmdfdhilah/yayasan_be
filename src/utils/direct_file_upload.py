@@ -201,6 +201,50 @@ def merge_data_with_image_url(json_data: Dict[str, Any], image_url: Optional[str
         json_data["img_url"] = image_url
     return json_data
 
+def get_mitra_multipart():
+    """Dependency for mitra multipart form data (image optional)."""
+    def _get_data(
+        data: str = Form(..., description="JSON data for mitra"),
+        image: Optional[UploadFile] = File(None, description="Mitra image file (optional)")
+    ) -> Tuple[Dict[str, Any], Optional[UploadFile]]:
+        json_data = parse_json_form_data(data)
+        return json_data, image
+    return _get_data
+
+
+def get_mitra_multipart_update():
+    """Dependency for mitra multipart form data (image optional for updates)."""
+    def _get_data(
+        data: str = Form(..., description="JSON data for mitra"),
+        image: Optional[UploadFile] = File(None, description="Mitra image file (optional)")
+    ) -> Tuple[Dict[str, Any], Optional[UploadFile]]:
+        json_data = parse_json_form_data(data)
+        return json_data, image
+    return _get_data
+
+
+def get_program_multipart():
+    """Dependency for program multipart form data (image optional)."""
+    def _get_data(
+        data: str = Form(..., description="JSON data for program"),
+        image: Optional[UploadFile] = File(None, description="Program image file (optional)")
+    ) -> Tuple[Dict[str, Any], Optional[UploadFile]]:
+        json_data = parse_json_form_data(data)
+        return json_data, image
+    return _get_data
+
+
+def get_program_multipart_update():
+    """Dependency for program multipart form data (image optional for updates)."""
+    def _get_data(
+        data: str = Form(..., description="JSON data for program"),
+        image: Optional[UploadFile] = File(None, description="Program image file (optional)")
+    ) -> Tuple[Dict[str, Any], Optional[UploadFile]]:
+        json_data = parse_json_form_data(data)
+        return json_data, image
+    return _get_data
+
+
 def get_organization_multipart():
     """Dependency for organization multipart form data (image optional)."""
     def _get_data(

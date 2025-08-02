@@ -17,6 +17,8 @@ from src.api.endpoints import (
     board_management,
     galleries,
     messages,
+    mitra,
+    program,
 )
 
 # Create main API router
@@ -194,6 +196,32 @@ api_router.include_router(
         404: {"description": "Message not found"},
         422: {"description": "Validation Error"},
         429: {"description": "Too Many Requests"},
+    },
+)
+
+# Mitra - untuk pengelolaan kemitraan
+api_router.include_router(
+    mitra.router,
+    prefix="/mitra",
+    tags=["Mitra"],
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Mitra not found"},
+        422: {"description": "Validation Error"},
+    },
+)
+
+# Program - untuk pengelolaan program pendidikan
+api_router.include_router(
+    program.router,
+    prefix="/programs",
+    tags=["Programs"],
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        404: {"description": "Program not found"},
+        422: {"description": "Validation Error"},
     },
 )
 

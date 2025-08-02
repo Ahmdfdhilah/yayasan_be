@@ -13,6 +13,8 @@ from .board_member import BoardMember
 from .board_group import BoardGroup
 from .gallery import Gallery
 from .message import Message, MessageStatus
+from .mitra import Mitra
+from .program import Program
 
 # PKG System models
 from .period import Period
@@ -56,6 +58,8 @@ __all__ = [
     "Gallery",
     "Message",
     "MessageStatus",
+    "Mitra",
+    "Program",
     
     # PKG System models
     "Period",

@@ -41,13 +41,14 @@ class TeacherEvaluationItem(BaseModel, SQLModel, table=True):
         description="Evaluation aspect being assessed"
     )
     
-    # Grade-based scoring (A=4, B=3, C=2, D=1)
-    grade: EvaluationGrade = Field(
-        sa_column=Column(SQLAlchemyEnum(EvaluationGrade, name="evaluation_grade"), nullable=False)
+    # Grade-based scoring (A=4, B=3, C=2, D=1) - nullable until evaluated
+    grade: Optional[EvaluationGrade] = Field(
+        default=None,
+        sa_column=Column(SQLAlchemyEnum(EvaluationGrade, name="evaluation_grade"), nullable=True)
     )
     
-    # Computed score based on grade (stored for performance)
-    score: int = Field(nullable=False)
+    # Computed score based on grade (stored for performance) - nullable until evaluated
+    score: Optional[int] = Field(default=None, nullable=True)
     
     notes: Optional[str] = Field(default=None, max_length=500, description="Notes for this specific aspect")
     evaluated_at: datetime = Field(default_factory=datetime.utcnow, description="When this aspect was evaluated")

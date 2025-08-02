@@ -314,11 +314,9 @@ class TeacherEvaluationRepository:
     async def assign_teachers_to_period(self, period_id: int) -> Tuple[List[TeacherEvaluation], int]:
         """Auto-assign all teachers and kepala sekolah to evaluation period.
         
-        Logic:
-        - Teachers (guru) are evaluated by their kepala sekolah
-        - Kepala sekolah are evaluated by admin users
-        
-        This ensures both guru and kepala_sekolah get evaluations, matching RPP submission logic.
+        Logic matches RPP generation exactly:
+        - Get ALL teachers (guru) and kepala sekolah, excluding admin users
+        - Assign appropriate evaluators based on role and organization
         
         Returns:
         - Tuple[List[newly created evaluations], count of skipped existing evaluations]
@@ -326,111 +324,102 @@ class TeacherEvaluationRepository:
         new_evaluations = []
         skipped_count = 0
         
-        # Get all organizations that have kepala sekolah
-        organizations_query = select(User.organization_id).distinct().join(User.user_roles).where(
-            User.user_roles.any(UserRole.role_name == UserRoleEnum.KEPALA_SEKOLAH.value)
+        # Get all active teachers (guru) and kepala sekolah, excluding admin users
+        # This matches the exact logic from RPP generation
+        admin_users_subquery = (
+            select(UserRole.user_id)
+            .where(
+                and_(
+                    UserRole.role_name == UserRoleEnum.ADMIN.value,
+                    UserRole.is_active == True,
+                    UserRole.deleted_at.is_(None)
+                )
+            )
         )
-        organizations_result = await self.session.execute(organizations_query)
-        organization_ids = organizations_result.scalars().all()
         
-        for org_id in organization_ids:
-            # Get kepala sekolah for this organization
-            evaluator_query = select(User).join(User.user_roles).where(
-                and_(
-                    User.organization_id == org_id,
-                    User.user_roles.any(UserRole.role_name == UserRoleEnum.KEPALA_SEKOLAH.value)
-                )
-            ).limit(1)
-            
-            evaluator_result = await self.session.execute(evaluator_query)
-            evaluator = evaluator_result.scalar_one_or_none()
-            
-            if not evaluator:
-                continue  # Skip if no kepala sekolah found
-            
-            # 1. Get all teachers and kepala sekolah in this organization and assign kepala sekolah as evaluator
+        teachers_query = select(User).options(
+            selectinload(User.user_roles)
+        ).join(
+            User.user_roles.and_(
+                UserRole.role_name.in_([UserRoleEnum.GURU.value, UserRoleEnum.KEPALA_SEKOLAH.value]), 
+                UserRole.is_active == True
+            )
+        ).where(
+            User.status == "active", 
+            User.deleted_at.is_(None),
             # Exclude users who have admin role
-            admin_users_subquery = (
-                select(UserRole.user_id)
-                .where(
-                    and_(
-                        UserRole.role_name == UserRoleEnum.ADMIN.value,
-                        UserRole.is_active == True,
-                        UserRole.deleted_at.is_(None)
-                    )
-                )
+            ~User.id.in_(admin_users_subquery)
+        )
+        
+        teachers_result = await self.session.execute(teachers_query)
+        teachers = teachers_result.scalars().all()
+        
+        # Get first admin as default evaluator
+        admin_query = select(User).join(User.user_roles).where(
+            User.user_roles.any(UserRole.role_name == UserRoleEnum.ADMIN.value)
+        ).limit(1)
+        
+        admin_result = await self.session.execute(admin_query)
+        default_admin_evaluator = admin_result.scalar_one_or_none()
+        
+        for teacher in teachers:
+            # Check if evaluation already exists for this teacher in this period
+            existing = await self.get_teacher_evaluation_by_period(teacher.id, period_id)
+            if existing:
+                skipped_count += 1
+                continue
+            
+            # Determine evaluator based on teacher role and organization
+            evaluator_id = None
+            
+            # Check teacher's roles
+            teacher_roles = [role.role_name for role in teacher.user_roles if role.is_active]
+            
+            if UserRoleEnum.GURU.value in teacher_roles:
+                # Teachers (guru) are evaluated by their kepala sekolah if available
+                if teacher.organization_id:
+                    # Find kepala sekolah in same organization
+                    ks_query = select(User).join(User.user_roles).where(
+                        and_(
+                            User.organization_id == teacher.organization_id,
+                            User.user_roles.any(UserRole.role_name == UserRoleEnum.KEPALA_SEKOLAH.value),
+                            User.status == "active",
+                            User.deleted_at.is_(None)
+                        )
+                    ).limit(1)
+                    
+                    ks_result = await self.session.execute(ks_query)
+                    kepala_sekolah = ks_result.scalar_one_or_none()
+                    
+                    if kepala_sekolah:
+                        evaluator_id = kepala_sekolah.id
+                
+                # If no kepala sekolah found, use admin as evaluator
+                if not evaluator_id and default_admin_evaluator:
+                    evaluator_id = default_admin_evaluator.id
+                    
+            elif UserRoleEnum.KEPALA_SEKOLAH.value in teacher_roles:
+                # Kepala sekolah are evaluated by admin
+                if default_admin_evaluator:
+                    evaluator_id = default_admin_evaluator.id
+            
+            # Skip if no evaluator found
+            if not evaluator_id:
+                continue
+            
+            # Create new evaluation
+            evaluation_data = TeacherEvaluationCreate(
+                teacher_id=teacher.id,
+                evaluator_id=evaluator_id,
+                period_id=period_id
             )
             
-            # Get teachers (guru) in this organization - kepala sekolah evaluates teachers
-            teachers_query = select(User).join(User.user_roles).where(
-                and_(
-                    User.organization_id == org_id,
-                    User.user_roles.any(UserRole.role_name == UserRoleEnum.GURU.value),
-                    User.status == "active",
-                    User.deleted_at.is_(None),
-                    ~User.id.in_(admin_users_subquery)  # Exclude admin users
-                )
-            )
+            evaluation = await self.create_evaluation(evaluation_data, created_by=evaluator_id)
             
-            teachers_result = await self.session.execute(teachers_query)
-            teachers = teachers_result.scalars().all()
+            # Always create items for all active aspects
+            await self._create_items_for_all_aspects(evaluation.id, created_by=evaluator_id)
             
-            # Create evaluations for teachers (evaluated by kepala sekolah)
-            for teacher in teachers:
-                # Check if evaluation already exists for this teacher in this period
-                existing = await self.get_teacher_evaluation_by_period(teacher.id, period_id)
-                if existing:
-                    skipped_count += 1
-                    continue
-                
-                # Create new evaluation (teacher evaluated by kepala sekolah)
-                evaluation_data = TeacherEvaluationCreate(
-                    teacher_id=teacher.id,
-                    evaluator_id=evaluator.id,
-                    period_id=period_id
-                )
-                
-                evaluation = await self.create_evaluation(evaluation_data, created_by=evaluator.id)
-                
-                # Always create items for all active aspects
-                await self._create_items_for_all_aspects(evaluation.id, created_by=evaluator.id)
-                
-                new_evaluations.append(evaluation)
-            
-            # 2. Also create evaluation for the kepala sekolah themselves (evaluated by admin)
-            # Get first admin as default evaluator for kepala sekolah
-            admin_query = select(User).join(User.user_roles).where(
-                User.user_roles.any(UserRole.role_name == UserRoleEnum.ADMIN.value)
-            ).limit(1)
-            
-            admin_result = await self.session.execute(admin_query)
-            admin_evaluator = admin_result.scalar_one_or_none()
-            
-            if admin_evaluator:
-                # Check if kepala sekolah evaluation already exists
-                existing_ks = await self.get_teacher_evaluation_by_period(
-                    evaluator.id, period_id
-                )
-                if existing_ks:
-                    skipped_count += 1
-                else:
-                    # Create evaluation for kepala sekolah (evaluated by admin)
-                    ks_evaluation_data = TeacherEvaluationCreate(
-                        teacher_id=evaluator.id,  # kepala sekolah as teacher
-                        evaluator_id=admin_evaluator.id,  # admin as evaluator
-                        period_id=period_id
-                    )
-                    
-                    ks_evaluation = await self.create_evaluation(
-                        ks_evaluation_data, created_by=admin_evaluator.id
-                    )
-                    
-                    # Create items for all active aspects
-                    await self._create_items_for_all_aspects(
-                        ks_evaluation.id, created_by=admin_evaluator.id
-                    )
-                    
-                    new_evaluations.append(ks_evaluation)
+            new_evaluations.append(evaluation)
         
         return new_evaluations, skipped_count
     

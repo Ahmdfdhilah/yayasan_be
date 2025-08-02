@@ -10,6 +10,7 @@ from .user_role import UserRole
 from .media_file import MediaFile
 from .article import Article
 from .board_member import BoardMember
+from .board_group import BoardGroup
 from .gallery import Gallery
 from .message import Message, MessageStatus
 
@@ -51,6 +52,7 @@ __all__ = [
     "MediaFile",
     "Article",
     "BoardMember",
+    "BoardGroup",
     "Gallery",
     "Message",
     "MessageStatus",

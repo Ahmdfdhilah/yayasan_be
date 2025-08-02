@@ -1,9 +1,12 @@
 """Board member model for organization management."""
 
-from typing import Optional
-from sqlmodel import Field, SQLModel
+from typing import Optional, TYPE_CHECKING
+from sqlmodel import Field, SQLModel, Relationship
 
 from .base import BaseModel
+
+if TYPE_CHECKING:
+    from .board_group import BoardGroup
 
 
 class BoardMember(BaseModel, SQLModel, table=True):
@@ -14,12 +17,15 @@ class BoardMember(BaseModel, SQLModel, table=True):
     id: int = Field(primary_key=True)
     name: str = Field(max_length=255, nullable=False, index=True)
     position: str = Field(max_length=255, nullable=False, description="Position/title in the board")
+    group_id: Optional[int] = Field(default=None, foreign_key="board_groups.id", description="Board group ID")
+    member_order: int = Field(default=1, description="Order within the group", index=True)
     img_url: Optional[str] = Field(max_length=500, default=None, description="Profile image URL")
     description: Optional[str] = Field(default=None, description="Bio or description")
-    is_highlight: bool = Field(default=False, description="Whether this board member is highlighted", index=True)
+    
+    group: Optional["BoardGroup"] = Relationship(back_populates="members")
     
     def __repr__(self) -> str:
-        return f"<BoardMember(id={self.id}, name={self.name}, position={self.position}, is_highlight={self.is_highlight})>"
+        return f"<BoardMember(id={self.id}, name={self.name}, position={self.position})>"
     
     @property
     def short_description(self) -> str:

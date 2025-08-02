@@ -14,7 +14,7 @@ from src.api.endpoints import (
     dashboard,
     rpp_submissions,
     articles,
-    board_members,
+    board_management,
     galleries,
     messages,
 )
@@ -26,47 +26,47 @@ api_router = APIRouter()
 
 # Include existing endpoint routers dengan proper tags dan descriptions
 api_router.include_router(
-    auth.router, 
-    prefix="/auth", 
+    auth.router,
+    prefix="/auth",
     tags=["Authentication"],
     responses={
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 api_router.include_router(
-    users.router, 
-    prefix="/users", 
+    users.router,
+    prefix="/users",
     tags=["User Management"],
     responses={
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},
         404: {"description": "User not found"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 api_router.include_router(
-    user_roles.router, 
-    prefix="/user-roles", 
+    user_roles.router,
+    prefix="/user-roles",
     tags=["User Roles"],
     responses={
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 api_router.include_router(
-    organizations.router, 
-    prefix="/organizations", 
+    organizations.router,
+    prefix="/organizations",
     tags=["Organizations"],
     responses={
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 # ===== EVALUATION SYSTEM ENDPOINTS =====
@@ -81,7 +81,7 @@ api_router.include_router(
         403: {"description": "Forbidden"},
         404: {"description": "Resource not found"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 # Evaluation Aspects - untuk mengelola aspek evaluasi
@@ -92,7 +92,7 @@ api_router.include_router(
         403: {"description": "Forbidden"},
         404: {"description": "Resource not found"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 # Teacher Evaluations - untuk evaluasi individual per aspek
@@ -105,7 +105,7 @@ api_router.include_router(
         403: {"description": "Forbidden"},
         404: {"description": "Resource not found"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 
@@ -117,7 +117,7 @@ api_router.include_router(
         403: {"description": "Forbidden"},
         404: {"description": "Resource not found"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 # Dashboard - untuk statistik dan overview sistem
@@ -128,7 +128,7 @@ api_router.include_router(
         403: {"description": "Forbidden"},
         404: {"description": "Resource not found"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 # RPP Submissions - untuk pengelolaan RPP submission
@@ -141,7 +141,7 @@ api_router.include_router(
         403: {"description": "Forbidden"},
         404: {"description": "Resource not found"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 # Articles - untuk pengelolaan artikel/konten
@@ -154,12 +154,12 @@ api_router.include_router(
         403: {"description": "Forbidden"},
         404: {"description": "Article not found"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 # Board Members - untuk pengelolaan anggota dewan
 api_router.include_router(
-    board_members.router,
+    board_management.router,
     prefix="/board-members",
     tags=["Board Members"],
     responses={
@@ -167,7 +167,7 @@ api_router.include_router(
         403: {"description": "Forbidden"},
         404: {"description": "Board member not found"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 # Galleries - untuk pengelolaan galeri gambar dengan ordering
@@ -180,7 +180,7 @@ api_router.include_router(
         403: {"description": "Forbidden"},
         404: {"description": "Gallery item not found"},
         422: {"description": "Validation Error"},
-    }
+    },
 )
 
 # Messages - untuk pesan dari public dengan sanitasi
@@ -194,7 +194,7 @@ api_router.include_router(
         404: {"description": "Message not found"},
         422: {"description": "Validation Error"},
         429: {"description": "Too Many Requests"},
-    }
+    },
 )
 
 

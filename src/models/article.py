@@ -3,8 +3,10 @@
 from typing import Optional
 from datetime import datetime
 from sqlmodel import Field, SQLModel
+from pydantic import validator
 
 from .base import BaseModel
+from ..utils.sanitize_html import sanitize_html_content
 
 
 class Article(BaseModel, SQLModel, table=True):
@@ -39,6 +41,13 @@ class Article(BaseModel, SQLModel, table=True):
     def unpublish(self) -> None:
         """Unpublish the article."""
         self.is_published = False
+    
+    @validator('description')
+    def sanitize_description(cls, v):
+        """Sanitize HTML content in description field."""
+        if v:
+            return sanitize_html_content(v)
+        return v
     
     def get_excerpt(self, length: int = 150) -> str:
         """Get excerpt or truncated description."""

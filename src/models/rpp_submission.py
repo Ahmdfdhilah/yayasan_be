@@ -4,9 +4,11 @@ from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
 from sqlalchemy import Enum as SQLEnum, Column
+from pydantic import validator
 
 from .base import BaseModel
 from .enums import RPPSubmissionStatus, RPPType
+from ..utils.sanitize_html import sanitize_html_content
 
 if TYPE_CHECKING:
     from .user import User
@@ -117,6 +119,13 @@ class RPPSubmission(BaseModel, SQLModel, table=True):
         self.submitted_at = datetime.utcnow()
         self.updated_at = datetime.utcnow()
         return True
+    
+    @validator('review_notes')
+    def sanitize_review_notes(cls, v):
+        """Sanitize HTML content in review_notes field."""
+        if v:
+            return sanitize_html_content(v)
+        return v
     
     def approve(self, reviewer_id: int, notes: Optional[str] = None) -> None:
         """Approve submission."""

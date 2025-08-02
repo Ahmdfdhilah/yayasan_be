@@ -3,8 +3,10 @@
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Column, JSON, Relationship
 from sqlalchemy import Enum as SQLEnum
+from pydantic import validator
 
 from .base import BaseModel
+from ..utils.sanitize_html import sanitize_html_content
 
 if TYPE_CHECKING:
     from .user import User
@@ -41,6 +43,13 @@ class Organization(BaseModel, SQLModel, table=True):
     )
     user_roles: List["UserRole"] = Relationship(back_populates="organization")
     media_files: List["MediaFile"] = Relationship(back_populates="organization")
+    
+    @validator('description')
+    def sanitize_description(cls, v):
+        """Sanitize HTML content in description field."""
+        if v:
+            return sanitize_html_content(v)
+        return v
     
     def __repr__(self) -> str:
         return f"<Organization(id={self.id}, name={self.name})>"

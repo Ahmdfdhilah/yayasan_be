@@ -4,9 +4,11 @@ from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint, Column
 from sqlalchemy import Enum as SQLAlchemyEnum, Integer, ForeignKey
+from pydantic import validator
 
 from .base import BaseModel
 from .enums import EvaluationGrade
+from ..utils.sanitize_html import sanitize_html_content
 
 if TYPE_CHECKING:
     from .teacher_evaluation import TeacherEvaluation
@@ -66,6 +68,13 @@ class TeacherEvaluationItem(BaseModel, SQLModel, table=True):
         if "grade" in data and "score" not in data:
             data["score"] = EvaluationGrade.get_score(data["grade"])
         super().__init__(**data)
+    
+    @validator('notes')
+    def sanitize_notes(cls, v):
+        """Sanitize HTML content in notes field."""
+        if v:
+            return sanitize_html_content(v)
+        return v
     
     @property
     def grade_description(self) -> str:

@@ -2,8 +2,10 @@
 
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
+from pydantic import validator
 
 from .base import BaseModel
+from ..utils.sanitize_html import sanitize_html_content
 
 if TYPE_CHECKING:
     from .board_member import BoardMember
@@ -20,6 +22,13 @@ class BoardGroup(BaseModel, SQLModel, table=True):
     description: Optional[str] = Field(default=None, description="Group description")
     
     members: List["BoardMember"] = Relationship(back_populates="group")
+    
+    @validator('description')
+    def sanitize_description(cls, v):
+        """Sanitize HTML content in description field."""
+        if v:
+            return sanitize_html_content(v)
+        return v
     
     def __repr__(self) -> str:
         return f"<BoardGroup(id={self.id}, title={self.title}, display_order={self.display_order})>"

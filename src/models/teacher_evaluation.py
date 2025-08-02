@@ -4,9 +4,11 @@ from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
 from sqlalchemy import event
+from pydantic import validator
 
 from .base import BaseModel
 from .enums import EvaluationGrade
+from ..utils.sanitize_html import sanitize_html_content
 
 if TYPE_CHECKING:
     from .user import User
@@ -100,6 +102,13 @@ class TeacherEvaluation(BaseModel, SQLModel, table=True):
         
         self.last_updated = datetime.utcnow()
         self.updated_at = datetime.utcnow()
+    
+    @validator('final_notes')
+    def sanitize_final_notes(cls, v):
+        """Sanitize HTML content in final_notes field."""
+        if v:
+            return sanitize_html_content(v)
+        return v
     
     def update_final_notes(self, notes: Optional[str]) -> None:
         """Update final evaluation notes."""

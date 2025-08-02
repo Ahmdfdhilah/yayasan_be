@@ -29,6 +29,7 @@ from src.models.gallery import Gallery
 from src.models.message import Message, MessageStatus
 from src.models.period import Period
 from src.models.board_member import BoardMember
+from src.models.board_group import BoardGroup
 import hashlib
 import random
 from faker import Faker
@@ -657,53 +658,155 @@ class UserSeeder:
         await self.session.commit()
         return created_messages
     
-    def generate_board_members_data(self, count=5):
-        """Generate board member data using faker with highlight system."""
+    async def create_board_groups(self):
+        """Create 3 board groups for foundation structure."""
+        print("Creating 3 board groups...")
+        
+        groups_data = [
+            {
+                "title": "Pengurus Inti",
+                "display_order": 1,
+                "description": "Pengurus inti yayasan yang bertanggung jawab atas kebijakan strategis dan operasional utama"
+            },
+            {
+                "title": "Jajaran Dewan",
+                "display_order": 2,
+                "description": "Anggota dewan pengurus yang berperan dalam pengawasan dan pembinaan institusi"
+            },
+            {
+                "title": "Tim Ahli",
+                "display_order": 3,
+                "description": "Tim ahli dan konsultan yang memberikan masukan teknis dan akademis"
+            }
+        ]
+        
+        created_groups = {}
+        for group_data in groups_data:
+            try:
+                # Check if group already exists
+                existing = await self.session.execute(
+                    text("SELECT * FROM board_groups WHERE title = :title"),
+                    {"title": group_data["title"]}
+                )
+                existing_group = existing.fetchone()
+                if existing_group:
+                    print(f"Board group '{group_data['title']}' already exists")
+                    # Convert to group object for consistency
+                    group = BoardGroup(
+                        id=existing_group[0],
+                        title=existing_group[1],
+                        display_order=existing_group[2],
+                        description=existing_group[3]
+                    )
+                    created_groups[group_data["title"]] = group
+                    continue
+                
+                group = BoardGroup(**group_data)
+                self.session.add(group)
+                await self.session.flush()
+                created_groups[group_data["title"]] = group
+                print(f"Created board group: {group.title}")
+                
+            except Exception as e:
+                print(f"Error creating board group '{group_data['title']}': {e}")
+        
+        await self.session.commit()
+        return created_groups
+
+    def generate_board_members_data(self, groups):
+        """Generate board member data using faker with board groups."""
+        # Get group IDs
+        pengurus_inti_id = groups["Pengurus Inti"].id
+        jajaran_dewan_id = groups["Jajaran Dewan"].id
+        tim_ahli_id = groups["Tim Ahli"].id
+        
         board_data = [
+            # Pengurus Inti
             {
                 "name": "Dr. H. Muhammad Farid, M.A",
-                "position": "Ketua",
+                "position": "Ketua Yayasan",
+                "group_id": pengurus_inti_id,
+                "member_order": 1,
                 "img_url": "https://via.placeholder.com/300x300/4f46e5/ffffff?text=MF",
-                "description": "<p>Dr. H. Muhammad Farid, M.A adalah seorang akademisi dan praktisi pendidikan dengan pengalaman lebih dari 20 tahun di bidang pendidikan Islam. Beliau meraih gelar doktor dari Universitas Al-Azhar, Mesir, dan memiliki visi untuk mengembangkan pendidikan Islam yang modern dan berkualitas.</p><p>Sebagai Ketua Yayasan Al-Hikmah Tafatur, beliau berkomitmen untuk memajukan pendidikan yang mengintegrasikan ilmu pengetahuan umum dengan nilai-nilai keislaman. Di bawah kepemimpinannya, yayasan telah berkembang pesat dan meraih berbagai prestasi.</p>",
-                "is_highlight": True
+                "description": "<p>Dr. H. Muhammad Farid, M.A adalah seorang akademisi dan praktisi pendidikan dengan pengalaman lebih dari 20 tahun di bidang pendidikan Islam. Beliau meraih gelar doktor dari Universitas Al-Azhar, Mesir, dan memiliki visi untuk mengembangkan pendidikan Islam yang modern dan berkualitas.</p><p>Sebagai Ketua Yayasan Al-Hikmah Tafatur, beliau berkomitmen untuk memajukan pendidikan yang mengintegrasikan ilmu pengetahuan umum dengan nilai-nilai keislaman. Di bawah kepemimpinannya, yayasan telah berkembang pesat dan meraih berbagai prestasi.</p>"
             },
             {
                 "name": "Dra. Hj. Aminah Syarifah, M.Pd",
                 "position": "Wakil Ketua",
+                "group_id": pengurus_inti_id,
+                "member_order": 2,
                 "img_url": "https://via.placeholder.com/300x300/059669/ffffff?text=AS",
-                "description": "<p>Dra. Hj. Aminah Syarifah, M.Pd adalah seorang pendidik berpengalaman dengan latar belakang pendidikan dan manajemen. Beliau memiliki pengalaman mengajar selama 25 tahun dan telah menjabat sebagai kepala sekolah di beberapa institusi pendidikan terkemuka.</p><p>Sebagai Wakil Ketua, beliau fokus pada pengembangan kurikulum dan peningkatan kualitas pembelajaran. Beliau juga aktif dalam berbagai organisasi profesi guru dan sering menjadi narasumber dalam seminar pendidikan nasional.</p>",
-                "is_highlight": True
+                "description": "<p>Dra. Hj. Aminah Syarifah, M.Pd adalah seorang pendidik berpengalaman dengan latar belakang pendidikan dan manajemen. Beliau memiliki pengalaman mengajar selama 25 tahun dan telah menjabat sebagai kepala sekolah di beberapa institusi pendidikan terkemuka.</p><p>Sebagai Wakil Ketua, beliau fokus pada pengembangan kurikulum dan peningkatan kualitas pembelajaran. Beliau juga aktif dalam berbagai organisasi profesi guru dan sering menjadi narasumber dalam seminar pendidikan nasional.</p>"
             },
             {
                 "name": "Ustadz Ahmad Zainuddin, Lc., M.A",
                 "position": "Sekretaris Jenderal",
+                "group_id": pengurus_inti_id,
+                "member_order": 3,
                 "img_url": "https://via.placeholder.com/300x300/dc2626/ffffff?text=AZ",
-                "description": "<p>Ustadz Ahmad Zainuddin, Lc., M.A adalah lulusan Universitas Madinah, Arab Saudi, dengan spesialisasi dalam studi Islam dan manajemen pendidikan. Beliau memiliki kemampuan yang sangat baik dalam administrasi dan koordinasi program-program yayasan.</p><p>Sebagai Sekretaris Jenderal, beliau bertanggung jawab atas operasional harian yayasan dan koordinasi antar unit sekolah. Beliau juga aktif dalam pengembangan program tahfidz dan pembinaan spiritual siswa di semua jenjang pendidikan.</p>",
-                "is_highlight": True
+                "description": "<p>Ustadz Ahmad Zainuddin, Lc., M.A adalah lulusan Universitas Madinah, Arab Saudi, dengan spesialisasi dalam studi Islam dan manajemen pendidikan. Beliau memiliki kemampuan yang sangat baik dalam administrasi dan koordinasi program-program yayasan.</p><p>Sebagai Sekretaris Jenderal, beliau bertanggung jawab atas operasional harian yayasan dan koordinasi antar unit sekolah. Beliau juga aktif dalam pengembangan program tahfidz dan pembinaan spiritual siswa di semua jenjang pendidikan.</p>"
             },
             {
                 "name": "Prof. Dr. H. Abdullah Rahman, M.A",
-                "position": "Bendahara",
+                "position": "Bendahara Umum",
+                "group_id": pengurus_inti_id,
+                "member_order": 4,
                 "img_url": "https://via.placeholder.com/300x300/7c3aed/ffffff?text=AR",
-                "description": "<p>Prof. Dr. H. Abdullah Rahman, M.A adalah seorang profesor di bidang ekonomi Islam dengan pengalaman lebih dari 15 tahun dalam manajemen keuangan pendidikan. Beliau meraih gelar profesor dari Universitas Indonesia dan memiliki keahlian dalam pengelolaan keuangan institusi pendidikan.</p><p>Sebagai Bendahara, beliau bertanggung jawab atas perencanaan anggaran, pengelolaan keuangan, dan transparansi finansial yayasan. Beliau juga aktif dalam pengembangan program beasiswa untuk siswa berprestasi dari keluarga kurang mampu.</p>",
-                "is_highlight": False
+                "description": "<p>Prof. Dr. H. Abdullah Rahman, M.A adalah seorang profesor di bidang ekonomi Islam dengan pengalaman lebih dari 15 tahun dalam manajemen keuangan pendidikan. Beliau meraih gelar profesor dari Universitas Indonesia dan memiliki keahlian dalam pengelolaan keuangan institusi pendidikan.</p><p>Sebagai Bendahara Umum, beliau bertanggung jawab atas perencanaan anggaran, pengelolaan keuangan, dan transparansi finansial yayasan. Beliau juga aktif dalam pengembangan program beasiswa untuk siswa berprestasi dari keluarga kurang mampu.</p>"
             },
+            
+            # Jajaran Dewan
             {
                 "name": "Drs. H. Imam Nawawi, M.Si",
-                "position": "Anggota Dewan",
+                "position": "Ketua Dewan Pengawas",
+                "group_id": jajaran_dewan_id,
+                "member_order": 1,
                 "img_url": "https://via.placeholder.com/300x300/ea580c/ffffff?text=IN",
-                "description": "<p>Drs. H. Imam Nawawi, M.Si adalah seorang praktisi manajemen dengan pengalaman lebih dari 18 tahun di berbagai institusi pendidikan. Beliau memiliki keahlian dalam bidang pengembangan SDM dan manajemen operasional.</p><p>Sebagai Anggota Dewan, beliau fokus pada pengembangan kualitas tenaga pendidik dan peningkatan sistem manajemen sekolah. Beliau juga berperan dalam menjalin kemitraan dengan berbagai lembaga pendidikan dan industri.</p>",
-                "is_highlight": False
+                "description": "<p>Drs. H. Imam Nawawi, M.Si adalah seorang praktisi manajemen dengan pengalaman lebih dari 18 tahun di berbagai institusi pendidikan. Beliau memiliki keahlian dalam bidang pengembangan SDM dan manajemen operasional.</p><p>Sebagai Ketua Dewan Pengawas, beliau fokus pada pengembangan kualitas tenaga pendidik dan peningkatan sistem manajemen sekolah. Beliau juga berperan dalam menjalin kemitraan dengan berbagai lembaga pendidikan dan industri.</p>"
+            },
+            {
+                "name": "H. Ahmad Solichin, S.E., M.M",
+                "position": "Anggota Dewan Pengawas",
+                "group_id": jajaran_dewan_id,
+                "member_order": 2,
+                "img_url": "https://via.placeholder.com/300x300/f59e0b/ffffff?text=AS",
+                "description": "<p>H. Ahmad Solichin, S.E., M.M adalah seorang pengusaha sukses dan praktisi manajemen bisnis dengan pengalaman lebih dari 20 tahun. Beliau memiliki keahlian dalam bidang keuangan dan strategi bisnis yang diterapkan untuk pengembangan yayasan.</p><p>Sebagai Anggota Dewan Pengawas, beliau memberikan masukan strategis dalam pengembangan infrastruktur dan sustainability finansial yayasan. Beliau juga aktif dalam program CSR untuk pendidikan.</p>"
+            },
+            {
+                "name": "Dra. Hj. Fatimah Zahra, M.Pd.I",
+                "position": "Anggota Dewan Pengawas",
+                "group_id": jajaran_dewan_id,
+                "member_order": 3,
+                "img_url": "https://via.placeholder.com/300x300/10b981/ffffff?text=FZ",
+                "description": "<p>Dra. Hj. Fatimah Zahra, M.Pd.I adalah seorang pendidik dan aktivis pendidikan Islam dengan pengalaman lebih dari 22 tahun. Beliau memiliki keahlian dalam pengembangan kurikulum Islamic studies dan pembinaan karakter siswa.</p><p>Sebagai Anggota Dewan Pengawas, beliau fokus pada pengawasan kualitas pendidikan Islam dan pembinaan akhlak siswa. Beliau juga berperan dalam pengembangan program tahfidz dan kegiatan spiritual.</p>"
+            },
+            
+            # Tim Ahli
+            {
+                "name": "Prof. Dr. Ir. Bambang Sutrisno, M.T",
+                "position": "Konsultan Teknologi Pendidikan",
+                "group_id": tim_ahli_id,
+                "member_order": 1,
+                "img_url": "https://via.placeholder.com/300x300/8b5cf6/ffffff?text=BS",
+                "description": "<p>Prof. Dr. Ir. Bambang Sutrisno, M.T adalah seorang profesor teknologi informasi dengan spesialisasi dalam teknologi pendidikan. Beliau memiliki pengalaman lebih dari 15 tahun dalam implementasi sistem informasi manajemen sekolah.</p><p>Sebagai Konsultan Teknologi Pendidikan, beliau berperan dalam pengembangan infrastruktur IT, sistem pembelajaran digital, dan modernisasi administrasi sekolah. Beliau juga memberikan training kepada guru dalam penggunaan teknologi pembelajaran.</p>"
+            },
+            {
+                "name": "Dr. Hj. Siti Maryam, M.A",
+                "position": "Konsultan Kurikulum",
+                "group_id": tim_ahli_id,
+                "member_order": 2,
+                "img_url": "https://via.placeholder.com/300x300/ef4444/ffffff?text=SM",
+                "description": "<p>Dr. Hj. Siti Maryam, M.A adalah seorang ahli kurikulum dengan pengalaman lebih dari 18 tahun dalam pengembangan kurikulum pendidikan Islam terpadu. Beliau meraih gelar doktor dari UIN Syarif Hidayatullah Jakarta.</p><p>Sebagai Konsultan Kurikulum, beliau berperan dalam merancang dan mengembangkan kurikulum yang mengintegrasikan ilmu umum dan agama. Beliau juga memberikan guidance dalam implementasi metode pembelajaran yang inovatif dan efektif.</p>"
             }
         ]
         
         return board_data
 
-    async def create_board_members(self):
-        """Create 5 board members with highlight system."""
-        print("Creating 5 board members...")
+    async def create_board_members(self, groups):
+        """Create board members with groups."""
+        print("Creating board members with groups...")
         
-        board_data = self.generate_board_members_data(5)
+        board_data = self.generate_board_members_data(groups)
         
         created_board = []
         for board_item in board_data:
@@ -721,7 +824,7 @@ class UserSeeder:
                 self.session.add(board)
                 await self.session.flush()
                 created_board.append(board)
-                print(f"Created board member: {board.name}")
+                print(f"Created board member: {board.name} ({board.position})")
                 
             except Exception as e:
                 print(f"Error creating board member '{board_item['name']}': {e}")
@@ -768,6 +871,7 @@ class UserSeeder:
             await self.session.execute(text("DELETE FROM articles"))
             await self.session.execute(text("DELETE FROM galleries"))
             await self.session.execute(text("DELETE FROM board_members"))
+            await self.session.execute(text("DELETE FROM board_groups"))
             
             # Clear RPP submissions first to avoid foreign key constraint
             await self.session.execute(text("DELETE FROM rpp_submissions"))
@@ -818,8 +922,11 @@ class UserSeeder:
             # Create sample messages
             messages = await self.create_sample_messages()
             
+            # Create board groups
+            board_groups = await self.create_board_groups()
+            
             # Create board members
-            board_members = await self.create_board_members()
+            board_members = await self.create_board_members(board_groups)
             
             # Verify data
             await self.verify_seeded_data()
@@ -834,9 +941,14 @@ class UserSeeder:
             print(f"\nUsers created: {len(users)}")
             print(f"Periods created: {len(periods)}")
             print(f"Articles created: {len(articles)}")
-            print(f"Gallery items created: {len(gallery)} (4 highlighted, 4 normal)")
+            print(f"Gallery items created: {len(gallery)}")
             print(f"Messages created: {len(messages)}")
-            print(f"Board members created: {len(board_members)} (3 highlighted, 2 normal)")
+            print(f"Board groups created: {len(board_groups)}")
+            print(f"Board members created: {len(board_members)}")
+            print("\nBoard Structure:")
+            for group_name, group in board_groups.items():
+                member_count = len([m for m in board_members if hasattr(m, 'group_id') and m.group_id == group.id])
+                print(f"  - {group_name}: {member_count} members")
             print("\nLogin credentials:")
             print("Admin: admin@tafatur.id / @Password123")
             print("Kepala Sekolah: kepsek@[school-domain].sch.id / @Password123")

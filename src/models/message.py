@@ -5,9 +5,11 @@ from datetime import datetime
 from enum import Enum
 from sqlmodel import Field, SQLModel
 from sqlalchemy import Enum as SQLEnum, Column
+from pydantic import validator
 
 from .base import BaseModel
 from .enums import MessagePriority
+from ..utils.sanitize_html import sanitize_html_content
 
 
 class MessageStatus(str, Enum):
@@ -38,6 +40,13 @@ class Message(BaseModel, SQLModel, table=True):
     ip_address: Optional[str] = Field(max_length=45, default=None, description="Sender IP address")
     user_agent: Optional[str] = Field(max_length=500, default=None, description="Sender user agent")
     read_at: Optional[datetime] = Field(default=None, description="When message was first read")
+    
+    @validator('message')
+    def sanitize_message(cls, v):
+        """Sanitize HTML content in message field."""
+        if v:
+            return sanitize_html_content(v)
+        return v
     
     def __repr__(self) -> str:
         return f"<Message(id={self.id}, email={self.email}, title={self.title[:50]}, status={self.status.value})>"

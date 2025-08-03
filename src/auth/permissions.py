@@ -3,6 +3,7 @@
 from typing import List, Dict, Optional, Any
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,28 +12,26 @@ from src.core.database import get_db
 
 
 class JWTBearer(HTTPBearer):
-    """Custom JWT Bearer handler for PKG system."""
+    """Custom JWT handler for PKG system - supports only cookie-based authentication."""
     
     def __init__(self, auto_error: bool = True):
         super(JWTBearer, self).__init__(auto_error=auto_error)
 
     async def __call__(self, request: Request):
-        credentials: HTTPAuthorizationCredentials = await super(
-            JWTBearer, self
-        ).__call__(request)
+        # Get token from HttpOnly cookie only
+        access_token = request.cookies.get("access_token")
         
-        if credentials:
-            if not credentials.scheme == "Bearer":
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Invalid authentication scheme.",
-                )
-            return credentials.credentials
-        else:
+        if access_token:
+            return access_token
+            
+        # If auto_error is True and no token found, raise exception
+        if self.auto_error:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid authorization code.",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required. Please login.",
             )
+        
+        return None
 
 
 jwt_bearer = JWTBearer()

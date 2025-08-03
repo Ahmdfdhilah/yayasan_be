@@ -57,16 +57,6 @@ class UserSeeder:
                 "name": "SD Al-Hikmah Tafatur",
                 "description": "<h2>Sekolah Dasar Al-Hikmah Tafatur</h2><p>Sekolah dasar yang berfokus pada pembentukan karakter islami dan prestasi akademik unggul. Kami mengintegrasikan kurikulum nasional dengan nilai-nilai keislaman untuk menciptakan generasi yang berakhlak mulia dan berprestasi.</p><h3>Visi Kami:</h3><p>Menjadi sekolah dasar terdepan dalam menghasilkan lulusan yang beriman, bertaqwa, berakhlak mulia, dan berprestasi akademik tinggi.</p><h3>Misi Kami:</h3><ul><li>Menyelenggarakan pendidikan berkualitas dengan pendekatan holistik</li><li>Mengembangkan potensi siswa secara optimal melalui pembelajaran inovatif</li><li>Menanamkan nilai-nilai islami dalam setiap aspek kehidupan</li><li>Membangun kemitraan yang kuat dengan orang tua dan masyarakat</li></ul>",
                 "head_id": None
-            },
-            {
-                "name": "SMP Al-Hikmah Tafatur",
-                "description": "<h2>Sekolah Menengah Pertama Al-Hikmah Tafatur</h2><p>Sekolah menengah pertama yang mengembangkan potensi siswa melalui pendidikan berkualitas dengan landasan nilai-nilai islami. Kami mempersiapkan siswa untuk menghadapi tantangan pendidikan tingkat selanjutnya dengan bekal akademik dan spiritual yang kuat.</p><h3>Keunggulan Kami:</h3><ul><li>Program bilingual (Bahasa Indonesia dan Bahasa Inggris)</li><li>Laboratorium sains dan komputer yang lengkap</li><li>Ekstrakurikuler yang beragam dan berprestasi</li><li>Pembinaan karakter islami terintegrasi</li></ul><h3>Fasilitas:</h3><p>Gedung bertingkat dengan ruang kelas ber-AC, laboratorium IPA, laboratorium komputer, perpustakaan digital, masjid, lapangan olahraga, dan kantin sehat.</p>",
-                "head_id": None
-            },
-            {
-                "name": "SMA Al-Hikmah Tafatur",
-                "description": "<h2>Sekolah Menengah Atas Al-Hikmah Tafatur</h2><p>Sekolah menengah atas unggulan yang mempersiapkan siswa untuk memasuki perguruan tinggi terbaik dengan bekal akademik, spiritual, dan kepemimpinan yang mumpuni. Kami menawarkan program IPA, IPS, dan Bahasa dengan standar internasional.</p><h3>Program Unggulan:</h3><ul><li>Kelas Akselerasi untuk siswa berprestasi</li><li>Program Tahfidz Al-Quran</li><li>Olimpiade Sains Nasional (OSN)</li><li>Program pertukaran pelajar internasional</li><li>Bimbingan SBMPTN dan ujian masuk PTN</li></ul><h3>Prestasi:</h3><p>Juara 1 Olimpiade Matematika Tingkat Provinsi 2023, Juara 2 Kompetisi Sains Nasional 2023, 95% lulusan diterima di PTN favorit.</p><h3>Alumni Terbaik:</h3><p>Banyak alumni yang berhasil meraih beasiswa di universitas dalam dan luar negeri, serta menjadi pemimpin di berbagai bidang.</p>",
-                "head_id": None
             }
         ]
         
@@ -112,31 +102,23 @@ class UserSeeder:
         
         # School data for generating realistic names
         school_data = [
-            {"type": "SD", "location": "Jakarta", "domain": "sd-alhikmah"},
-            {"type": "SMP", "location": "Jakarta", "domain": "smp-alhikmah"},
-            {"type": "SMA", "location": "Jakarta", "domain": "sma-alhikmah"}
+            {"type": "SD", "location": "Jakarta", "domain": "sd-alhikmah"}
         ]
         
         # Teacher names pool
         teacher_names = [
-            "Ahmad Santoso, S.Pd", "Siti Rahayu, S.Pd", "Budi Prasetyo, S.Pd", "Dewi Kusuma, S.Pd",
-            "Andi Wijaya, S.Pd", "Maya Sari, S.Pd", "Rudi Hartono, S.Pd", "Linda Puspita, S.Pd",
-            "Hendra Gunawan, S.Pd", "Fitri Rahmawati, S.Pd", "Bambang Sutrisno, S.Pd", "Novi Anggraini, S.Pd",
-            "Eko Wahyudi, S.Pd", "Wulan Sari, S.Pd", "Toni Setiawan, S.Pd", "Dina Marlina, S.Pd",
-            "Riko Pratama, S.Ag", "Indra Wijaya, S.Pd", "Rina Handayani, S.Pd", "Agus Prasetyo, S.Si"
+            "Ahmad Santoso, S.Pd"
         ]
         
         # Principal names
         principal_names = [
-            "Dr. Ahmad Taufiq, M.Pd.I",
-            "Dra. Siti Khadijah, M.Pd", 
-            "Prof. Dr. Abdullah Rahman, M.A"
+            "Dr. Ahmad Taufiq, M.Pd.I"
         ]
         
         phone_counter = 892
         nip_counter = 1001
         
-        # Generate users for 3 organizations
+        # Generate users for 1 organization
         for org_idx, org in organizations.items():
             school_info = school_data[org_idx]
             
@@ -159,45 +141,38 @@ class UserSeeder:
             phone_counter += 1
             nip_counter += 1
             
-            # Generate 10 teachers per school
-            for i in range(10):
-                teacher_name = teacher_names[(org_idx * 10 + i) % len(teacher_names)]
-                if teacher_name in teacher_names[(org_idx * 10):((org_idx + 1) * 10)]:
-                    teacher_name = f"{teacher_name.split(',')[0]} {chr(65 + i)}, S.Pd"
-                
-                # Different subjects based on school type
-                if school_info['type'] == 'SMA':
-                    subjects = ['Matematika', 'Bahasa Indonesia', 'Bahasa Inggris', 'Fisika', 'Kimia', 
-                              'Biologi', 'Sejarah', 'Geografi', 'Ekonomi', 'Sosiologi']
-                    classes = ['X IPA 1', 'X IPA 2', 'XI IPA 1', 'XI IPA 2', 'XII IPA 1', 
-                              'X IPS 1', 'XI IPS 1', 'XII IPS 1', 'XI IPS 2', 'XII IPS 2']
-                elif school_info['type'] == 'SMP':
-                    subjects = ['Matematika', 'Bahasa Indonesia', 'Bahasa Inggris', 'IPA Terpadu', 'IPS Terpadu',
-                              'PKN', 'Seni Budaya', 'Pendidikan Jasmani', 'Prakarya', 'Agama Islam']
-                    classes = ['VII A', 'VII B', 'VIII A', 'VIII B', 'VIII C', 'IX A', 'IX B', 'IX C', 'VII C', 'VIII D']
-                else:  # SD
-                    subjects = ['Guru Kelas', 'Guru Kelas', 'Guru Kelas', 'Guru Kelas', 'Guru Kelas',
-                              'Guru Kelas', 'Pendidikan Jasmani', 'Agama Islam', 'Bahasa Inggris', 'Seni Budaya']
-                    classes = ['I-A', 'II-A', 'III-A', 'IV-A', 'V-A', 'VI-A', 'Semua Kelas', 'Semua Kelas', 'Semua Kelas', 'Semua Kelas']
-                
-                users_data.append({
-                    "email": f"guru{i+1}@{school_info['domain']}.sch.id",
-                    "password": "@Password123",
-                    "profile": {
-                        "name": teacher_name,
-                        "phone": f"08123456{phone_counter}",
-                        "address": school_info['location'],
-                        "position": f"Guru {subjects[i]}",
-                        "nip": f"19850515201001{nip_counter}",
-                        "subject": subjects[i],
-                        "class": classes[i]
-                    },
-                    "organization_id": org.id,
-                    "status": UserStatus.ACTIVE,
-                    "roles": ["guru"]
-                })
-                phone_counter += 1
-                nip_counter += 1
+            # Generate 1 teacher for school
+            teacher_name = teacher_names[0]
+            
+            # Subject based on school type
+            if school_info['type'] == 'SD':
+                subject = 'Guru Kelas'
+                class_name = 'I-A'
+            elif school_info['type'] == 'SMP':
+                subject = 'Matematika'
+                class_name = 'VII A'
+            else:  # SMA
+                subject = 'Matematika'
+                class_name = 'X IPA 1'
+            
+            users_data.append({
+                "email": f"guru1@{school_info['domain']}.sch.id",
+                "password": "@Password123",
+                "profile": {
+                    "name": teacher_name,
+                    "phone": f"08123456{phone_counter}",
+                    "address": school_info['location'],
+                    "position": f"Guru {subject}",
+                    "nip": f"19850515201001{nip_counter}",
+                    "subject": subject,
+                    "class": class_name
+                },
+                "organization_id": org.id,
+                "status": UserStatus.ACTIVE,
+                "roles": ["guru"]
+            })
+            phone_counter += 1
+            nip_counter += 1
         
         created_users = []
         for user_data in users_data:
@@ -729,30 +704,6 @@ class UserSeeder:
                 "img_url": "https://via.placeholder.com/300x300/4f46e5/ffffff?text=MF",
                 "description": "<p>Dr. H. Muhammad Farid, M.A adalah seorang akademisi dan praktisi pendidikan dengan pengalaman lebih dari 20 tahun di bidang pendidikan Islam. Beliau meraih gelar doktor dari Universitas Al-Azhar, Mesir, dan memiliki visi untuk mengembangkan pendidikan Islam yang modern dan berkualitas.</p><p>Sebagai Ketua Yayasan Al-Hikmah Tafatur, beliau berkomitmen untuk memajukan pendidikan yang mengintegrasikan ilmu pengetahuan umum dengan nilai-nilai keislaman. Di bawah kepemimpinannya, yayasan telah berkembang pesat dan meraih berbagai prestasi.</p>"
             },
-            {
-                "name": "Dra. Hj. Aminah Syarifah, M.Pd",
-                "position": "Wakil Ketua",
-                "group_id": pengurus_inti_id,
-                "member_order": 2,
-                "img_url": "https://via.placeholder.com/300x300/059669/ffffff?text=AS",
-                "description": "<p>Dra. Hj. Aminah Syarifah, M.Pd adalah seorang pendidik berpengalaman dengan latar belakang pendidikan dan manajemen. Beliau memiliki pengalaman mengajar selama 25 tahun dan telah menjabat sebagai kepala sekolah di beberapa institusi pendidikan terkemuka.</p><p>Sebagai Wakil Ketua, beliau fokus pada pengembangan kurikulum dan peningkatan kualitas pembelajaran. Beliau juga aktif dalam berbagai organisasi profesi guru dan sering menjadi narasumber dalam seminar pendidikan nasional.</p>"
-            },
-            {
-                "name": "Ustadz Ahmad Zainuddin, Lc., M.A",
-                "position": "Sekretaris Jenderal",
-                "group_id": pengurus_inti_id,
-                "member_order": 3,
-                "img_url": "https://via.placeholder.com/300x300/dc2626/ffffff?text=AZ",
-                "description": "<p>Ustadz Ahmad Zainuddin, Lc., M.A adalah lulusan Universitas Madinah, Arab Saudi, dengan spesialisasi dalam studi Islam dan manajemen pendidikan. Beliau memiliki kemampuan yang sangat baik dalam administrasi dan koordinasi program-program yayasan.</p><p>Sebagai Sekretaris Jenderal, beliau bertanggung jawab atas operasional harian yayasan dan koordinasi antar unit sekolah. Beliau juga aktif dalam pengembangan program tahfidz dan pembinaan spiritual siswa di semua jenjang pendidikan.</p>"
-            },
-            {
-                "name": "Prof. Dr. H. Abdullah Rahman, M.A",
-                "position": "Bendahara Umum",
-                "group_id": pengurus_inti_id,
-                "member_order": 4,
-                "img_url": "https://via.placeholder.com/300x300/7c3aed/ffffff?text=AR",
-                "description": "<p>Prof. Dr. H. Abdullah Rahman, M.A adalah seorang profesor di bidang ekonomi Islam dengan pengalaman lebih dari 15 tahun dalam manajemen keuangan pendidikan. Beliau meraih gelar profesor dari Universitas Indonesia dan memiliki keahlian dalam pengelolaan keuangan institusi pendidikan.</p><p>Sebagai Bendahara Umum, beliau bertanggung jawab atas perencanaan anggaran, pengelolaan keuangan, dan transparansi finansial yayasan. Beliau juga aktif dalam pengembangan program beasiswa untuk siswa berprestasi dari keluarga kurang mampu.</p>"
-            },
             
             # Jajaran Dewan
             {
@@ -763,22 +714,6 @@ class UserSeeder:
                 "img_url": "https://via.placeholder.com/300x300/ea580c/ffffff?text=IN",
                 "description": "<p>Drs. H. Imam Nawawi, M.Si adalah seorang praktisi manajemen dengan pengalaman lebih dari 18 tahun di berbagai institusi pendidikan. Beliau memiliki keahlian dalam bidang pengembangan SDM dan manajemen operasional.</p><p>Sebagai Ketua Dewan Pengawas, beliau fokus pada pengembangan kualitas tenaga pendidik dan peningkatan sistem manajemen sekolah. Beliau juga berperan dalam menjalin kemitraan dengan berbagai lembaga pendidikan dan industri.</p>"
             },
-            {
-                "name": "H. Ahmad Solichin, S.E., M.M",
-                "position": "Anggota Dewan Pengawas",
-                "group_id": jajaran_dewan_id,
-                "member_order": 2,
-                "img_url": "https://via.placeholder.com/300x300/f59e0b/ffffff?text=AS",
-                "description": "<p>H. Ahmad Solichin, S.E., M.M adalah seorang pengusaha sukses dan praktisi manajemen bisnis dengan pengalaman lebih dari 20 tahun. Beliau memiliki keahlian dalam bidang keuangan dan strategi bisnis yang diterapkan untuk pengembangan yayasan.</p><p>Sebagai Anggota Dewan Pengawas, beliau memberikan masukan strategis dalam pengembangan infrastruktur dan sustainability finansial yayasan. Beliau juga aktif dalam program CSR untuk pendidikan.</p>"
-            },
-            {
-                "name": "Dra. Hj. Fatimah Zahra, M.Pd.I",
-                "position": "Anggota Dewan Pengawas",
-                "group_id": jajaran_dewan_id,
-                "member_order": 3,
-                "img_url": "https://via.placeholder.com/300x300/10b981/ffffff?text=FZ",
-                "description": "<p>Dra. Hj. Fatimah Zahra, M.Pd.I adalah seorang pendidik dan aktivis pendidikan Islam dengan pengalaman lebih dari 22 tahun. Beliau memiliki keahlian dalam pengembangan kurikulum Islamic studies dan pembinaan karakter siswa.</p><p>Sebagai Anggota Dewan Pengawas, beliau fokus pada pengawasan kualitas pendidikan Islam dan pembinaan akhlak siswa. Beliau juga berperan dalam pengembangan program tahfidz dan kegiatan spiritual.</p>"
-            },
             
             # Tim Ahli
             {
@@ -788,14 +723,6 @@ class UserSeeder:
                 "member_order": 1,
                 "img_url": "https://via.placeholder.com/300x300/8b5cf6/ffffff?text=BS",
                 "description": "<p>Prof. Dr. Ir. Bambang Sutrisno, M.T adalah seorang profesor teknologi informasi dengan spesialisasi dalam teknologi pendidikan. Beliau memiliki pengalaman lebih dari 15 tahun dalam implementasi sistem informasi manajemen sekolah.</p><p>Sebagai Konsultan Teknologi Pendidikan, beliau berperan dalam pengembangan infrastruktur IT, sistem pembelajaran digital, dan modernisasi administrasi sekolah. Beliau juga memberikan training kepada guru dalam penggunaan teknologi pembelajaran.</p>"
-            },
-            {
-                "name": "Dr. Hj. Siti Maryam, M.A",
-                "position": "Konsultan Kurikulum",
-                "group_id": tim_ahli_id,
-                "member_order": 2,
-                "img_url": "https://via.placeholder.com/300x300/ef4444/ffffff?text=SM",
-                "description": "<p>Dr. Hj. Siti Maryam, M.A adalah seorang ahli kurikulum dengan pengalaman lebih dari 18 tahun dalam pengembangan kurikulum pendidikan Islam terpadu. Beliau meraih gelar doktor dari UIN Syarif Hidayatullah Jakarta.</p><p>Sebagai Konsultan Kurikulum, beliau berperan dalam merancang dan mengembangkan kurikulum yang mengintegrasikan ilmu umum dan agama. Beliau juga memberikan guidance dalam implementasi metode pembelajaran yang inovatif dan efektif.</p>"
             }
         ]
         

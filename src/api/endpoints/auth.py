@@ -159,14 +159,15 @@ async def confirm_password_reset(
 async def change_password(
     password_data: UserChangePassword,
     current_user: dict = Depends(get_current_active_user),
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Change current user's password.
     
     Requires current password verification.
     """
-    user_service = UserService(UserRepository(next(get_db())))
+    user_service = UserService(UserRepository(db))
     return await user_service.change_password(current_user["id"], password_data)
 
 

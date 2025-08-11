@@ -328,6 +328,30 @@ class UserRepository:
         result = await self.session.execute(query)
         return list(result.scalars().all())
     
+    async def get_teachers_count_by_organization(self, organization_id: int) -> int:
+        """Count teachers (guru) in specific organization."""
+        query = select(func.count(User.id)).where(
+            and_(
+                User.organization_id == organization_id,
+                User.role == UserRoleEnum.GURU,
+                User.deleted_at.is_(None),
+                User.status == UserStatus.ACTIVE
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalar() or 0
+    
+    async def get_user_count(self) -> int:
+        """Get total count of active users."""
+        query = select(func.count(User.id)).where(
+            and_(
+                User.deleted_at.is_(None),
+                User.status == UserStatus.ACTIVE
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalar() or 0
+    
     # ===== PASSWORD RESET METHODS =====
     
     async def create_password_reset_token(self, token_data: dict) -> PasswordResetToken:

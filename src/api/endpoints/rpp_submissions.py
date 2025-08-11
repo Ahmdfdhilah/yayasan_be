@@ -176,6 +176,26 @@ async def create_submission_item(
     )
 
 
+@router.put(
+    "/my-submission-item/{item_id}/upload",
+    response_model=RPPSubmissionItemResponse,
+    summary="Upload file to existing RPP submission item",
+    dependencies=[Depends(guru_or_kepala_sekolah)],
+)
+async def upload_file_to_item(
+    item_id: int = Path(..., description="Submission item ID"),
+    file_data: RPPSubmissionItemUpdate = ...,
+    current_user: dict = Depends(get_current_active_user),
+    rpp_service: RPPSubmissionService = Depends(get_rpp_submission_service),
+):
+    """Upload file to an existing RPP submission item."""
+    return await rpp_service.update_rpp_submission_item_file(
+        item_id=item_id,
+        file_id=file_data.file_id,
+        teacher_id=current_user["id"],
+    )
+
+
 @router.delete(
     "/my-submission-item/{item_id}",
     response_model=MessageResponse,

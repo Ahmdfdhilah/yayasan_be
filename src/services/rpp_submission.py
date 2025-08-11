@@ -308,7 +308,7 @@ class RPPSubmissionService:
         await self._validate_file_exists(file_id)
         
         # Get file info for default name
-        file_info = await self.media_repo.get_file_by_id(file_id)
+        file_info = await self.media_repo.get_by_id(file_id)
         default_name = f"RPP File - {file_info.file_name}" if file_info else "RPP File"
         
         # Get submission for this teacher/period to set rpp_submission_id
@@ -335,6 +335,46 @@ class RPPSubmissionService:
         # Get full item with relationships
         item = await self.rpp_repo.get_submission_item_by_id(item.id)
         return self._convert_item_to_response(item)
+    
+    async def update_rpp_submission_item_file(
+        self, item_id: int, file_id: int, teacher_id: int
+    ) -> RPPSubmissionItemResponse:
+        """Update existing RPP submission item with file."""
+        # Validate inputs
+        await self._validate_file_exists(file_id)
+        
+        # Get item to validate existence and ownership
+        item = await self.rpp_repo.get_submission_item_by_id(item_id)
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="RPP submission item tidak ditemukan"
+            )
+        
+        # Validate ownership
+        if item.teacher_id != teacher_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=get_message("submission.access_denied")
+            )
+        
+        # Check if submission is still in DRAFT status
+        submission = await self.rpp_repo.get_submission_by_teacher_period(teacher_id, item.period_id)
+        if submission and submission.status != RPPSubmissionStatus.DRAFT:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=get_message("submission.cannot_modify_submitted")
+            )
+        
+        # Update item with file
+        updated_item = await self.rpp_repo.update_submission_item_file(item_id, file_id)
+        if not updated_item:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Gagal update RPP submission item"
+            )
+        
+        return self._convert_item_to_response(updated_item)
     
     async def create_rpp_submission_item(
         self, teacher_id: int, period_id: int, name: str, description: Optional[str] = None

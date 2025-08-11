@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import datetime
 
-from src.models.enums import RPPType, RPPSubmissionStatus
+from src.models.enums import RPPSubmissionStatus
 from src.schemas.shared import BaseListResponse, MessageResponse
 
 
@@ -14,7 +14,6 @@ class RPPSubmissionItemBase(BaseModel):
     """Base schema for RPP submission item."""
     teacher_id: int = Field(..., description="Teacher user ID")
     period_id: int = Field(..., description="Period ID")
-    rpp_type: RPPType = Field(..., description="Type of RPP")
     file_id: Optional[int] = Field(None, description="Uploaded file ID")
     
 
@@ -33,7 +32,6 @@ class RPPSubmissionItemResponse(RPPSubmissionItemBase):
     id: int
     uploaded_at: Optional[datetime] = None
     is_uploaded: bool = Field(..., description="Whether file has been uploaded")
-    rpp_type_display_name: str = Field(..., description="Display name for RPP type")
     created_at: datetime
     updated_at: Optional[datetime] = None
     
@@ -132,7 +130,7 @@ class GenerateRPPSubmissionsResponse(BaseModel):
     generated_count: int = Field(..., description="Number of new submissions created")
     skipped_count: int = Field(..., description="Number of submissions skipped (already exist)")
     total_teachers: int = Field(..., description="Total number of eligible teachers")
-    items_per_submission: int = Field(default=3, description="Number of RPP items per submission")
+    items_per_submission: int = Field(default=0, description="Number of initial RPP items per submission")
     total_items_created: int = Field(..., description="Total number of submission items created")
     
     class Config:
@@ -186,7 +184,6 @@ class RPPSubmissionItemFilter(BaseModel):
     """Filter schema for RPP submission items."""
     teacher_id: Optional[int] = None
     period_id: Optional[int] = None
-    rpp_type: Optional[RPPType] = None
     is_uploaded: Optional[bool] = None
     organization_id: Optional[int] = None  # For filtering by organization
 

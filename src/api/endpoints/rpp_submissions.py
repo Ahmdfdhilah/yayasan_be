@@ -28,7 +28,7 @@ from src.schemas.rpp_submission import (
     RPPSubmissionDashboard,
 )
 from src.schemas.shared import MessageResponse
-from src.models.enums import RPPType, RPPSubmissionStatus
+from src.models.enums import RPPSubmissionStatus
 from src.auth.permissions import (
     get_current_active_user, 
     admin_required,
@@ -70,9 +70,10 @@ async def generate_submissions_for_period(
 
     This endpoint creates:
     - One submission record per teacher (status: draft)
-    - Three submission items per teacher (one for each RPP type, file_id: NULL)
+    - Initial submission items per teacher (one for each RPP type, file_id: NULL)
 
     Skips existing submissions for teacher+period combinations.
+    Teachers can then upload multiple files per RPP type.
     """
     return await rpp_service.generate_submissions_for_period(generate_data)
 
@@ -128,28 +129,27 @@ async def get_my_submission_for_period(
 
 
 @router.put(
-    "/my-submission/{period_id}/upload/{rpp_type}",
+    "/my-submission/{period_id}/upload",
     response_model=RPPSubmissionItemResponse,
-    summary="Upload RPP file for specific type",
+    summary="Upload RPP file",
     dependencies=[Depends(guru_or_kepala_sekolah)],
 )
 async def upload_rpp_file(
     period_id: int = Path(..., description="Period ID"),
-    rpp_type: RPPType = Path(..., description="RPP type to upload"),
     file_data: RPPSubmissionItemUpdate = ...,
     current_user: dict = Depends(get_current_active_user),
     rpp_service: RPPSubmissionService = Depends(get_rpp_submission_service),
 ):
     """
-    Upload file for specific RPP type.
+    Upload RPP file.
 
-    Teachers can upload files for their submission items.
+    Creates a new submission item for each upload.
+    Teachers can upload multiple RPP files.
     The file must be already uploaded to media_files table.
     """
     return await rpp_service.upload_rpp_file(
         teacher_id=current_user["id"],
         period_id=period_id,
-        rpp_type=rpp_type,
         file_id=file_data.file_id,
     )
 
@@ -393,7 +393,6 @@ async def get_dashboard_overview(
 async def get_submission_items(
     teacher_id: Optional[int] = Query(None, description="Filter by teacher ID"),
     period_id: Optional[int] = Query(None, description="Filter by period ID"),
-    rpp_type: Optional[RPPType] = Query(None, description="Filter by RPP type"),
     is_uploaded: Optional[bool] = Query(None, description="Filter by upload status"),
     limit: int = Query(100, ge=1, le=500, description="Number of items per page"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
@@ -408,7 +407,6 @@ async def get_submission_items(
     filters = RPPSubmissionItemFilter(
         teacher_id=teacher_id,
         period_id=period_id,
-        rpp_type=rpp_type,
         is_uploaded=is_uploaded,
     )
 

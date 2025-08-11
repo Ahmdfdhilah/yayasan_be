@@ -17,7 +17,7 @@ from src.schemas.rpp_submission import (
     RPPSubmissionStats, RPPSubmissionDashboard
 )
 from src.schemas.shared import MessageResponse
-from src.models.enums import RPPType, RPPSubmissionStatus
+from src.models.enums import RPPSubmissionStatus
 from src.models.rpp_submission import RPPSubmission
 from src.models.rpp_submission_item import RPPSubmissionItem
 from src.utils.messages import get_message
@@ -69,11 +69,9 @@ class RPPSubmissionService:
             id=item.id,
             teacher_id=item.teacher_id,
             period_id=item.period_id,
-            rpp_type=item.rpp_type,
             file_id=item.file_id,
             uploaded_at=item.uploaded_at,
             is_uploaded=item.is_uploaded,
-            rpp_type_display_name=item.rpp_type_display_name,
             teacher_name=item.teacher.display_name if item.teacher else None,
             period_name=item.period.period_name if item.period else None,
             file_name=item.file.file_name if item.file else None,
@@ -176,15 +174,7 @@ class RPPSubmissionService:
         # Create submission
         submission = await self.rpp_repo.create_submission(submission_data)
         
-        # Create items for all 3 RPP types
-        for rpp_type in RPPType.get_all_values():
-            item_data = RPPSubmissionItemCreate(
-                teacher_id=submission_data.teacher_id,
-                period_id=submission_data.period_id,
-                rpp_type=RPPType(rpp_type),
-                file_id=None
-            )
-            await self.rpp_repo.create_submission_item(item_data)
+        # No initial items created - teachers will create items by uploading files
         
         # Refresh to get items
         submission = await self.rpp_repo.get_submission_by_id(submission.id)
@@ -238,7 +228,7 @@ class RPPSubmissionService:
         if not can_submit:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Tidak dapat mengajukan: pastikan semua 3 jenis RPP telah diunggah dan pengajuan dalam status draft"
+                detail="Tidak dapat mengajukan: pastikan minimal satu file RPP telah diunggah dan pengajuan dalam status draft"
             )
         
         # Submit for review
@@ -306,35 +296,26 @@ class RPPSubmissionService:
     # ===== SUBMISSION ITEM OPERATIONS =====
     
     async def upload_rpp_file(
-        self, teacher_id: int, period_id: int, rpp_type: RPPType, file_id: int
+        self, teacher_id: int, period_id: int, file_id: int
     ) -> RPPSubmissionItemResponse:
-        """Upload file for specific RPP type."""
+        """Upload RPP file - creates new submission item."""
         # Validate inputs
         await self._validate_teacher_exists(teacher_id)
         await self._validate_period_exists(period_id)
         await self._validate_file_exists(file_id)
         
-        # Get submission item
-        item = await self.rpp_repo.get_submission_item_by_teacher_period_type(
-            teacher_id, period_id, rpp_type
+        # Create new submission item for this upload
+        item_data = RPPSubmissionItemCreate(
+            teacher_id=teacher_id,
+            period_id=period_id,
+            file_id=file_id
         )
         
-        if not item:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Submission item not found. Please ensure submission exists for this period."
-            )
-        
-        # Update file
-        updated_item = await self.rpp_repo.update_submission_item_file(item.id, file_id)
-        if not updated_item:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to upload file"
-            )
+        # Create the item
+        item = await self.rpp_repo.create_submission_item(item_data)
         
         # Get full item with relationships
-        item = await self.rpp_repo.get_submission_item_by_id(updated_item.id)
+        item = await self.rpp_repo.get_submission_item_by_id(item.id)
         return self._convert_item_to_response(item)
     
     # ===== QUERY OPERATIONS =====
@@ -387,9 +368,9 @@ class RPPSubmissionService:
             generate_data.period_id
         )
         
-        # Calculate total items created (3 items per submission)
-        items_per_submission = 3
-        total_items_created = generated * items_per_submission
+        # No initial items created - teachers create items when uploading files
+        items_per_submission = 0
+        total_items_created = 0
         
         success = True
         if generated == 0 and skipped == 0:

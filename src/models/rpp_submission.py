@@ -7,7 +7,7 @@ from sqlalchemy import Enum as SQLEnum, Column
 from pydantic import validator
 
 from .base import BaseModel
-from .enums import RPPSubmissionStatus, RPPType
+from .enums import RPPSubmissionStatus
 from ..utils.sanitize_html import sanitize_html_content
 
 if TYPE_CHECKING:
@@ -95,23 +95,20 @@ class RPPSubmission(BaseModel, SQLModel, table=True):
         if self.status not in [RPPSubmissionStatus.DRAFT, RPPSubmissionStatus.REJECTED]:
             return False
         
-        # Check if all 3 RPP types have been uploaded
-        uploaded_types = {item.rpp_type for item in self.items if item.is_uploaded}
-        required_types = set(RPPType.get_all_values())
-        return uploaded_types == required_types
+        # Check if at least one file has been uploaded
+        return any(item.is_uploaded for item in self.items)
     
     @property
     def completion_percentage(self) -> float:
-        """Get completion percentage based on uploaded items."""
+        """Get completion percentage based on uploaded files."""
         if not self.items:
             return 0.0
         
         uploaded_count = sum(1 for item in self.items if item.is_uploaded)
-        total_count = len(self.items)
-        return (uploaded_count / total_count) * 100 if total_count > 0 else 0.0
+        return 100.0 if uploaded_count > 0 else 0.0
     
     def submit_for_review(self) -> bool:
-        """Submit for review if all requirements are met."""
+        """Submit for review if at least one file is uploaded."""
         if not self.can_be_submitted:
             return False
         

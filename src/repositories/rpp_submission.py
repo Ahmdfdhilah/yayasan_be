@@ -11,7 +11,7 @@ from src.models.rpp_submission_item import RPPSubmissionItem
 from src.models.user import User
 from src.models.period import Period
 from src.models.media_file import MediaFile
-from src.models.enums import RPPType, RPPSubmissionStatus
+from src.models.enums import RPPSubmissionStatus
 from src.schemas.rpp_submission import (
     RPPSubmissionCreate, RPPSubmissionUpdate, RPPSubmissionFilter,
     RPPSubmissionItemCreate, RPPSubmissionItemUpdate, RPPSubmissionItemFilter
@@ -163,7 +163,6 @@ class RPPSubmissionRepository:
         item = RPPSubmissionItem(
             teacher_id=item_data.teacher_id,
             period_id=item_data.period_id,
-            rpp_type=item_data.rpp_type,
             file_id=item_data.file_id
         )
         
@@ -189,25 +188,6 @@ class RPPSubmissionRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    async def get_submission_item_by_teacher_period_type(
-        self, teacher_id: int, period_id: int, rpp_type: RPPType
-    ) -> Optional[RPPSubmissionItem]:
-        """Get submission item by teacher, period, and type."""
-        query = select(RPPSubmissionItem).options(
-            selectinload(RPPSubmissionItem.teacher),
-            selectinload(RPPSubmissionItem.period),
-            selectinload(RPPSubmissionItem.file)
-        ).where(
-            and_(
-                RPPSubmissionItem.teacher_id == teacher_id,
-                RPPSubmissionItem.period_id == period_id,
-                RPPSubmissionItem.rpp_type == rpp_type,
-                RPPSubmissionItem.deleted_at.is_(None)
-            )
-        )
-        
-        result = await self.session.execute(query)
-        return result.scalar_one_or_none()
     
     async def update_submission_item_file(
         self, item_id: int, file_id: int
@@ -326,8 +306,6 @@ class RPPSubmissionRepository:
             conditions.append(RPPSubmissionItem.teacher_id == filters.teacher_id)
         if filters.period_id:
             conditions.append(RPPSubmissionItem.period_id == filters.period_id)
-        if filters.rpp_type:
-            conditions.append(RPPSubmissionItem.rpp_type == filters.rpp_type)
         if filters.is_uploaded is not None:
             if filters.is_uploaded:
                 conditions.append(RPPSubmissionItem.file_id.is_not(None))
@@ -400,16 +378,7 @@ class RPPSubmissionRepository:
             self.session.add(submission)
             await self.session.flush()  # Flush to get the submission.id
             
-            # Create items for all 3 RPP types
-            for rpp_type in RPPType.get_all_values():
-                item = RPPSubmissionItem(
-                    teacher_id=teacher.id,
-                    period_id=period_id,
-                    rpp_submission_id=submission.id,  # Link to parent submission
-                    rpp_type=RPPType(rpp_type),
-                    file_id=None  # Initially null
-                )
-                self.session.add(item)
+            # No initial items created - teachers will create items by uploading files
             
             generated_count += 1
         
@@ -462,11 +431,9 @@ class RPPSubmissionRepository:
         if not submission or submission.status not in [RPPSubmissionStatus.DRAFT, RPPSubmissionStatus.REJECTED]:
             return False
         
-        # Check if all 3 RPP types have uploaded files
-        uploaded_types = {item.rpp_type for item in submission.items if item.file_id is not None}
-        required_types = set(RPPType.get_all_values())
-        
-        return len(uploaded_types) == len(required_types) and uploaded_types == required_types
+        # Check if at least one file has been uploaded
+        uploaded_items = [item for item in submission.items if item.file_id is not None]
+        return len(uploaded_items) > 0
 
     # Dashboard-specific methods
     

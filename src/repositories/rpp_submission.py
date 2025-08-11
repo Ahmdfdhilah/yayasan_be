@@ -45,7 +45,7 @@ class RPPSubmissionRepository:
             selectinload(RPPSubmission.teacher).selectinload(User.organization),
             selectinload(RPPSubmission.reviewer),
             selectinload(RPPSubmission.period),
-            selectinload(RPPSubmission.items.and_(RPPSubmissionItem.deleted_at.is_(None))).selectinload(RPPSubmissionItem.file)
+            selectinload(RPPSubmission.items).selectinload(RPPSubmissionItem.file)
         ).where(
             and_(RPPSubmission.id == submission_id, RPPSubmission.deleted_at.is_(None))
         )
@@ -61,7 +61,7 @@ class RPPSubmissionRepository:
             selectinload(RPPSubmission.teacher).selectinload(User.organization),
             selectinload(RPPSubmission.reviewer),
             selectinload(RPPSubmission.period),
-            selectinload(RPPSubmission.items.and_(RPPSubmissionItem.deleted_at.is_(None))).selectinload(RPPSubmissionItem.file)
+            selectinload(RPPSubmission.items).selectinload(RPPSubmissionItem.file)
         ).where(
             and_(
                 RPPSubmission.teacher_id == teacher_id,
@@ -180,6 +180,8 @@ class RPPSubmissionRepository:
     
     async def get_submission_item_by_id(self, item_id: int) -> Optional[RPPSubmissionItem]:
         """Get submission item by ID."""
+        print(f"Repository: Looking for item_id: {item_id}")
+        
         query = select(RPPSubmissionItem).options(
             selectinload(RPPSubmissionItem.teacher),
             selectinload(RPPSubmissionItem.period),
@@ -189,7 +191,9 @@ class RPPSubmissionRepository:
         )
         
         result = await self.session.execute(query)
-        return result.scalar_one_or_none()
+        item = result.scalar_one_or_none()
+        print(f"Repository: Found item: {item}")
+        return item
     
     
     async def update_submission_item_file(

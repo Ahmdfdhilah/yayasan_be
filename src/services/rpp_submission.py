@@ -58,7 +58,7 @@ class RPPSubmissionService:
             organization_name=submission.teacher.organization.name if submission.teacher and submission.teacher.organization else None,
             reviewer_name=submission.reviewer.display_name if submission.reviewer else None,
             period_name=submission.period.period_name if submission.period else None,
-            items=[self._convert_item_to_response(item) for item in submission.items],
+            items=[self._convert_item_to_response(item) for item in submission.items if item.deleted_at is None],
             created_at=submission.created_at,
             updated_at=submission.updated_at
         )
@@ -371,12 +371,16 @@ class RPPSubmissionService:
     
     async def delete_rpp_submission_item(self, item_id: int, teacher_id: int) -> MessageResponse:
         """Delete RPP submission item."""
+        print(f"Attempting to delete item_id: {item_id} for teacher_id: {teacher_id}")
+        
         # Get item to validate existence and ownership
         item = await self.rpp_repo.get_submission_item_by_id(item_id)
+        print(f"Found item: {item}")
+        
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=get_message("submission_item.not_found")
+                detail="RPP submission item tidak ditemukan"
             )
         
         # Validate ownership
@@ -399,12 +403,12 @@ class RPPSubmissionService:
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=get_message("submission_item.delete_failed")
+                detail="Gagal menghapus RPP submission item"
             )
         
         return MessageResponse(
             success=True,
-            message=get_message("submission_item.deleted_successfully")
+            message="RPP submission item berhasil dihapus"
         )
     
     # ===== QUERY OPERATIONS =====

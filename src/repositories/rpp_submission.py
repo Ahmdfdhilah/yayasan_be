@@ -163,6 +163,8 @@ class RPPSubmissionRepository:
         item = RPPSubmissionItem(
             teacher_id=item_data.teacher_id,
             period_id=item_data.period_id,
+            name=item_data.name,
+            description=item_data.description,
             file_id=item_data.file_id
         )
         
@@ -209,6 +211,21 @@ class RPPSubmissionRepository:
         result = await self.session.execute(query)
         await self.session.commit()
         return result.scalar_one_or_none()
+    
+    async def delete_submission_item(self, item_id: int) -> bool:
+        """Delete submission item (soft delete)."""
+        query = (
+            update(RPPSubmissionItem)
+            .where(
+                and_(RPPSubmissionItem.id == item_id, RPPSubmissionItem.deleted_at.is_(None))
+            )
+            .values(deleted_at=datetime.utcnow())
+            .returning(RPPSubmissionItem.id)
+        )
+        
+        result = await self.session.execute(query)
+        await self.session.commit()
+        return result.scalar_one_or_none() is not None
     
     # ===== QUERY OPERATIONS =====
     
@@ -353,7 +370,6 @@ class RPPSubmissionRepository:
                 User.role.in_(["GURU", "KEPALA_SEKOLAH"])
             )
         )
-        
         teachers_result = await self.session.execute(teachers_query)
         teachers = teachers_result.scalars().all()
         

@@ -16,6 +16,7 @@ from src.schemas.rpp_submission import (
     RPPSubmissionResponse,
     RPPSubmissionItemResponse,
     RPPSubmissionItemUpdate,
+    RPPSubmissionItemCreateRequest,
     RPPSubmissionSubmitRequest,
     RPPSubmissionReviewRequest,
     GenerateRPPSubmissionsRequest,
@@ -151,6 +152,45 @@ async def upload_rpp_file(
         teacher_id=current_user["id"],
         period_id=period_id,
         file_id=file_data.file_id,
+    )
+
+
+@router.post(
+    "/my-submission/{period_id}/create-item",
+    response_model=RPPSubmissionItemResponse,
+    summary="Create new RPP submission item",
+    dependencies=[Depends(guru_or_kepala_sekolah)],
+)
+async def create_submission_item(
+    period_id: int = Path(..., description="Period ID"),
+    item_data: RPPSubmissionItemCreateRequest = ...,
+    current_user: dict = Depends(get_current_active_user),
+    rpp_service: RPPSubmissionService = Depends(get_rpp_submission_service),
+):
+    """Create a new RPP submission item for the current user."""
+    return await rpp_service.create_rpp_submission_item(
+        teacher_id=current_user["id"],
+        period_id=period_id,
+        name=item_data.name,
+        description=item_data.description,
+    )
+
+
+@router.delete(
+    "/my-submission-item/{item_id}",
+    response_model=MessageResponse,
+    summary="Delete RPP submission item",
+    dependencies=[Depends(guru_or_kepala_sekolah)],
+)
+async def delete_submission_item(
+    item_id: int = Path(..., description="Submission item ID"),
+    current_user: dict = Depends(get_current_active_user),
+    rpp_service: RPPSubmissionService = Depends(get_rpp_submission_service),
+):
+    """Delete an RPP submission item."""
+    return await rpp_service.delete_rpp_submission_item(
+        item_id=item_id,
+        teacher_id=current_user["id"],
     )
 
 

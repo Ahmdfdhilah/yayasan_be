@@ -27,6 +27,15 @@ class RPPSubmissionItem(BaseModel, SQLModel, table=True):
         index=True,
         description="Reference to the main RPP submission"
     )
+    name: str = Field(
+        max_length=255,
+        description="Name/title of the RPP item for identification"
+    )
+    description: Optional[str] = Field(
+        default=None,
+        max_length=1000,
+        description="Optional description for the RPP item"
+    )
     file_id: Optional[int] = Field(
         default=None, 
         foreign_key="media_files.id",
@@ -53,7 +62,7 @@ class RPPSubmissionItem(BaseModel, SQLModel, table=True):
     )
     
     def __repr__(self) -> str:
-        return f"<RPPSubmissionItem(id={self.id}, teacher_id={self.teacher_id}, period_id={self.period_id})>"
+        return f"<RPPSubmissionItem(id={self.id}, name={self.name}, teacher_id={self.teacher_id})>"
     
     @property
     def is_uploaded(self) -> bool:

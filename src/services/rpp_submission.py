@@ -304,10 +304,16 @@ class RPPSubmissionService:
         await self._validate_period_exists(period_id)
         await self._validate_file_exists(file_id)
         
+        # Get file info for default name
+        file_info = await self.media_repo.get_file_by_id(file_id)
+        default_name = f"RPP File - {file_info.file_name}" if file_info else "RPP File"
+        
         # Create new submission item for this upload
         item_data = RPPSubmissionItemCreate(
             teacher_id=teacher_id,
             period_id=period_id,
+            name=default_name,
+            description=f"Auto-created for file upload: {file_info.file_name}" if file_info else None,
             file_id=file_id
         )
         
@@ -317,6 +323,76 @@ class RPPSubmissionService:
         # Get full item with relationships
         item = await self.rpp_repo.get_submission_item_by_id(item.id)
         return self._convert_item_to_response(item)
+    
+    async def create_rpp_submission_item(
+        self, teacher_id: int, period_id: int, name: str, description: Optional[str] = None
+    ) -> RPPSubmissionItemResponse:
+        """Create new RPP submission item."""
+        # Validate inputs
+        await self._validate_teacher_exists(teacher_id)
+        await self._validate_period_exists(period_id)
+        
+        # Validate that submission exists for this teacher/period
+        submission = await self.rpp_repo.get_submission_by_teacher_period(teacher_id, period_id)
+        if not submission:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=get_message("submission.not_found")
+            )
+        
+        # Create new submission item
+        item_data = RPPSubmissionItemCreate(
+            teacher_id=teacher_id,
+            period_id=period_id,
+            name=name,
+            description=description,
+            file_id=None
+        )
+        
+        # Create the item
+        item = await self.rpp_repo.create_submission_item(item_data)
+        
+        # Get full item with relationships
+        item = await self.rpp_repo.get_submission_item_by_id(item.id)
+        return self._convert_item_to_response(item)
+    
+    async def delete_rpp_submission_item(self, item_id: int, teacher_id: int) -> MessageResponse:
+        """Delete RPP submission item."""
+        # Get item to validate existence and ownership
+        item = await self.rpp_repo.get_submission_item_by_id(item_id)
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=get_message("submission_item.not_found")
+            )
+        
+        # Validate ownership
+        if item.teacher_id != teacher_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=get_message("submission.access_denied")
+            )
+        
+        # Check if submission is still in DRAFT status
+        submission = await self.rpp_repo.get_submission_by_teacher_period(teacher_id, item.period_id)
+        if submission and submission.status != RPPSubmissionStatus.DRAFT:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=get_message("submission.cannot_modify_submitted")
+            )
+        
+        # Delete the item
+        success = await self.rpp_repo.delete_submission_item(item_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=get_message("submission_item.delete_failed")
+            )
+        
+        return MessageResponse(
+            success=True,
+            message=get_message("submission_item.deleted_successfully")
+        )
     
     # ===== QUERY OPERATIONS =====
     

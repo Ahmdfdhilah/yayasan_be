@@ -14,6 +14,8 @@ class RPPSubmissionItemBase(BaseModel):
     """Base schema for RPP submission item."""
     teacher_id: int = Field(..., description="Teacher user ID")
     period_id: int = Field(..., description="Period ID")
+    name: str = Field(..., max_length=255, description="Name/title of the RPP item")
+    description: Optional[str] = Field(None, max_length=1000, description="Optional description for the RPP item")
     file_id: Optional[int] = Field(None, description="Uploaded file ID")
     
 
@@ -22,14 +24,25 @@ class RPPSubmissionItemCreate(RPPSubmissionItemBase):
     pass
 
 
+class RPPSubmissionItemCreateRequest(BaseModel):
+    """Schema for creating RPP submission item via API."""
+    name: str = Field(..., max_length=255, description="Name/title of the RPP item")
+    description: Optional[str] = Field(None, max_length=1000, description="Optional description for the RPP item")
+
+
 class RPPSubmissionItemUpdate(BaseModel):
     """Schema for updating RPP submission item (file upload)."""
     file_id: int = Field(..., description="Uploaded file ID")
 
 
-class RPPSubmissionItemResponse(RPPSubmissionItemBase):
+class RPPSubmissionItemResponse(BaseModel):
     """Schema for RPP submission item response."""
     id: int
+    teacher_id: int
+    period_id: int
+    name: str = Field(..., description="Name/title of the RPP item")
+    description: Optional[str] = Field(None, description="Description of the RPP item")
+    file_id: Optional[int] = None
     uploaded_at: Optional[datetime] = None
     is_uploaded: bool = Field(..., description="Whether file has been uploaded")
     created_at: datetime

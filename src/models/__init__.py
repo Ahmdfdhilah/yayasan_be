@@ -6,7 +6,6 @@ from .base import BaseModel, TimestampMixin, AuditMixin, SoftDeleteMixin
 # Core models
 from .user import User, PasswordResetToken
 from .organization import Organization
-from .user_role import UserRole
 from .media_file import MediaFile
 from .article import Article
 from .board_member import BoardMember
@@ -50,7 +49,6 @@ __all__ = [
     "User",
     "PasswordResetToken",
     "Organization",
-    "UserRole",
     "MediaFile",
     "Article",
     "BoardMember",

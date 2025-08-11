@@ -9,7 +9,6 @@ from sqlalchemy.orm import selectinload, joinedload
 from src.models.rpp_submission import RPPSubmission
 from src.models.rpp_submission_item import RPPSubmissionItem
 from src.models.user import User
-from src.models.user_role import UserRole
 from src.models.period import Period
 from src.models.media_file import MediaFile
 from src.models.enums import RPPType, RPPSubmissionStatus
@@ -283,17 +282,11 @@ class RPPSubmissionRepository:
             query = query.join(User, RPPSubmission.teacher_id == User.id)
             conditions.append(User.organization_id == filters.organization_id)
         
-        # Submitter role filter via teacher roles
+        # Submitter role filter via teacher role
         if filters.submitter_role:
             if User not in query.column_descriptions:
                 query = query.join(User, RPPSubmission.teacher_id == User.id)
-            query = query.join(User.user_roles)
-            conditions.append(
-                and_(
-                    UserRole.role_name == filters.submitter_role,
-                    UserRole.is_active == True
-                )
-            )
+            conditions.append(User.role == filters.submitter_role)
         
         # Apply conditions
         if conditions:
@@ -303,8 +296,6 @@ class RPPSubmissionRepository:
         count_query = select(func.count(distinct(RPPSubmission.id))).where(and_(*conditions))
         if filters.organization_id or filters.submitter_role or filters.search:
             count_query = count_query.join(User, RPPSubmission.teacher_id == User.id)
-        if filters.submitter_role:
-            count_query = count_query.join(User.user_roles)
         
         count_result = await self.session.execute(count_query)
         total = count_result.scalar()
@@ -377,28 +368,12 @@ class RPPSubmissionRepository:
             Tuple of (generated_count, skipped_count, total_teachers)
         """
         # Get all active teachers (guru) and kepala sekolah, excluding admin users
-        # Subquery to find users with admin role
-        admin_users_subquery = (
-            select(UserRole.user_id)
-            .where(
-                and_(
-                    UserRole.role_name == "admin",
-                    UserRole.is_active == True,
-                    UserRole.deleted_at.is_(None)
-                )
+        teachers_query = select(User).where(
+            and_(
+                User.status == "active", 
+                User.deleted_at.is_(None),
+                User.role.in_(["GURU", "KEPALA_SEKOLAH"])
             )
-        )
-        
-        teachers_query = select(User).join(
-            User.user_roles.and_(
-                UserRole.role_name.in_(["guru", "kepala_sekolah"]), 
-                UserRole.is_active == True
-            )
-        ).where(
-            User.status == "active", 
-            User.deleted_at.is_(None),
-            # Exclude users who have admin role
-            ~User.id.in_(admin_users_subquery)
         )
         
         teachers_result = await self.session.execute(teachers_query)

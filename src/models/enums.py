@@ -5,13 +5,13 @@ from enum import Enum
 
 class UserRole(str, Enum):
     """User role enum for role-based access control."""
-    ADMIN = "admin"
-    GURU = "guru"
-    KEPALA_SEKOLAH = "kepala_sekolah"
+    ADMIN = "ADMIN"
+    GURU = "GURU"
+    KEPALA_SEKOLAH = "KEPALA_SEKOLAH"
     
     @classmethod
     def get_all_values(cls):
-        """Get all role values as list."""
+        """Get all role values as list"""
         return [role.value for role in cls]
     
     @classmethod

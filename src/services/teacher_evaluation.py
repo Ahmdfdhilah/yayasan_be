@@ -88,8 +88,7 @@ class TeacherEvaluationService:
             )
         
         # Check if teacher has admin role
-        teacher_roles = [role.role_name for role in teacher.user_roles if role.is_active]
-        if "admin" in teacher_roles:
+        if teacher.is_admin():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot create evaluation for admin users",
@@ -126,12 +125,12 @@ class TeacherEvaluationService:
 
         # Access control: Teachers and Kepala Sekolah can only view their own evaluations
         if current_user and (
-            UserRoleEnum.GURU in current_user.get("roles", []) or 
-            UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", [])
+            current_user.get("role") == "GURU" or 
+            current_user.get("role") == "KEPALA_SEKOLAH"
         ):
             if evaluation.teacher_id != current_user["id"]:
                 # Allow kepala sekolah to view evaluations of teachers in their organization
-                if UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", []):
+                if current_user.get("role") == "KEPALA_SEKOLAH":
                     if evaluation.teacher.organization_id != current_user.get("organization_id"):
                         raise HTTPException(
                             status_code=status.HTTP_403_FORBIDDEN,
@@ -283,20 +282,20 @@ class TeacherEvaluationService:
         organization_id = None
 
         # Apply organization filtering for non-admin users
-        if current_user and UserRoleEnum.ADMIN not in current_user.get("roles", []):
+        if current_user and current_user.get("role") != "ADMIN":
             organization_id = current_user.get("organization_id")
-        elif current_user and UserRoleEnum.ADMIN in current_user.get("roles", []):
+        elif current_user and current_user.get("role") == "ADMIN":
             # For admin users, use organization_id from filters if provided
             organization_id = filters.organization_id
 
         # Teachers can only view their own evaluations
         # Kepala sekolah can view their own evaluations (when being evaluated by admin)
         if current_user and (
-            UserRoleEnum.GURU in current_user.get("roles", []) or 
-            UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", [])
+            current_user.get("role") == "GURU" or 
+            current_user.get("role") == "KEPALA_SEKOLAH"
         ):
             # For kepala sekolah: they can view evaluations in their organization + their own evaluation by admin
-            if UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", []):
+            if current_user.get("role") == "KEPALA_SEKOLAH":
                 # Don't restrict teacher_id for kepala sekolah as they evaluate teachers in their org
                 # Organization filtering will handle the boundary
                 pass  
@@ -329,12 +328,12 @@ class TeacherEvaluationService:
         """Get teacher evaluation for specific period."""
         # Access control
         if current_user and (
-            UserRoleEnum.GURU in current_user.get("roles", []) or 
-            UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", [])
+            current_user.get("role") == "GURU" or 
+            current_user.get("role") == "KEPALA_SEKOLAH"
         ):
             if teacher_id != current_user["id"]:
                 # Allow kepala sekolah to view evaluations of teachers in their organization
-                if UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", []):
+                if current_user.get("role") == "KEPALA_SEKOLAH":
                     # Organization check will be done in repository layer
                     pass
                 else:
@@ -363,7 +362,7 @@ class TeacherEvaluationService:
         organization_id = None
 
         # Apply organization filtering for non-admin users
-        if current_user and UserRoleEnum.ADMIN not in current_user.get("roles", []):
+        if current_user and current_user.get("role") != "ADMIN":
             organization_id = current_user.get("organization_id")
 
         evaluations = await self.evaluation_repo.get_evaluations_by_period(
@@ -433,8 +432,7 @@ class TeacherEvaluationService:
             )
         
         # Check if teacher has admin role
-        teacher_roles = [role.role_name for role in teacher.user_roles if role.is_active]
-        if "admin" in teacher_roles:
+        if teacher.is_admin():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot create evaluation for admin users",
@@ -476,7 +474,7 @@ class TeacherEvaluationService:
         organization_id = None
 
         # Apply organization filtering for non-admin users
-        if current_user and UserRoleEnum.ADMIN not in current_user.get("roles", []):
+        if current_user and current_user.get("role") != "ADMIN":
             organization_id = current_user.get("organization_id")
 
         stats = await self.evaluation_repo.get_period_statistics(
@@ -491,12 +489,12 @@ class TeacherEvaluationService:
         """Get teacher evaluation summary for specific period."""
         # Access control for teacher summary
         if current_user and (
-            UserRoleEnum.GURU in current_user.get("roles", []) or 
-            UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", [])
+            current_user.get("role") == "GURU" or 
+            current_user.get("role") == "KEPALA_SEKOLAH"
         ):
             if teacher_id != current_user["id"]:
                 # Allow kepala sekolah to view summaries of teachers in their organization
-                if UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", []):
+                if current_user.get("role") == "KEPALA_SEKOLAH":
                     # Organization check will be handled in the repository
                     pass
                 else:
@@ -550,11 +548,11 @@ class TeacherEvaluationService:
             return False
 
         # Admin has full access
-        if UserRoleEnum.ADMIN in current_user.get("roles", []):
+        if current_user.get("role") == "ADMIN":
             return True
 
         # Kepala sekolah can modify evaluations in their organization
-        if UserRoleEnum.KEPALA_SEKOLAH in current_user.get("roles", []):
+        if current_user.get("role") == "KEPALA_SEKOLAH":
             return evaluation.evaluator_id == current_user[
                 "id"
             ] or evaluation.teacher.organization_id == current_user.get(

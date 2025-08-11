@@ -55,22 +55,8 @@ class DashboardService:
                 detail=get_message("user", "not_found")
             )
         
-        # Determine user role and organization - prioritize JWT roles
-        user_role = "guru"  # default
-        
-        # First check JWT roles (most reliable since they come from authentication)
-        if current_user.get("roles"):
-            jwt_roles = current_user["roles"]
-            if "admin" in jwt_roles:
-                user_role = "admin"
-            elif "kepala_sekolah" in jwt_roles:
-                user_role = "kepala_sekolah"
-            elif "guru" in jwt_roles:
-                user_role = "guru"
-        
-        # Fallback to database role detection if JWT doesn't have roles
-        if user_role == "guru" and not current_user.get("roles"):
-            user_role = self._determine_user_role(user_obj)
+        # Get user role from JWT token or user object
+        user_role = current_user.get("role") or user_obj.role.value
         
         # Get period information
         period = None
@@ -86,39 +72,13 @@ class DashboardService:
                 )
         
         # Route to appropriate dashboard based on role
-        if user_role == "admin":
+        if user_role == "ADMIN":
             return await self._get_admin_dashboard(user_obj, filters, period)
-        elif user_role == "kepala_sekolah":
+        elif user_role == "KEPALA_SEKOLAH":
             return await self._get_principal_dashboard(user_obj, filters, period)
         else:  # guru or other roles
             return await self._get_teacher_dashboard(user_obj, filters, period)
     
-    def _determine_user_role(self, user_obj) -> str:
-        """Determine user role based on user object."""
-        # Check if user has no organization (likely admin)
-        if not user_obj.organization_id:
-            return "admin"
-        
-        # Check user roles from UserRole relationship
-        if hasattr(user_obj, 'user_roles') and user_obj.user_roles:
-            active_roles = [ur.role_name for ur in user_obj.user_roles if ur.is_active]
-            if "admin" in active_roles:
-                return "admin"
-            elif "kepala_sekolah" in active_roles:
-                return "kepala_sekolah"
-            elif "guru" in active_roles:
-                return "guru"
-        
-        # Check user role from profile or role field
-        if hasattr(user_obj, 'role') and user_obj.role:
-            return user_obj.role
-        
-        # Check from profile
-        if user_obj.profile and user_obj.profile.get('role'):
-            return user_obj.profile['role']
-        
-        # Default to teacher
-        return "guru"
     
     async def _get_teacher_dashboard(
         self,
@@ -160,7 +120,7 @@ class DashboardService:
             rpp_stats=org_rpp_stats,
             evaluation_stats=org_eval_stats,
             organizations=[org_summary] if org_summary else [],
-            user_role="guru",
+            user_role="GURU",
             organization_name=org_name,
             last_updated=datetime.utcnow(),
             my_rpp_stats=my_rpp_stats,
@@ -213,7 +173,7 @@ class DashboardService:
             rpp_stats=org_rpp_stats,
             evaluation_stats=org_eval_stats,
             organizations=[org_summary] if org_summary else [],
-            user_role="kepala_sekolah",
+            user_role="KEPALA_SEKOLAH",
             organization_name=org_name,
             last_updated=datetime.utcnow(),
             my_rpp_stats=my_rpp_stats,
@@ -254,7 +214,7 @@ class DashboardService:
             rpp_stats=rpp_stats,
             evaluation_stats=eval_stats,
             organizations=org_summaries,
-            user_role="admin",
+            user_role="ADMIN",
             organization_name=None,
             last_updated=datetime.utcnow(),
             system_overview=system_overview,

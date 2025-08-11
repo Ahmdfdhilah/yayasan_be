@@ -29,19 +29,16 @@ from src.schemas.rpp_submission import (
 )
 from src.schemas.shared import MessageResponse
 from src.models.enums import RPPType, RPPSubmissionStatus
-from src.auth.permissions import get_current_active_user, require_roles
+from src.auth.permissions import (
+    get_current_active_user, 
+    admin_required,
+    guru_or_kepala_sekolah,
+    admin_or_kepala_sekolah,
+    any_authorized_user
+)
 from src.utils.messages import get_message
 
 router = APIRouter()
-
-# Permission dependencies
-admin_required = require_roles(["admin"])
-kepala_sekolah_required = require_roles(["kepala_sekolah"])
-guru_required = require_roles(["guru"])
-guru_or_kepala_sekolah = require_roles(["guru", "kepala_sekolah"])
-admin_or_kepala_sekolah = require_roles(["admin", "kepala_sekolah"])
-any_authorized_user = require_roles(["admin", "kepala_sekolah", "guru"])
-
 
 async def get_rpp_submission_service(
     session: AsyncSession = Depends(get_db),
@@ -203,7 +200,7 @@ async def get_pending_reviews(
     - Admin can review kepala sekolah submissions
     - Kepala sekolah can review guru submissions from their organization
     """
-    user_roles = current_user.get("roles", [])
+    user_role = current_user.get("role")
     
     filters = RPPSubmissionFilter(
         status=RPPSubmissionStatus.PENDING,
@@ -212,13 +209,13 @@ async def get_pending_reviews(
     )
     
     # Role-based filtering
-    if "admin" in user_roles:
+    if user_role == "ADMIN":
         # Admin can see all pending submissions (especially from kepala sekolah)
         pass
-    elif "kepala_sekolah" in user_roles:
+    elif user_role == "KEPALA_SEKOLAH":
         # Kepala sekolah can only see guru submissions from their organization
         filters.organization_id = current_user.get("organization_id")
-        filters.submitter_role = "guru"  # Only show guru submissions for kepala sekolah to review
+        filters.submitter_role = "GURU"  # Only show guru submissions for kepala sekolah to review
 
     return await rpp_service.get_submissions(filters, limit, offset)
 
@@ -284,12 +281,12 @@ async def get_submissions(
     )
 
     # Role-based access control
-    user_roles = current_user.get("roles", [])
-    if "admin" not in user_roles:
-        if "kepala_sekolah" in user_roles:
+    user_role = current_user.get("role")
+    if user_role != "ADMIN":
+        if user_role == "KEPALA_SEKOLAH":
             # Kepala sekolah can see submissions in their organization
             filters.organization_id = current_user.get("organization_id")
-        elif "guru" in user_roles:
+        elif user_role == "GURU":
             # Teachers can only see their own submissions
             filters.teacher_id = current_user["id"]
 
@@ -315,16 +312,16 @@ async def get_submission(
     submission = await rpp_service.get_submission(submission_id)
 
     # Role-based access control
-    user_roles = current_user.get("roles", [])
-    if "admin" not in user_roles:
-        if "guru" in user_roles:
+    user_role = current_user.get("role")
+    if user_role != "ADMIN":
+        if user_role == "GURU":
             # Teachers can only see their own submissions
             if submission.teacher_id != current_user["id"]:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=get_message("submission", "own_submissions_only"),
                 )
-        elif "kepala_sekolah" in user_roles:
+        elif user_role == "KEPALA_SEKOLAH":
             # Kepala sekolah can see submissions in their organization
             # This would require checking teacher's organization, implement if needed
             pass
@@ -353,7 +350,7 @@ async def get_submission_statistics(
     - Kepala Sekolah: Can see statistics for their organization
     """
     organization_id = None
-    if "admin" not in current_user.get("roles", []):
+    if current_user.get("role") != "ADMIN":
         organization_id = current_user.get("organization_id")
 
     return await rpp_service.get_submission_statistics(period_id, organization_id)
@@ -378,7 +375,7 @@ async def get_dashboard_overview(
     - Guru: Personal submissions + organization overview
     """
     organization_id = None
-    if "admin" not in current_user.get("roles", []):
+    if current_user.get("role") != "ADMIN":
         organization_id = current_user.get("organization_id")
 
     return await rpp_service.get_dashboard_data(current_user["id"], organization_id)
@@ -416,11 +413,11 @@ async def get_submission_items(
     )
 
     # Role-based access control
-    user_roles = current_user.get("roles", [])
-    if "admin" not in user_roles:
-        if "kepala_sekolah" in user_roles:
+    user_role = current_user.get("role")
+    if user_role != "ADMIN":
+        if user_role == "KEPALA_SEKOLAH":
             filters.organization_id = current_user.get("organization_id")
-        elif "guru" in user_roles:
+        elif user_role == "GURU":
             filters.teacher_id = current_user["id"]
 
     return await rpp_service.get_submission_items(filters, limit, offset)

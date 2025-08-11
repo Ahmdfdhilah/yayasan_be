@@ -11,7 +11,6 @@ from src.models.teacher_evaluation_item import TeacherEvaluationItem
 from src.models.evaluation_aspect import EvaluationAspect
 from src.models.period import Period
 from src.models.user import User
-from src.models.user_role import UserRole
 from src.models.organization import Organization
 from src.models.enums import EvaluationGrade, UserRole as UserRoleEnum
 from src.schemas.teacher_evaluation import (
@@ -325,38 +324,20 @@ class TeacherEvaluationRepository:
         skipped_count = 0
         
         # Get all active teachers (guru) and kepala sekolah, excluding admin users
-        # This matches the exact logic from RPP generation
-        admin_users_subquery = (
-            select(UserRole.user_id)
-            .where(
-                and_(
-                    UserRole.role_name == UserRoleEnum.ADMIN.value,
-                    UserRole.is_active == True,
-                    UserRole.deleted_at.is_(None)
-                )
+        teachers_query = select(User).where(
+            and_(
+                User.status == "active", 
+                User.deleted_at.is_(None),
+                User.role.in_([UserRoleEnum.GURU.value, UserRoleEnum.KEPALA_SEKOLAH.value])
             )
-        )
-        
-        teachers_query = select(User).options(
-            selectinload(User.user_roles)
-        ).join(
-            User.user_roles.and_(
-                UserRole.role_name.in_([UserRoleEnum.GURU.value, UserRoleEnum.KEPALA_SEKOLAH.value]), 
-                UserRole.is_active == True
-            )
-        ).where(
-            User.status == "active", 
-            User.deleted_at.is_(None),
-            # Exclude users who have admin role
-            ~User.id.in_(admin_users_subquery)
         )
         
         teachers_result = await self.session.execute(teachers_query)
         teachers = teachers_result.scalars().all()
         
         # Get first admin as default evaluator
-        admin_query = select(User).join(User.user_roles).where(
-            User.user_roles.any(UserRole.role_name == UserRoleEnum.ADMIN.value)
+        admin_query = select(User).where(
+            User.role == UserRoleEnum.ADMIN.value
         ).limit(1)
         
         admin_result = await self.session.execute(admin_query)
@@ -372,17 +353,15 @@ class TeacherEvaluationRepository:
             # Determine evaluator based on teacher role and organization
             evaluator_id = None
             
-            # Check teacher's roles
-            teacher_roles = [role.role_name for role in teacher.user_roles if role.is_active]
-            
-            if UserRoleEnum.GURU.value in teacher_roles:
+            # Check teacher's role
+            if teacher.role == UserRoleEnum.GURU.value:
                 # Teachers (guru) are evaluated by their kepala sekolah if available
                 if teacher.organization_id:
                     # Find kepala sekolah in same organization
-                    ks_query = select(User).join(User.user_roles).where(
+                    ks_query = select(User).where(
                         and_(
                             User.organization_id == teacher.organization_id,
-                            User.user_roles.any(UserRole.role_name == UserRoleEnum.KEPALA_SEKOLAH.value),
+                            User.role == UserRoleEnum.KEPALA_SEKOLAH.value,
                             User.status == "active",
                             User.deleted_at.is_(None)
                         )
@@ -398,7 +377,7 @@ class TeacherEvaluationRepository:
                 if not evaluator_id and default_admin_evaluator:
                     evaluator_id = default_admin_evaluator.id
                     
-            elif UserRoleEnum.KEPALA_SEKOLAH.value in teacher_roles:
+            elif teacher.role == UserRoleEnum.KEPALA_SEKOLAH.value:
                 # Kepala sekolah are evaluated by admin
                 if default_admin_evaluator:
                     evaluator_id = default_admin_evaluator.id

@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 
 # Existing imports
-from src.api.endpoints import auth, users, organizations, user_roles
+from src.api.endpoints import auth, users, organizations
 
 # Evaluation system imports
 from src.api.endpoints import (
@@ -50,16 +50,7 @@ api_router.include_router(
         422: {"description": "Validation Error"},
     },
 )
-api_router.include_router(
-    user_roles.router,
-    prefix="/user-roles",
-    tags=["User Roles"],
-    responses={
-        401: {"description": "Unauthorized"},
-        403: {"description": "Forbidden"},
-        422: {"description": "Validation Error"},
-    },
-)
+
 
 api_router.include_router(
     organizations.router,

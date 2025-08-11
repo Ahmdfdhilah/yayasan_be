@@ -241,8 +241,7 @@ class OrganizationService:
             )
         
         # Check if user has kepala_sekolah role
-        user_roles = [role.role_name for role in head_user.user_roles if role.is_active]
-        if "kepala_sekolah" not in user_roles:
+        if not head_user.is_kepala_sekolah():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="User must have 'kepala_sekolah' role to be assigned as head"

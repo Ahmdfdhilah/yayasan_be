@@ -10,7 +10,6 @@ from src.repositories.user import UserRepository
 from src.services.teacher_evaluation import TeacherEvaluationService
 from src.schemas.teacher_evaluation import (
     TeacherEvaluationCreate,
-    TeacherEvaluationUpdate,
     TeacherEvaluationResponse,
     TeacherEvaluationDetailResponse,
     TeacherEvaluationListResponse,
@@ -29,17 +28,12 @@ from src.schemas.teacher_evaluation import (
 from src.schemas.shared import MessageResponse
 from src.auth.permissions import (
     get_current_active_user,
-    require_roles,
-    require_teacher_evaluation_view_permission,
-    require_teacher_evaluation_update_permission,
+    admin_required,
+    management_roles_required,
 )
 from src.models.enums import EvaluationGrade
 
 router = APIRouter()
-
-# Role-based permissions
-admin_required = require_roles(["admin"])
-admin_or_manager = require_roles(["admin", "kepala_sekolah"])
 
 
 async def get_teacher_evaluation_service(
@@ -59,7 +53,7 @@ async def get_teacher_evaluation_service(
 )
 async def create_teacher_evaluation(
     evaluation_data: TeacherEvaluationCreate,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service),
 ):
     """
@@ -80,7 +74,7 @@ async def create_teacher_evaluation(
 )
 async def create_evaluation_with_items(
     evaluation_data: TeacherEvaluationWithItemsCreate,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service),
 ):
     """
@@ -126,7 +120,7 @@ async def get_teacher_evaluation(
 async def update_evaluation_final_notes(
     evaluation_id: int,
     update_data: UpdateEvaluationFinalNotes,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service),
 ):
     """
@@ -164,7 +158,7 @@ async def delete_teacher_evaluation(
 async def create_evaluation_item(
     evaluation_id: int,
     item_data: TeacherEvaluationItemCreate,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service),
 ):
     """
@@ -188,7 +182,7 @@ async def update_evaluation_item(
     evaluation_id: int,
     aspect_id: int,
     item_data: UpdateEvaluationItemGrade,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service),
 ):
     """
@@ -210,7 +204,7 @@ async def update_evaluation_item(
 async def delete_evaluation_item(
     evaluation_id: int,
     aspect_id: int,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service),
 ):
     """Delete evaluation item for specific aspect."""
@@ -225,7 +219,7 @@ async def delete_evaluation_item(
 async def bulk_update_evaluation_items(
     evaluation_id: int,
     bulk_data: TeacherEvaluationBulkItemUpdate,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service),
 ):
     """
@@ -242,17 +236,21 @@ async def bulk_update_evaluation_items(
 
 
 @router.get(
-    "/", response_model=TeacherEvaluationListResponse, summary="Get filtered teacher evaluations"
+    "/",
+    response_model=TeacherEvaluationListResponse,
+    summary="Get filtered teacher evaluations",
 )
 async def get_teacher_evaluations_filtered(
     teacher_id: Optional[int] = Query(None, description="Filter by teacher ID"),
     evaluator_id: Optional[int] = Query(None, description="Filter by evaluator ID"),
     period_id: Optional[int] = Query(None, description="Filter by period ID"),
-    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
-    search: Optional[str] = Query(None, min_length=1, max_length=100, description="Search by teacher name"),
-    final_grade: Optional[float] = Query(
-        None, description="Filter by final grade"
+    organization_id: Optional[int] = Query(
+        None, description="Filter by organization ID"
     ),
+    search: Optional[str] = Query(
+        None, min_length=1, max_length=100, description="Search by teacher name"
+    ),
+    final_grade: Optional[float] = Query(None, description="Filter by final grade"),
     min_average_score: Optional[float] = Query(
         None, ge=1.0, le=4.0, description="Minimum average score"
     ),
@@ -333,22 +331,20 @@ async def get_evaluations_by_period(
 )
 async def assign_teachers_to_period(
     assignment_data: AssignTeachersToEvaluationPeriod,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     service: TeacherEvaluationService = Depends(get_teacher_evaluation_service),
 ):
     """
     Auto-assign all teachers to evaluation period.
-    
+
     Automatically creates evaluations for:
     - All teachers (GURU role) in all organizations
     - Auto-assigns kepala sekolah as evaluator per organization
     - Auto-creates evaluation items for all active aspects
-    
+
     Only requires period_id - everything else is automated.
     """
-    return await service.assign_teachers_to_period(
-        assignment_data, current_user["id"]
-    )
+    return await service.assign_teachers_to_period(assignment_data, current_user["id"])
 
 
 # ===== STATISTICS AND ANALYTICS =====

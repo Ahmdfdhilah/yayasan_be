@@ -10,7 +10,6 @@ from ..utils.sanitize_html import sanitize_html_content
 
 if TYPE_CHECKING:
     from .user import User
-    from .user_role import UserRole
     from .media_file import MediaFile
 
 
@@ -41,7 +40,6 @@ class Organization(BaseModel, SQLModel, table=True):
         back_populates="organization",
         sa_relationship_kwargs={"foreign_keys": "User.organization_id"}
     )
-    user_roles: List["UserRole"] = Relationship(back_populates="organization")
     media_files: List["MediaFile"] = Relationship(back_populates="organization")
     
     @validator('description')

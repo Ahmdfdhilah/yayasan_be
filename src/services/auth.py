@@ -41,14 +41,13 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        # Create token data with user roles
-        user_roles_entities = await self.user_repo.get_user_roles(user.id)
-        user_roles = [role.role_name for role in user_roles_entities if role.is_active]
+        # Create token data with user role
+        user_role = user.role.value
         token_data = {
             "sub": str(user.id),
             "email": user.email,
             "name": user.full_name,
-            "roles": user_roles,
+            "role": user_role,
             "organization_id": user.organization_id,
             "type": "access"
         }
@@ -68,7 +67,7 @@ class AuthService:
         refresh_token = create_refresh_token(data=refresh_token_data)
         
         # Build user response
-        user_response = UserResponse.from_user_model(user, user_roles)
+        user_response = UserResponse.from_user_model(user, user_role)
         
         # Return token response
         return Token(
@@ -107,16 +106,15 @@ class AuthService:
                     detail=get_message("user", "not_found")
                 )
             
-            # Get user roles
-            user_roles_entities = await self.user_repo.get_user_roles(user.id)
-            user_roles = [role.role_name for role in user_roles_entities if role.is_active]
+            # Get user role
+            user_role = user.role.value
             
             # Create new access token
             token_data = {
                 "sub": str(user.id),
                 "email": user.email,
                 "name": user.full_name,
-                "roles": user_roles,
+                "role": user_role,
                 "organization_id": user.organization_id,
                 "type": "access"
             }
@@ -127,7 +125,7 @@ class AuthService:
                 expires_delta=access_token_expires
             )
             
-            user_response = UserResponse.from_user_model(user, user_roles)
+            user_response = UserResponse.from_user_model(user, user_role)
             
             return Token(
                 access_token=access_token,
@@ -308,8 +306,7 @@ class AuthService:
             return False
         
         if required_roles:
-            user_roles = user.get_roles()
-            return any(role in user_roles for role in required_roles)
+            return user.role.value in required_roles
         
         return True
     

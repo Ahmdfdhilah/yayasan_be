@@ -115,7 +115,7 @@ class MediaFileService:
         self, 
         file_id: int, 
         user_id: Optional[int] = None,
-        user_roles: List[str] = None,
+        user_role: str = None,
         user_organization_id: Optional[int] = None
     ) -> MediaFileResponse:
         """Get media file by ID."""
@@ -137,17 +137,17 @@ class MediaFileService:
                 )
             
             has_access = False
-            user_roles = user_roles or []
+            user_role = user_role or "guru"
             
             # Admin has full access
-            if "admin" in user_roles:
+            if user_role == "admin":
                 has_access = True
             # Kepala sekolah can access files from same organization
-            elif "kepala_sekolah" in user_roles:
+            elif user_role == "kepala_sekolah":
                 if user_organization_id and media_file.organization_id == user_organization_id:
                     has_access = True
             # Guru can only access their own files
-            elif "guru" in user_roles:
+            elif user_role == "guru":
                 if media_file.uploader_id == user_id:
                     has_access = True
             # File uploader can always access their own file
@@ -194,7 +194,7 @@ class MediaFileService:
         file_id: int, 
         file_data: MediaFileUpdate,
         user_id: int,
-        user_roles: List[str] = None,
+        user_role: str = None,
         user_organization_id: Optional[int] = None
     ) -> MediaFileResponse:
         """Update media file metadata."""
@@ -209,17 +209,17 @@ class MediaFileService:
         
         # Check access permissions
         has_access = False
-        user_roles = user_roles or []
+        user_role = user_role or "guru"
         
         # Admin has full access
-        if "admin" in user_roles:
+        if user_role == "admin":
             has_access = True
         # Kepala sekolah can update files from same organization
-        elif "kepala_sekolah" in user_roles:
+        elif user_role == "kepala_sekolah":
             if user_organization_id and media_file.organization_id == user_organization_id:
                 has_access = True
         # Guru can only update their own files
-        elif "guru" in user_roles:
+        elif user_role == "guru":
             if media_file.uploader_id == user_id:
                 has_access = True
         # File uploader can always update their own file
@@ -244,7 +244,7 @@ class MediaFileService:
         self, 
         file_id: int, 
         user_id: int,
-        user_roles: List[str] = None,
+        user_role: str = None,
         user_organization_id: Optional[int] = None
     ) -> MessageResponse:
         """Delete media file and remove from filesystem."""
@@ -259,17 +259,17 @@ class MediaFileService:
         
         # Check access permissions
         has_access = False
-        user_roles = user_roles or []
+        user_role = user_role or "guru"
         
         # Admin has full access
-        if "admin" in user_roles:
+        if user_role == "admin":
             has_access = True
         # Kepala sekolah can delete files from same organization
-        elif "kepala_sekolah" in user_roles:
+        elif user_role == "kepala_sekolah":
             if user_organization_id and media_file.organization_id == user_organization_id:
                 has_access = True
         # Guru can only delete their own files
-        elif "guru" in user_roles:
+        elif user_role == "guru":
             if media_file.uploader_id == user_id:
                 has_access = True
         # File uploader can always delete their own file
@@ -303,7 +303,7 @@ class MediaFileService:
         self, 
         file_id: int, 
         user_id: Optional[int] = None,
-        user_roles: List[str] = None,
+        user_role: str = None,
         user_organization_id: Optional[int] = None
     ) -> tuple[bytes, str, str]:
         """Get file content for download."""
@@ -326,17 +326,17 @@ class MediaFileService:
                 )
             
             has_access = False
-            user_roles = user_roles or []
+            user_role = user_role or "guru"
             
             # Admin has full access
-            if "admin" in user_roles:
+            if user_role == "admin":
                 has_access = True
             # Kepala sekolah can access files from same organization
-            elif "kepala_sekolah" in user_roles:
+            elif user_role == "kepala_sekolah":
                 if user_organization_id and media_file.organization_id == user_organization_id:
                     has_access = True
             # Guru can only access their own files
-            elif "guru" in user_roles:
+            elif user_role == "guru":
                 if media_file.uploader_id == user_id:
                     has_access = True
             # File uploader can always access their own file
@@ -393,7 +393,7 @@ class MediaFileService:
         self, 
         file_id: int, 
         user_id: Optional[int] = None,
-        user_roles: List[str] = None,
+        user_role: str = None,
         user_organization_id: Optional[int] = None
     ) -> MediaFileViewResponse:
         """Get file view information with static URL."""
@@ -415,17 +415,17 @@ class MediaFileService:
                 )
             
             has_access = False
-            user_roles = user_roles or []
+            user_role = user_role or "guru"
             
             # Admin has full access
-            if "admin" in user_roles:
+            if user_role == "admin":
                 has_access = True
             # Kepala sekolah can access files from same organization
-            elif "kepala_sekolah" in user_roles:
+            elif user_role == "kepala_sekolah":
                 if user_organization_id and media_file.organization_id == user_organization_id:
                     has_access = True
             # Guru can only access their own files
-            elif "guru" in user_roles:
+            elif user_role == "guru":
                 if media_file.uploader_id == user_id:
                     has_access = True
             # File uploader can always access their own file

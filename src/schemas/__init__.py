@@ -25,9 +25,6 @@ from .user import (
     TokenRefresh,
     PasswordReset,
     PasswordResetConfirm,
-    UserRoleCreate,
-    UserRoleUpdate,
-    UserRoleResponse,
 )
 
 # Filter schemas moved to individual schema files
@@ -88,9 +85,6 @@ __all__ = [
     "TokenRefresh",
     "PasswordReset",
     "PasswordResetConfirm",
-    "UserRoleCreate",
-    "UserRoleUpdate",
-    "UserRoleResponse",
     
     # Filters (now from individual schema files)
     "UserFilterParams",

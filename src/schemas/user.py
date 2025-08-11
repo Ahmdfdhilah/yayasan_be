@@ -15,6 +15,7 @@ class UserBase(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     profile: Dict[str, Any] = Field(..., description="User profile data as JSON")
     organization_id: Optional[int] = Field(None, description="Organization ID")
+    role: UserRole = Field(default=UserRole.GURU, description="User role")
     status: UserStatus = Field(default=UserStatus.ACTIVE, description="User status")
     
     @field_validator('email')
@@ -43,6 +44,7 @@ class UserUpdate(BaseModel):
     """Schema for updating a user (self-update, no email)."""
     profile: Optional[Dict[str, Any]] = None
     organization_id: Optional[int] = None
+    role: Optional[UserRole] = None
     status: Optional[UserStatus] = None
 
 
@@ -51,6 +53,7 @@ class AdminUserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     profile: Optional[Dict[str, Any]] = None
     organization_id: Optional[int] = None
+    role: Optional[UserRole] = None
     status: Optional[UserStatus] = None
     
     @field_validator('email')
@@ -75,6 +78,7 @@ class UserResponse(BaseModel):
     profile: Dict[str, Any]
     organization_id: Optional[int] = None
     organization_name: Optional[str] = Field(None, description="Organization name")
+    role: UserRole
     status: UserStatus
     last_login_at: Optional[datetime] = None
     created_at: datetime
@@ -83,10 +87,9 @@ class UserResponse(BaseModel):
     # Computed fields
     display_name: str = Field(..., description="Display name from profile")
     full_name: str = Field(..., description="Full name from profile")
-    roles: List[str] = Field(default_factory=list, description="User roles")
     
     @classmethod
-    def from_user_model(cls, user, roles: List[str] = None) -> "UserResponse":
+    def from_user_model(cls, user, role: str = None) -> "UserResponse":
         """Create UserResponse from User model."""
         organization_name = None
         # Check if organization is loaded and avoid lazy loading
@@ -103,13 +106,13 @@ class UserResponse(BaseModel):
             profile=user.profile or {},
             organization_id=user.organization_id,
             organization_name=organization_name,
+            role=user.role,
             status=user.status,
             last_login_at=user.last_login_at,
             created_at=user.created_at,
             updated_at=user.updated_at,
             display_name=user.display_name,
-            full_name=user.full_name,
-            roles=roles or []
+            full_name=user.full_name
         )
     
     model_config = ConfigDict(from_attributes=True)
@@ -127,7 +130,7 @@ class UserSummary(BaseModel):
     display_name: str
     organization_id: Optional[int] = None
     status: UserStatus
-    roles: List[str] = Field(default_factory=list)
+    role: UserRole
     is_active: bool
     last_login_at: Optional[datetime] = None
     
@@ -140,7 +143,7 @@ class UserSummary(BaseModel):
             display_name=user.display_name,
             organization_id=user.organization_id,
             status=user.status,
-            roles=user.get_roles() if hasattr(user, 'get_roles') else [],
+            role=user.role,
             is_active=user.is_active(),
             last_login_at=user.last_login_at
         )
@@ -181,37 +184,6 @@ class PasswordResetConfirm(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=128)
 
 
-# ===== ROLE MANAGEMENT SCHEMAS =====
-
-class UserRoleCreate(BaseModel):
-    """Schema for creating user role."""
-    user_id: int
-    role_name: str = Field(..., min_length=1, max_length=50)
-    permissions: Optional[Dict[str, Any]] = None
-    organization_id: Optional[int] = None
-    expires_at: Optional[datetime] = None
-
-
-class UserRoleUpdate(BaseModel):
-    """Schema for updating user role."""
-    permissions: Optional[Dict[str, Any]] = None
-    is_active: Optional[bool] = None
-    expires_at: Optional[datetime] = None
-
-
-class UserRoleResponse(BaseModel):
-    """Schema for user role response."""
-    id: int
-    user_id: int
-    role_name: str
-    permissions: Optional[Dict[str, Any]] = None
-    organization_id: Optional[int] = None
-    is_active: bool
-    expires_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    
-    model_config = ConfigDict(from_attributes=True)
 
 
 # ===== BASE FILTER SCHEMAS =====

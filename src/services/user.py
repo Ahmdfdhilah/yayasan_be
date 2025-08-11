@@ -22,15 +22,15 @@ class UserService:
     def __init__(self, user_repo: UserRepository):
         self.user_repo = user_repo
     
-    async def _get_user_roles(self, user_id: int) -> List[str]:
-        """Helper method to get user roles."""
-        user_roles_entities = await self.user_repo.get_user_roles(user_id)
-        return [role.role_name for role in user_roles_entities if role.is_active]
+    def _get_user_role(self, user: User) -> str:
+        """Helper method to get user role."""
+        return user.role.value
     
     async def create_user(self, user_data: UserCreate, organization_id: Optional[int] = None) -> UserResponse:
         """Create user with unified schema."""
         # Validate email uniqueness
-        if await self.user_repo.email_exists(user_data.email):
+        existing_user = await self.user_repo.get_by_email(user_data.email)
+        if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=get_message("user", "email_exists")
@@ -39,9 +39,9 @@ class UserService:
         # Create user in database
         user = await self.user_repo.create(user_data, organization_id)
         
-        # Convert to response with roles
-        user_roles = await self._get_user_roles(user.id)
-        return UserResponse.from_user_model(user, user_roles)
+        # Convert to response with role
+        user_role = self._get_user_role(user)
+        return UserResponse.from_user_model(user, user_role)
     
     async def get_user(self, user_id: int) -> UserResponse:
         """Get user by ID."""
@@ -51,16 +51,16 @@ class UserService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=get_message("user", "not_found")
             )
-        user_roles = await self._get_user_roles(user.id)
-        return UserResponse.from_user_model(user, user_roles)
+        user_role = self._get_user_role(user)
+        return UserResponse.from_user_model(user, user_role)
     
     async def get_user_by_email(self, email: str) -> Optional[UserResponse]:
         """Get user by email."""
         user = await self.user_repo.get_by_email(email)
         if not user:
             return None
-        user_roles = await self._get_user_roles(user.id)
-        return UserResponse.from_user_model(user, user_roles)
+        user_role = self._get_user_role(user)
+        return UserResponse.from_user_model(user, user_role)
     
     async def update_user(self, user_id: int, user_data: Union[UserUpdate, AdminUserUpdate]) -> UserResponse:
         """Update user information."""
@@ -73,11 +73,13 @@ class UserService:
             )
         
         # Validate email uniqueness if being updated
-        if hasattr(user_data, 'email') and user_data.email and await self.user_repo.email_exists(user_data.email, exclude_user_id=user_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=get_message("user", "email_exists")
-            )
+        if hasattr(user_data, 'email') and user_data.email:
+            existing_email_user = await self.user_repo.get_by_email(user_data.email)
+            if existing_email_user and existing_email_user.id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=get_message("user", "email_exists")
+                )
         
         # Update user in database
         updated_user = await self.user_repo.update(user_id, user_data)
@@ -159,8 +161,7 @@ class UserService:
             )
         
         # Check if user has admin role (prevent deleting last admin)
-        user_roles = user.get_roles()
-        if "admin" in user_roles:
+        if user.is_admin():
             admin_count = await self.user_repo.count_users_with_role("admin")
             if admin_count <= 1:
                 raise HTTPException(
@@ -176,13 +177,13 @@ class UserService:
     async def get_all_users_with_filters(self, filters: UserFilterParams) -> UserListResponse:
         """Get users with filters and pagination."""
         # Get users from repository
-        users, total = await self.user_repo.get_all_users_filtered(filters)
+        users, total = await self.user_repo.search(filters)
                 
-        # Convert to responses with roles
+        # Convert to responses with role
         user_responses = []
         for user in users:
-            user_roles = await self._get_user_roles(user.id)
-            user_responses.append(UserResponse.from_user_model(user, user_roles))
+            user_role = self._get_user_role(user)
+            user_responses.append(UserResponse.from_user_model(user, user_role))
         
         pages = (total + filters.size - 1) // filters.size if total > 0 else 0
 
@@ -197,11 +198,11 @@ class UserService:
     async def get_users_by_role(self, role_name: str) -> List[UserResponse]:
         """Get users by role name."""
         users = await self.user_repo.get_users_by_role(role_name)
-        # Convert to responses with roles
+        # Convert to responses with role
         user_responses = []
         for user in users:
-            user_roles = await self._get_user_roles(user.id)
-            user_responses.append(UserResponse.from_user_model(user, user_roles))
+            user_role = self._get_user_role(user)
+            user_responses.append(UserResponse.from_user_model(user, user_role))
         return user_responses
     
     async def authenticate_user(self, email: str, password: str) -> Optional[User]:
@@ -241,8 +242,7 @@ class UserService:
         # Check if it's the last admin
         user = await self.user_repo.get_by_id(user_id)
         if user:
-            user_roles = user.get_roles()
-            if "admin" in user_roles:
+            if user.is_admin():
                 admin_count = await self.user_repo.count_users_with_role("admin")
                 if admin_count <= 1:
                     raise HTTPException(

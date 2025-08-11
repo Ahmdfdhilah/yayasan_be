@@ -16,13 +16,10 @@ from sqlalchemy import text
 from src.core.database import get_db
 from src.repositories.user import UserRepository
 from src.repositories.organization import OrganizationRepository
-from src.repositories.user_role import UserRoleRepository
 from src.services.user import UserService
 from src.services.organization import OrganizationService
-from src.services.user_role import UserRoleService
 from src.schemas.user import UserCreate
 from src.schemas.organization import OrganizationCreate, OrganizationUpdate
-from src.schemas.user_role import UserRoleCreate
 from src.models.enums import UserStatus, UserRole as UserRoleEnum
 from src.models.article import Article
 from src.models.gallery import Gallery
@@ -42,10 +39,8 @@ class UserSeeder:
         self.session = session
         self.user_repo = UserRepository(session)
         self.org_repo = OrganizationRepository(session)
-        self.role_repo = UserRoleRepository(session)
         self.user_service = UserService(self.user_repo)
         self.org_service = OrganizationService(self.org_repo)
-        self.role_service = UserRoleService(self.role_repo, self.user_repo, self.org_repo)
         self.fake = Faker('id_ID')  # Indonesian faker
     
     async def create_organizations(self):
@@ -97,7 +92,7 @@ class UserSeeder:
             },
             "organization_id": None,
             "status": UserStatus.ACTIVE,
-            "roles": ["admin"]
+            "role": UserRoleEnum.ADMIN
         })
         
         # School data for generating realistic names
@@ -135,7 +130,7 @@ class UserSeeder:
                 },
                 "organization_id": org.id,
                 "status": UserStatus.ACTIVE,
-                "roles": ["kepala_sekolah"],
+                "role": UserRoleEnum.KEPALA_SEKOLAH,
                 "is_head": True
             })
             phone_counter += 1
@@ -169,7 +164,7 @@ class UserSeeder:
                 },
                 "organization_id": org.id,
                 "status": UserStatus.ACTIVE,
-                "roles": ["guru"]
+                "role": UserRoleEnum.GURU
             })
             phone_counter += 1
             nip_counter += 1
@@ -190,27 +185,13 @@ class UserSeeder:
                     password=user_data["password"],
                     profile=user_data["profile"],
                     organization_id=user_data["organization_id"],
-                    status=user_data["status"]
+                    status=user_data["status"],
+                    role=user_data["role"]
                 )
                 
                 user = await self.user_service.create_user(user_create, user_data["organization_id"])
                 created_users.append(user)
-                print(f"Created user: {user.email} - {user.profile.get('name')}")
-                
-                # Assign roles
-                for role_name in user_data["roles"]:
-                    try:
-                        role_create = UserRoleCreate(
-                            user_id=user.id,
-                            role_name=role_name,
-                            organization_id=user_data["organization_id"],
-                            is_active=True
-                        )
-                        
-                        role = await self.role_service.create_user_role(role_create)
-                        print(f"  -> Assigned role: {role_name}")
-                    except Exception as e:
-                        print(f"  -> Error assigning role {role_name}: {e}")
+                print(f"Created user: {user.email} - {user.profile.get('name')} - Role: {user.role}")
                 
             except Exception as e:
                 print(f"Error creating user {user_data['email']}: {e}")
@@ -286,18 +267,8 @@ class UserSeeder:
             },
         }
         
-        # Update role permissions
-        for role_name, permissions in role_permissions.items():
-            try:
-                # Get all user roles with this role name
-                user_roles = await self.role_repo.get_users_with_role(role_name, active_only=True)
-                
-                for user_role in user_roles:
-                    await self.role_repo.update_permissions(user_role.id, permissions)
-                    print(f"Updated permissions for role: {role_name}")
-                    
-            except Exception as e:
-                print(f"Error updating permissions for {role_name}: {e}")
+        # Update role permissions (no longer needed with single role system)
+        print("Role permissions are now handled at the application level")
     
     async def create_periods(self):
         """Create 16 academic periods from 2022 to 2029."""
@@ -772,16 +743,15 @@ class UserSeeder:
         user_total = user_count.scalar()
         print(f"Total users: {user_total}")
         
-        # Count roles
-        role_count = await self.session.execute(text("SELECT COUNT(*) FROM user_roles WHERE deleted_at IS NULL"))
-        role_total = role_count.scalar()
-        print(f"Total role assignments: {role_total}")
-        
-        # List users by role
-        roles = ["admin", "kepala_sekolah", "guru"]
-        for role_name in roles:
-            users_with_role = await self.role_repo.get_users_with_role(role_name, active_only=True)
-            print(f"{role_name}: {len(users_with_role)} users")
+        # List users by role (using single role system)
+        roles = [UserRoleEnum.ADMIN, UserRoleEnum.KEPALA_SEKOLAH, UserRoleEnum.GURU]
+        for role_enum in roles:
+            users_with_role = await self.session.execute(
+                text("SELECT COUNT(*) FROM users WHERE role = :role_name AND deleted_at IS NULL"),
+                {"role_name": role_enum.value}
+            )
+            count = users_with_role.scalar()
+            print(f"{role_enum.value}: {count} users")
     
     async def clear_all_data(self):
         """Clear all seeded data."""
@@ -804,8 +774,7 @@ class UserSeeder:
             await self.session.execute(text("DELETE FROM teacher_evaluations"))
             await self.session.execute(text("DELETE FROM periods"))
             
-            # Clear user-related tables
-            await self.session.execute(text("DELETE FROM user_roles"))
+            # Clear user table (user_roles table no longer exists)
             await self.session.execute(text("DELETE FROM users"))
             await self.session.execute(text("DELETE FROM organizations"))
             

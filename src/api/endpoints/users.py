@@ -13,25 +13,14 @@ from src.schemas.user import (
     AdminUserUpdate,
     UserResponse,
     UserListResponse,
-    UserSummary,
     UserChangePassword,
-    UserRoleCreate,
-    UserRoleUpdate,
-    UserRoleResponse,
 )
 from src.schemas.shared import MessageResponse
 from src.schemas.user import UserFilterParams
-from src.auth.permissions import get_current_active_user, require_roles
+from src.auth.permissions import get_current_active_user, require_roles, admin_or_kepala_sekolah, admin_required
 from src.utils.messages import get_message
 
 router = APIRouter()
-
-# Dependency for admin-only endpoints
-admin_required = require_roles(["admin"])
-
-# Dependency for admin and manager endpoints
-admin_or_manager = require_roles(["admin", "kepala_sekolah"])
-
 
 async def get_user_service(session: AsyncSession = Depends(get_db)) -> UserService:
     """Get user service dependency."""
@@ -119,11 +108,10 @@ async def update_my_profile_field(
 
 # ===== ADMIN USER MANAGEMENT =====
 
-
 @router.get(
     "",
     response_model=UserListResponse,
-    dependencies=[Depends(admin_or_manager)],
+    dependencies=[Depends(admin_or_kepala_sekolah)],
     summary="List all users",
 )
 async def list_users(
@@ -302,7 +290,7 @@ async def update_user_profile(
 
 @router.get(
     "/{user_id}/profile/{field_name}",
-    dependencies=[Depends(admin_or_manager)],
+    dependencies=[Depends(admin_or_kepala_sekolah)],
     summary="Get user profile field",
 )
 async def get_user_profile_field(
@@ -343,7 +331,7 @@ async def update_user_profile_field(
 
 @router.get(
     "/statistics/overview",
-    dependencies=[Depends(admin_or_manager)],
+    dependencies=[Depends(admin_or_kepala_sekolah)],
     summary="Get user statistics",
 )
 async def get_user_statistics(user_service: UserService = Depends(get_user_service)):
@@ -358,7 +346,7 @@ async def get_user_statistics(user_service: UserService = Depends(get_user_servi
 @router.get(
     "/by-role/{role_name}",
     response_model=list[UserResponse],
-    dependencies=[Depends(admin_or_manager)],
+    dependencies=[Depends(admin_or_kepala_sekolah)],
     summary="Get users by role",
 )
 async def get_users_by_role(
@@ -378,7 +366,7 @@ async def get_users_by_role(
 @router.get(
     "/search/by-email",
     response_model=UserResponse,
-    dependencies=[Depends(admin_or_manager)],
+    dependencies=[Depends(admin_or_kepala_sekolah)],
     summary="Find user by email",
 )
 async def find_user_by_email(

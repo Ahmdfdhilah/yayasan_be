@@ -79,15 +79,13 @@ async def get_current_user(
                 detail="User account is deactivated"
             )
 
-        # Get user roles from user_roles relationship
-        active_roles = [role.role_name for role in user.user_roles if role.is_active]
-        primary_role = active_roles[0] if active_roles else None
+        # Get user role (single role system)
+        user_role = user.role
         
         user_data = {
             "id": user.id,
             "email": user.email,
-            "role": primary_role,           # Primary role string
-            "roles": active_roles,          # Array of all active roles
+            "role": user_role,              # Single role string
             "organization_id": user.organization_id,
             "is_active": user.is_active,
             "profile": user.profile or {}
@@ -132,13 +130,13 @@ def require_roles(required_roles: List[str]):
     async def _check_roles(
         current_user: Dict = Depends(get_current_active_user),
     ) -> Dict:
-        user_roles = current_user.get("roles", [])
+        user_role = current_user.get("role")
         
         # Check if user has any of the required roles
-        if not any(role in required_roles for role in user_roles):
+        if user_role not in required_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required roles: {', '.join(required_roles)}. Your roles: {', '.join(user_roles)}",
+                detail=f"Access denied. Required roles: {', '.join(required_roles)}. Your role: {user_role}",
             )
         
         return current_user
@@ -149,94 +147,99 @@ def require_roles(required_roles: List[str]):
 # ===== PKG ROLE-BASED DEPENDENCIES =====
 
 # Admin - Administrative functions
-admin_required = require_roles(["admin"])
+admin_required = require_roles(["ADMIN"])
 
 # Kepala Sekolah - School principal, primary evaluator and RPP reviewer
-kepala_sekolah_required = require_roles(["kepala_sekolah"])
+kepala_sekolah_required = require_roles(["KEPALA_SEKOLAH"])
 
 # Guru - Teachers who submit RPPs and receive evaluations
-guru_required = require_roles(["guru"])
+guru_required = require_roles(["GURU"])
 
 # Combined role dependencies for common access patterns
-management_roles_required = require_roles([ "admin", "kepala_sekolah"])
-evaluator_roles_required = require_roles([ "admin", "kepala_sekolah"])
-media_manager_roles_required = require_roles(["admin"])
+management_roles_required = require_roles(["ADMIN", "KEPALA_SEKOLAH"])
+evaluator_roles_required = require_roles(["ADMIN", "KEPALA_SEKOLAH"])
+media_manager_roles_required = require_roles(["ADMIN"])
+
+# RPP Submission specific dependencies
+guru_or_kepala_sekolah = require_roles(["GURU", "KEPALA_SEKOLAH"])
+admin_or_kepala_sekolah = require_roles(["ADMIN", "KEPALA_SEKOLAH"])
+any_authorized_user = require_roles(["ADMIN", "KEPALA_SEKOLAH", "GURU"])
 
 
 # ===== PKG BUSINESS PROCESS PERMISSIONS =====
 
 def require_rpp_submission_access():
     """Require access to submit RPP (only Guru)."""
-    return require_roles(["guru"])
+    return require_roles(["GURU"])
 
 
 def require_rpp_review_access():
     """Require access to review RPP (Kepala Sekolah, Admin)."""
-    return require_roles(["admin", "kepala_sekolah"])
+    return require_roles(["ADMIN", "KEPALA_SEKOLAH"])
 
 
 def require_evaluation_create_access():
     """Require access to create teacher evaluations (evaluators)."""
-    return require_roles(["admin", "kepala_sekolah"])
+    return require_roles(["ADMIN", "KEPALA_SEKOLAH"])
 
 
 def require_evaluation_view_access():
     """Require access to view evaluation results."""
-    return require_roles([ "admin", "kepala_sekolah", "guru"])
+    return require_roles(["ADMIN", "KEPALA_SEKOLAH", "GURU"])
 
 
 def require_evaluation_aspect_management():
     """Require access to manage evaluation aspects."""
-    return require_roles([ "admin", "kepala_sekolah"])
+    return require_roles(["ADMIN", "KEPALA_SEKOLAH"])
 
 
 def require_user_management_access():
     """Require access to manage users."""
-    return require_roles([ "admin"])
+    return require_roles(["ADMIN"])
 
 
 def require_organization_management_access():
     """Require access to manage organizations."""
-    return require_roles(["admin"])
+    return require_roles(["ADMIN"])
 
 
 def require_media_management_access():
     """Require access to manage media files."""
-    return require_roles([ "admin"])
+    return require_roles(["ADMIN"])
 
 
 def require_analytics_access():
     """Require access to view analytics and reports."""
-    return require_roles([ "admin", "kepala_sekolah"])
+    return require_roles(["ADMIN", "KEPALA_SEKOLAH"])
 
 
 # ===== PKG UTILITY FUNCTIONS =====
 
 def has_role(user: Dict, role: str) -> bool:
     """Check if user has specific role."""
-    user_roles = user.get("roles", [])
-    return role in user_roles
+    user_role = user.get("role")
+    return user_role == role
 
 
 def has_any_role(user: Dict, roles: List[str]) -> bool:
     """Check if user has any of the specified roles."""
-    user_roles = user.get("roles", [])
-    return any(role in user_roles for role in roles)
+    user_role = user.get("role")
+    return user_role in roles
 
 
 def is_admin(user: Dict) -> bool:
     """Check if user is admin."""
-    return has_role(user, "admin")
+    return has_role(user, "ADMIN")
 
 
 def is_kepala_sekolah(user: Dict) -> bool:
     """Check if user is kepala sekolah (school principal)."""
-    return has_role(user, "kepala_sekolah")
+    return has_role(user, "KEPALA_SEKOLAH")
 
 
 def is_guru(user: Dict) -> bool:
     """Check if user is guru (teacher)."""
-    return has_role(user, "guru")
+    return has_role(user, "GURU")
 
 
 def is_evaluator(user: Dict) -> bool:
@@ -245,27 +248,27 @@ def is_evaluator(user: Dict) -> bool:
     - Admins can evaluate kepala sekolah
     - Kepala sekolah can evaluate teachers in their organization
     """
-    return has_any_role(user, ["admin", "kepala_sekolah"])
+    return has_any_role(user, ["ADMIN", "KEPALA_SEKOLAH"])
 
 
 def is_rpp_reviewer(user: Dict) -> bool:
     """Check if user can review RPP submissions."""
-    return has_any_role(user, ["admin"])
+    return has_any_role(user, ["ADMIN"])
 
 
 def can_manage_users(user: Dict) -> bool:
     """Check if user can manage other users."""
-    return has_any_role(user, ["super_admin", "admin"])
+    return has_any_role(user, ["SUPER_ADMIN", "ADMIN"])
 
 
 def can_manage_organization(user: Dict) -> bool:
     """Check if user can manage organization settings."""
-    return has_any_role(user, ["super_admin", "admin"])
+    return has_any_role(user, ["SUPER_ADMIN", "ADMIN"])
 
 
 def can_access_analytics(user: Dict) -> bool:
     """Check if user can access analytics and reports."""
-    return has_any_role(user, ["admin"])
+    return has_any_role(user, ["ADMIN"])
 
 
 # ===== ORGANIZATIONAL BOUNDARY CHECKS =====
@@ -358,13 +361,13 @@ def get_rate_limit_by_role(user: Dict) -> int:
     """
     Get rate limit based on user role.
     """
-    user_roles = user.get("roles", [])
+    user_role = user.get("role")
     
-    if "admin" in user_roles:
+    if user_role == "ADMIN":
         return 1000  # High limit for admins
-    elif "kepala_sekolah" in user_roles:
+    elif user_role == "KEPALA_SEKOLAH":
         return 500   # Medium limit for school principals
-    elif "guru" in user_roles:
+    elif user_role == "GURU":
         return 200   # Standard limit for teachers
     else:
         return 100   # Basic limit for other roles
@@ -490,7 +493,7 @@ def get_user_permissions_summary(user: Dict) -> Dict[str, Any]:
         "can_create_evaluations": is_evaluator(user),
         "can_manage_users": can_manage_users(user),
         "can_manage_organization": can_manage_organization(user),
-        "can_manage_media": has_any_role(user, ["admin"]),
+        "can_manage_media": has_any_role(user, ["ADMIN"]),
         "can_access_analytics": can_access_analytics(user),
         "rate_limit": get_rate_limit_by_role(user)
     }

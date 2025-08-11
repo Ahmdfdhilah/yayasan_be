@@ -7,11 +7,10 @@ from sqlmodel import Field, SQLModel, Column, JSON, Relationship
 from sqlalchemy import Enum as SQLEnum
 
 from .base import BaseModel
-from .enums import UserStatus
+from .enums import UserStatus, UserRole
 
 if TYPE_CHECKING:
     from .organization import Organization
-    from .user_role import UserRole
     from .media_file import MediaFile
     from .rpp_submission import RPPSubmission
     from .rpp_submission_item import RPPSubmissionItem
@@ -40,7 +39,11 @@ class User(BaseModel, SQLModel, table=True):
         index=True
     )
     
-    # Status and authentication
+    # Role and status
+    role: UserRole = Field(
+        sa_column=Column(SQLEnum(UserRole, name='userrole'), nullable=False, default=UserRole.GURU),
+        description="User role: guru, kepala_sekolah, admin"
+    )
     status: UserStatus = Field(
         sa_column=Column(SQLEnum(UserStatus), nullable=False, default=UserStatus.ACTIVE),
         description="User status: active, inactive, or suspended"
@@ -53,7 +56,6 @@ class User(BaseModel, SQLModel, table=True):
         back_populates="users",
         sa_relationship_kwargs={"foreign_keys": "User.organization_id"}
     )
-    user_roles: List["UserRole"] = Relationship(back_populates="user")
     uploaded_files: List["MediaFile"] = Relationship(back_populates="uploader")
     
     # PKG System relationships - with explicit foreign_keys for SQLAlchemy
@@ -129,21 +131,21 @@ class User(BaseModel, SQLModel, table=True):
             self.profile = {}
         self.profile[key] = value
     
-    def get_roles(self) -> List[str]:
-        """Get all role names for this user."""
-        return [role.role_name for role in self.user_roles if role.is_active]
-    
     def has_role(self, role_name: str) -> bool:
         """Check if user has specific role."""
-        return role_name in self.get_roles()
+        return self.role.value == role_name
     
-    def has_permission(self, permission: str) -> bool:
-        """Check if user has specific permission."""
-        for role in self.user_roles:
-            if role.is_active and role.permissions and isinstance(role.permissions, dict):
-                if permission in role.permissions:
-                    return True
-        return False
+    def is_admin(self) -> bool:
+        """Check if user is admin."""
+        return self.role == UserRole.ADMIN
+    
+    def is_guru(self) -> bool:
+        """Check if user is guru."""
+        return self.role == UserRole.GURU
+    
+    def is_kepala_sekolah(self) -> bool:
+        """Check if user is kepala sekolah."""
+        return self.role == UserRole.KEPALA_SEKOLAH
 
 
 class PasswordResetToken(BaseModel, SQLModel, table=True):

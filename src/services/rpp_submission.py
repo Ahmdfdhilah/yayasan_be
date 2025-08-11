@@ -69,6 +69,9 @@ class RPPSubmissionService:
             id=item.id,
             teacher_id=item.teacher_id,
             period_id=item.period_id,
+            rpp_submission_id=item.rpp_submission_id,
+            name=item.name,
+            description=item.description,
             file_id=item.file_id,
             uploaded_at=item.uploaded_at,
             is_uploaded=item.is_uploaded,
@@ -308,10 +311,19 @@ class RPPSubmissionService:
         file_info = await self.media_repo.get_file_by_id(file_id)
         default_name = f"RPP File - {file_info.file_name}" if file_info else "RPP File"
         
+        # Get submission for this teacher/period to set rpp_submission_id
+        submission = await self.rpp_repo.get_submission_by_teacher_period(teacher_id, period_id)
+        if not submission:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=get_message("submission.not_found")
+            )
+        
         # Create new submission item for this upload
         item_data = RPPSubmissionItemCreate(
             teacher_id=teacher_id,
             period_id=period_id,
+            rpp_submission_id=submission.id,
             name=default_name,
             description=f"Auto-created for file upload: {file_info.file_name}" if file_info else None,
             file_id=file_id
@@ -344,6 +356,7 @@ class RPPSubmissionService:
         item_data = RPPSubmissionItemCreate(
             teacher_id=teacher_id,
             period_id=period_id,
+            rpp_submission_id=submission.id,
             name=name,
             description=description,
             file_id=None

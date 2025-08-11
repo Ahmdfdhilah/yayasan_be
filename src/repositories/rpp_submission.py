@@ -45,7 +45,7 @@ class RPPSubmissionRepository:
             selectinload(RPPSubmission.teacher).selectinload(User.organization),
             selectinload(RPPSubmission.reviewer),
             selectinload(RPPSubmission.period),
-            selectinload(RPPSubmission.items).selectinload(RPPSubmissionItem.file)
+            selectinload(RPPSubmission.items.and_(RPPSubmissionItem.deleted_at.is_(None))).selectinload(RPPSubmissionItem.file)
         ).where(
             and_(RPPSubmission.id == submission_id, RPPSubmission.deleted_at.is_(None))
         )
@@ -61,7 +61,7 @@ class RPPSubmissionRepository:
             selectinload(RPPSubmission.teacher).selectinload(User.organization),
             selectinload(RPPSubmission.reviewer),
             selectinload(RPPSubmission.period),
-            selectinload(RPPSubmission.items).selectinload(RPPSubmissionItem.file)
+            selectinload(RPPSubmission.items.and_(RPPSubmissionItem.deleted_at.is_(None))).selectinload(RPPSubmissionItem.file)
         ).where(
             and_(
                 RPPSubmission.teacher_id == teacher_id,
@@ -163,6 +163,7 @@ class RPPSubmissionRepository:
         item = RPPSubmissionItem(
             teacher_id=item_data.teacher_id,
             period_id=item_data.period_id,
+            rpp_submission_id=item_data.rpp_submission_id,
             name=item_data.name,
             description=item_data.description,
             file_id=item_data.file_id

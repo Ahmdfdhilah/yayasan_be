@@ -14,6 +14,7 @@ class RPPSubmissionItemBase(BaseModel):
     """Base schema for RPP submission item."""
     teacher_id: int = Field(..., description="Teacher user ID")
     period_id: int = Field(..., description="Period ID")
+    rpp_submission_id: Optional[int] = Field(None, description="RPP submission ID")
     name: str = Field(..., max_length=255, description="Name/title of the RPP item")
     description: Optional[str] = Field(None, max_length=1000, description="Optional description for the RPP item")
     file_id: Optional[int] = Field(None, description="Uploaded file ID")
@@ -40,6 +41,7 @@ class RPPSubmissionItemResponse(BaseModel):
     id: int
     teacher_id: int
     period_id: int
+    rpp_submission_id: Optional[int] = None
     name: str = Field(..., description="Name/title of the RPP item")
     description: Optional[str] = Field(None, description="Description of the RPP item")
     file_id: Optional[int] = None

@@ -81,6 +81,26 @@ class UserService:
                     detail=get_message("user", "email_exists")
                 )
         
+        # Handle password update for admin users
+        password_updated = False
+        if isinstance(user_data, AdminUserUpdate) and user_data.password:
+            # Hash the new password
+            hashed_password = get_password_hash(user_data.password)
+            await self.user_repo.update_password(user_id, hashed_password)
+            password_updated = True
+            # Remove password from update data to avoid passing it to the main update
+            user_data_dict = user_data.model_dump(exclude_unset=True)
+            user_data_dict.pop('password', None)
+            # Create new AdminUserUpdate without password
+            from pydantic import BaseModel
+            class TempUpdate(BaseModel):
+                email: Optional[str] = None
+                profile: Optional[Dict[str, Any]] = None
+                organization_id: Optional[int] = None
+                role: Optional[UserRole] = None
+                status: Optional[UserStatus] = None
+            user_data = TempUpdate(**user_data_dict)
+        
         # Update user in database
         updated_user = await self.user_repo.update(user_id, user_data)
         if not updated_user:
@@ -149,6 +169,28 @@ class UserService:
             )
         
         return MessageResponse(message=f"Password reset to default for user {user.display_name}")
+    
+    async def set_user_password(self, user_id: int, new_password: str) -> MessageResponse:
+        """Set user password to specific value (admin only)."""
+        # Get user
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=get_message("user", "not_found")
+            )
+        
+        # Set new password
+        new_hashed_password = get_password_hash(new_password)
+        success = await self.user_repo.update_password(user_id, new_hashed_password)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to set password"
+            )
+        
+        return MessageResponse(message=f"Password set successfully for user {user.display_name}")
     
     async def delete_user(self, user_id: int) -> MessageResponse:
         """Soft delete user."""

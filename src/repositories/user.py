@@ -97,6 +97,17 @@ class UserRepository:
         await self.session.commit()
         return result.rowcount > 0
     
+    async def update_password(self, user_id: int, hashed_password: str) -> bool:
+        """Update user password with already hashed password."""
+        query = (
+            update(User)
+            .where(User.id == user_id)
+            .values(password=hashed_password, updated_at=datetime.utcnow())
+        )
+        result = await self.session.execute(query)
+        await self.session.commit()
+        return result.rowcount > 0
+    
     async def soft_delete(self, user_id: int) -> bool:
         """Soft delete user."""
         query = (

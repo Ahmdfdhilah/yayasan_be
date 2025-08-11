@@ -11,6 +11,7 @@ from src.schemas.user import (
     UserCreate,
     UserUpdate,
     AdminUserUpdate,
+    AdminSetUserPassword,
     UserResponse,
     UserListResponse,
     UserChangePassword,
@@ -213,6 +214,25 @@ async def reset_user_password(
     Requires admin role.
     """
     return await user_service.reset_user_password(user_id)
+
+
+@router.post(
+    "/{user_id}/set-password",
+    response_model=MessageResponse,
+    dependencies=[Depends(admin_required)],
+    summary="Set user password",
+)
+async def set_user_password(
+    user_id: int,
+    password_data: AdminSetUserPassword,
+    user_service: UserService = Depends(get_user_service)
+):
+    """
+    Set user password to a specific value.
+
+    Requires admin role.
+    """
+    return await user_service.set_user_password(user_id, password_data.new_password)
 
 
 @router.post(

@@ -55,12 +55,18 @@ class AdminUserUpdate(BaseModel):
     organization_id: Optional[int] = None
     role: Optional[UserRole] = None
     status: Optional[UserStatus] = None
+    password: Optional[str] = Field(None, min_length=6, max_length=128, description="New password (admin only)")
     
     @field_validator('email')
     @classmethod
     def validate_email(cls, email: Optional[str]) -> Optional[str]:
         """Validate and normalize email if provided."""
         return email.lower().strip() if email else None
+
+
+class AdminSetUserPassword(BaseModel):
+    """Schema for admin setting user password."""
+    new_password: str = Field(..., min_length=6, max_length=128, description="New password to set")
 
 
 class UserChangePassword(BaseModel):

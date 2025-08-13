@@ -14,6 +14,7 @@ class UserBase(BaseModel):
     """Base user schema with unified fields."""
     email: EmailStr = Field(..., description="User email address")
     profile: Dict[str, Any] = Field(..., description="User profile data as JSON")
+    img_url: Optional[str] = Field(None, max_length=500, description="User profile image URL")
     organization_id: Optional[int] = Field(None, description="Organization ID")
     role: UserRole = Field(default=UserRole.GURU, description="User role")
     status: UserStatus = Field(default=UserStatus.ACTIVE, description="User status")
@@ -43,6 +44,7 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     """Schema for updating a user (self-update, no email)."""
     profile: Optional[Dict[str, Any]] = None
+    img_url: Optional[str] = Field(None, max_length=500, description="User profile image URL")
     organization_id: Optional[int] = None
     role: Optional[UserRole] = None
     status: Optional[UserStatus] = None
@@ -52,6 +54,7 @@ class AdminUserUpdate(BaseModel):
     """Schema for admin updating a user (includes email)."""
     email: Optional[EmailStr] = None
     profile: Optional[Dict[str, Any]] = None
+    img_url: Optional[str] = Field(None, max_length=500, description="User profile image URL")
     organization_id: Optional[int] = None
     role: Optional[UserRole] = None
     status: Optional[UserStatus] = None
@@ -82,6 +85,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     profile: Dict[str, Any]
+    img_url: Optional[str] = Field(None, description="User profile image URL")
     organization_id: Optional[int] = None
     organization_name: Optional[str] = Field(None, description="Organization name")
     role: UserRole
@@ -110,6 +114,7 @@ class UserResponse(BaseModel):
             id=user.id,
             email=user.email,
             profile=user.profile or {},
+            img_url=user.img_url,
             organization_id=user.organization_id,
             organization_name=organization_name,
             role=user.role,

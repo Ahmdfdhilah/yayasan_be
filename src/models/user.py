@@ -32,6 +32,9 @@ class User(BaseModel, SQLModel, table=True):
         description="User profile: name, phone, address, etc"
     )
     
+    # Profile image URL (direct file upload)
+    img_url: Optional[str] = Field(max_length=500, default=None, description="User profile image URL")
+    
     # Organization relationship
     organization_id: Optional[int] = Field(
         default=None, 

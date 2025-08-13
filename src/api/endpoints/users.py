@@ -1,7 +1,7 @@
 """User management endpoints for unified schema system."""
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from typing import Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
+from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -20,6 +20,13 @@ from src.schemas.shared import MessageResponse
 from src.schemas.user import UserFilterParams
 from src.auth.permissions import get_current_active_user, require_roles, admin_or_kepala_sekolah, admin_required
 from src.utils.messages import get_message
+from src.utils.direct_file_upload import (
+    DirectFileUploader, 
+    get_user_multipart, 
+    get_user_multipart_update,
+    process_image_upload,
+    merge_data_with_image_url
+)
 
 router = APIRouter()
 
@@ -107,6 +114,36 @@ async def update_my_profile_field(
     )
 
 
+@router.put("/me/multipart", response_model=UserResponse, summary="Update current user profile with image")
+async def update_my_profile_multipart(
+    multipart_data: Tuple[Dict[str, Any], Optional[UploadFile]] = Depends(get_user_multipart_update()),
+    current_user: dict = Depends(get_current_active_user),
+    user_service: UserService = Depends(get_user_service),
+):
+    """
+    Update current user's profile with optional image upload.
+    
+    Allows users to update their profile data along with an optional profile image.
+    """
+    json_data, image = multipart_data
+    
+    # Process image upload if provided
+    uploader = DirectFileUploader()
+    image_url = await process_image_upload(image, "users", uploader)
+    
+    # Merge image URL with JSON data
+    update_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Users cannot change their own status or organization
+    update_data.pop('status', None)
+    update_data.pop('organization_id', None)
+    
+    # Convert to UserUpdate schema
+    user_update = UserUpdate(**update_data)
+    
+    return await user_service.update_user(current_user["id"], user_update)
+
+
 # ===== ADMIN USER MANAGEMENT =====
 
 @router.get(
@@ -148,6 +185,39 @@ async def create_user(
     return await user_service.create_user(user_data, organization_id)
 
 
+@router.post(
+    "/multipart",
+    response_model=UserResponse,
+    dependencies=[Depends(admin_required)],
+    summary="Create new user with image",
+)
+async def create_user_multipart(
+    multipart_data: Tuple[Dict[str, Any], Optional[UploadFile]] = Depends(get_user_multipart()),
+    organization_id: Optional[int] = Query(
+        None, description="Organization ID for the user"
+    ),
+    user_service: UserService = Depends(get_user_service),
+):
+    """
+    Create a new user with optional profile image.
+
+    Requires admin role.
+    """
+    json_data, image = multipart_data
+    
+    # Process image upload if provided
+    uploader = DirectFileUploader()
+    image_url = await process_image_upload(image, "users", uploader)
+    
+    # Merge image URL with JSON data
+    create_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Convert to UserCreate schema
+    user_create = UserCreate(**create_data)
+    
+    return await user_service.create_user(user_create, organization_id)
+
+
 @router.get(
     "/{user_id}",
     response_model=UserResponse,
@@ -180,6 +250,37 @@ async def update_user(
     Requires admin role. Allows updating email, profile, status, and organization.
     """
     return await user_service.update_user(user_id, user_data)
+
+
+@router.put(
+    "/{user_id}/multipart",
+    response_model=UserResponse,
+    dependencies=[Depends(admin_required)],
+    summary="Update user with image",
+)
+async def update_user_multipart(
+    user_id: int,
+    multipart_data: Tuple[Dict[str, Any], Optional[UploadFile]] = Depends(get_user_multipart_update()),
+    user_service: UserService = Depends(get_user_service),
+):
+    """
+    Update user information with optional image upload (admin operation).
+
+    Requires admin role. Allows updating email, profile, status, organization, and image.
+    """
+    json_data, image = multipart_data
+    
+    # Process image upload if provided
+    uploader = DirectFileUploader()
+    image_url = await process_image_upload(image, "users", uploader)
+    
+    # Merge image URL with JSON data
+    update_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Convert to AdminUserUpdate schema
+    admin_user_update = AdminUserUpdate(**update_data)
+    
+    return await user_service.update_user(user_id, admin_user_update)
 
 
 @router.delete(

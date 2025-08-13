@@ -287,3 +287,25 @@ def get_organization_multipart_update():
         json_data = parse_json_form_data(data)
         return json_data, image
     return _get_data
+
+
+def get_user_multipart():
+    """Dependency for user multipart form data (image optional)."""
+    def _get_data(
+        data: str = Form(..., description="JSON data for user"),
+        image: Optional[UploadFile] = File(None, description="User profile image file (optional)")
+    ) -> Tuple[Dict[str, Any], Optional[UploadFile]]:
+        json_data = parse_json_form_data(data)
+        return json_data, image
+    return _get_data
+
+
+def get_user_multipart_update():
+    """Dependency for user multipart form data (image optional for updates)."""
+    def _get_data(
+        data: str = Form(..., description="JSON data for user"),
+        image: Optional[UploadFile] = File(None, description="User profile image file (optional)")
+    ) -> Tuple[Dict[str, Any], Optional[UploadFile]]:
+        json_data = parse_json_form_data(data)
+        return json_data, image
+    return _get_data

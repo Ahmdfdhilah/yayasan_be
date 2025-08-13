@@ -58,11 +58,12 @@ async def update_my_profile(
     """
     Update current user's own profile information.
 
-    Users can only update their own profile data (not roles or organization).
+    Users can update their own profile data and email (but not roles or organization).
     """
-    # Users cannot change their own status or organization
+    # Users cannot change their own status, organization, or role
     user_data.status = None
     user_data.organization_id = None
+    user_data.role = None
 
     return await user_service.update_user(current_user["id"], user_data)
 
@@ -134,9 +135,10 @@ async def update_my_profile_multipart(
     # Merge image URL with JSON data
     update_data = merge_data_with_image_url(json_data, image_url)
     
-    # Users cannot change their own status or organization
+    # Users cannot change their own status, organization, or role
     update_data.pop('status', None)
     update_data.pop('organization_id', None)
+    update_data.pop('role', None)
     
     # Convert to UserUpdate schema
     user_update = UserUpdate(**update_data)

@@ -42,12 +42,19 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    """Schema for updating a user (self-update, no email)."""
+    """Schema for updating a user (self-update, now includes email)."""
+    email: Optional[EmailStr] = Field(None, description="User email address")
     profile: Optional[Dict[str, Any]] = None
     img_url: Optional[str] = Field(None, max_length=500, description="User profile image URL")
     organization_id: Optional[int] = None
     role: Optional[UserRole] = None
     status: Optional[UserStatus] = None
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, email: Optional[str]) -> Optional[str]:
+        """Validate and normalize email if provided."""
+        return email.lower().strip() if email else None
 
 
 class AdminUserUpdate(BaseModel):

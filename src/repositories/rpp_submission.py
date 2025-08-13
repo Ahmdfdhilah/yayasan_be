@@ -217,6 +217,27 @@ class RPPSubmissionRepository:
         await self.session.commit()
         return result.scalar_one_or_none()
     
+    async def update_submission_item_details(
+        self, item_id: int, name: str, description: Optional[str] = None
+    ) -> Optional[RPPSubmissionItem]:
+        """Update submission item name and description."""
+        query = (
+            update(RPPSubmissionItem)
+            .where(
+                and_(RPPSubmissionItem.id == item_id, RPPSubmissionItem.deleted_at.is_(None))
+            )
+            .values(
+                name=name,
+                description=description,
+                updated_at=datetime.utcnow()
+            )
+            .returning(RPPSubmissionItem)
+        )
+        
+        result = await self.session.execute(query)
+        await self.session.commit()
+        return result.scalar_one_or_none()
+    
     async def delete_submission_item(self, item_id: int) -> bool:
         """Delete submission item (soft delete)."""
         query = (

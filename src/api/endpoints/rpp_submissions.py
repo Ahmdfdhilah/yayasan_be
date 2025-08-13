@@ -17,6 +17,7 @@ from src.schemas.rpp_submission import (
     RPPSubmissionItemResponse,
     RPPSubmissionItemUpdate,
     RPPSubmissionItemCreateRequest,
+    RPPSubmissionItemUpdateRequest,
     RPPSubmissionSubmitRequest,
     RPPSubmissionReviewRequest,
     GenerateRPPSubmissionsRequest,
@@ -193,6 +194,27 @@ async def upload_file_to_item(
         item_id=item_id,
         file_id=file_data.file_id,
         teacher_id=current_user["id"],
+    )
+
+
+@router.put(
+    "/my-submission-item/{item_id}/details",
+    response_model=RPPSubmissionItemResponse,
+    summary="Update RPP submission item details",
+    dependencies=[Depends(guru_or_kepala_sekolah)],
+)
+async def update_submission_item_details(
+    item_id: int = Path(..., description="Submission item ID"),
+    update_data: RPPSubmissionItemUpdateRequest = ...,
+    current_user: dict = Depends(get_current_active_user),
+    rpp_service: RPPSubmissionService = Depends(get_rpp_submission_service),
+):
+    """Update name and description of an RPP submission item."""
+    return await rpp_service.update_rpp_submission_item_details(
+        item_id=item_id,
+        teacher_id=current_user["id"],
+        name=update_data.name,
+        description=update_data.description,
     )
 
 

@@ -135,26 +135,25 @@ class RPPSubmissionService:
         
         # Check reviewer role based on submitter role
         if submitter_role == "GURU":
-            # Guru's RPP should be reviewed by kepala sekolah
+            # Guru's RPP should be reviewed by kepala sekolah (not admin)
             if not user.has_role("KEPALA_SEKOLAH"):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="RPP guru harus ditinjau oleh kepala sekolah"
                 )
         elif submitter_role == "KEPALA_SEKOLAH":
-            # Kepala sekolah's RPP should be reviewed by admin
+            # Kepala sekolah's RPP should be reviewed by admin (not kepala sekolah)
             if not user.has_role("ADMIN"):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="RPP kepala sekolah harus ditinjau oleh admin"
                 )
         else:
-            # Default: require admin or kepala sekolah
-            if not (user.has_role("ADMIN") or user.has_role("KEPALA_SEKOLAH")):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Reviewer harus admin atau kepala sekolah"
-                )
+            # Invalid submitter role
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Role submitter tidak valid untuk review"
+            )
     
     # ===== SUBMISSION OPERATIONS =====
     
@@ -267,6 +266,13 @@ class RPPSubmissionService:
         # Get submitter's single role (new system)
         submitter_role = submitter.role.value if submitter.role else None
         
+        # Prevent self-review
+        if submission.teacher_id == reviewer_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Anda tidak dapat meninjau submission Anda sendiri"
+            )
+        
         # Validate reviewer based on submitter role
         await self._validate_reviewer_exists(reviewer_id, submitter_role)
         
@@ -368,6 +374,43 @@ class RPPSubmissionService:
         
         # Update item with file
         updated_item = await self.rpp_repo.update_submission_item_file(item_id, file_id)
+        if not updated_item:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Gagal update RPP submission item"
+            )
+        
+        return self._convert_item_to_response(updated_item)
+    
+    async def update_rpp_submission_item_details(
+        self, item_id: int, teacher_id: int, name: str, description: Optional[str] = None
+    ) -> RPPSubmissionItemResponse:
+        """Update RPP submission item name and description."""
+        # Get item to validate existence and ownership
+        item = await self.rpp_repo.get_submission_item_by_id(item_id)
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="RPP submission item tidak ditemukan"
+            )
+        
+        # Validate ownership
+        if item.teacher_id != teacher_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=get_message("submission.access_denied")
+            )
+        
+        # Check if submission is still in DRAFT status
+        submission = await self.rpp_repo.get_submission_by_teacher_period(teacher_id, item.period_id)
+        if submission and submission.status != RPPSubmissionStatus.DRAFT:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=get_message("submission.cannot_modify_submitted")
+            )
+        
+        # Update item details
+        updated_item = await self.rpp_repo.update_submission_item_details(item_id, name, description)
         if not updated_item:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

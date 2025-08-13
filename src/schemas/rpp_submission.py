@@ -31,6 +31,12 @@ class RPPSubmissionItemCreateRequest(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Optional description for the RPP item")
 
 
+class RPPSubmissionItemUpdateRequest(BaseModel):
+    """Schema for updating RPP submission item details via API."""
+    name: str = Field(..., max_length=255, description="Name/title of the RPP item")
+    description: Optional[str] = Field(None, max_length=1000, description="Optional description for the RPP item")
+
+
 class RPPSubmissionItemUpdate(BaseModel):
     """Schema for updating RPP submission item (file upload)."""
     file_id: int = Field(..., description="Uploaded file ID")

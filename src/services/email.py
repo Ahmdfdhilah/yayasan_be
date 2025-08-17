@@ -177,9 +177,9 @@ class EmailService:
         test_success = await self._send_email(
             to_email=self.smtp_username,  # Send to self
             to_name="Test User",
-            subject="Test Email - Government Auth System",
-            html_content="<h1>Test Email</h1><p>This is a test email to verify Gmail SMTP configuration.</p>",
-            text_content="Test Email\n\nThis is a test email to verify Gmail SMTP configuration."
+            subject="Test Email - Yayasan Baitul Muslim Lampung Timur",
+            html_content="<h1>Test Email</h1><p>Ini adalah email test untuk memverifikasi konfigurasi SMTP sistem yayasan.</p>",
+            text_content="Test Email\n\nIni adalah email test untuk memverifikasi konfigurasi SMTP sistem yayasan."
         )
         
         return {

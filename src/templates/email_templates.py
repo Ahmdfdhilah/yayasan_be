@@ -10,53 +10,72 @@ class EmailTemplates:
     @staticmethod
     def password_reset_template(nama: str, reset_link: str) -> Dict[str, Any]:
         return {
-            "subject": "Reset Password - Government Auth System",
+            "subject": "Reset Kata Sandi - Yayasan Baitul Muslim Lampung Timur",
             "htmlContent": f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
-                <title>Reset Password</title>
+                <title>Reset Kata Sandi - Yayasan Baitul Muslim</title>
                 <style>
                     body {{
-                        font-family: Arial, sans-serif;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                         margin: 0;
                         padding: 20px;
-                        background-color: #f5f5f5;
+                        background-color: #f8fafc;
                     }}
                     .container {{
                         max-width: 600px;
                         margin: 0 auto;
                         background-color: white;
                         padding: 30px;
-                        border-radius: 8px;
-                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                        border-radius: 12px;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
                     }}
                     .header {{
                         text-align: center;
                         margin-bottom: 30px;
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 20px;
                     }}
                     .logo {{
-                        font-size: 24px;
+                        font-size: 26px;
                         font-weight: bold;
-                        color: #2563eb;
+                        color: #1e40af;
+                        margin-bottom: 5px;
+                    }}
+                    .subtitle {{
+                        font-size: 14px;
+                        color: #64748b;
                     }}
                     .content {{
                         line-height: 1.6;
-                        color: #333;
+                        color: #334155;
                     }}
                     .footer {{
                         margin-top: 30px;
                         padding-top: 20px;
-                        border-top: 1px solid #eee;
+                        border-top: 1px solid #e2e8f0;
                         font-size: 12px;
-                        color: #666;
+                        color: #64748b;
+                        text-align: center;
                     }}
                     .warning {{
                         background-color: #fef3c7;
-                        border: 1px solid #f59e0b;
+                        border-left: 4px solid #f59e0b;
                         padding: 15px;
                         border-radius: 5px;
+                        margin: 20px 0;
+                    }}
+                    .btn {{
+                        display: inline-block;
+                        padding: 12px 28px;
+                        background-color: #1e40af;
+                        color: #ffffff;
+                        font-size: 14px;
+                        font-weight: 600;
+                        text-decoration: none;
+                        border-radius: 8px;
                         margin: 20px 0;
                     }}
                 </style>
@@ -64,67 +83,69 @@ class EmailTemplates:
             <body>
                 <div class="container">
                     <div class="header">
-                        <div class="logo">Government Auth System</div>
+                        <div class="logo">🕌 Yayasan Baitul Muslim</div>
+                        <div class="subtitle">Lembaga Pendidikan Islam Terpadu - Lampung Timur</div>
                     </div>
 
                     <div class="content">
-                        <h2>Reset Password Request</h2>
-                        <p>Dear {nama},</p>
+                        <h2 style="color: #1e40af;">Permintaan Reset Kata Sandi</h2>
+                        <p>Yth. <strong>{nama}</strong>,</p>
 
-                        <p>Kami menerima permintaan untuk reset password akun Anda. Jika Anda tidak melakukan permintaan ini, silakan abaikan email ini.</p>
+                        <p>Kami menerima permintaan untuk mengatur ulang kata sandi akun Anda di sistem Yayasan Baitul Muslim Lampung Timur. Jika Anda tidak melakukan permintaan ini, mohon abaikan email ini.</p>
 
-                        <p>Untuk reset password, silakan klik tombol di bawah ini:</p>
+                        <p>Untuk mengatur ulang kata sandi Anda, silakan klik tombol di bawah ini:</p>
 
                         <div style="text-align: center;">
-                            <a href="{reset_link}" style="display: inline-block; padding: 10px 24px; background-color: #2563eb; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 6px;">
-                                Reset Password
+                            <a href="{reset_link}" class="btn">
+                                🔑 Reset Kata Sandi
                             </a>
                         </div>
 
-                        <p>Atau copy dan paste link berikut ke browser Anda:</p>
-                        <p style="word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;">
+                        <p>Atau salin dan tempel tautan berikut ke browser Anda:</p>
+                        <p style="word-break: break-all; background-color: #f1f5f9; padding: 12px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 13px;">
                             {reset_link}
                         </p>
 
                         <div class="warning">
-                            <strong>⚠️ Penting:</strong>
-                            <ul>
-                                <li>Link ini hanya berlaku selama 1 jam</li>
-                                <li>Link hanya dapat digunakan sekali</li>
-                                <li>Jangan bagikan link ini kepada siapa pun</li>
+                            <strong>⚠️ Perhatian Penting:</strong>
+                            <ul style="margin: 10px 0;">
+                                <li>Tautan ini hanya berlaku selama <strong>1 jam</strong></li>
+                                <li>Tautan hanya dapat digunakan <strong>satu kali</strong></li>
+                                <li>Jangan bagikan tautan ini kepada siapa pun demi keamanan akun Anda</li>
                             </ul>
                         </div>
+
+                        <p><strong>Butuh bantuan?</strong> Silakan hubungi administrator yayasan atau tim IT support kami.</p>
                     </div>
 
                     <div class="footer">
                         <p>Email ini dikirim secara otomatis, mohon tidak membalas email ini.</p>
-                        <p>Jika Anda mengalami masalah, silakan hubungi administrator sistem.</p>
-                        <p>&copy; 2025 Sistem Evaluasi Perwadag. All rights reserved.</p>
+                        <p>© 2025 Yayasan Baitul Muslim Lampung Timur. Hak cipta dilindungi undang-undang.</p>
                     </div>
                 </div>
             </body>
             </html>
             """,
             "textContent": f"""
-            Reset Password - Government Auth System
+            Reset Kata Sandi - Yayasan Baitul Muslim Lampung Timur
 
-            Dear {nama},
+            Yth. {nama},
 
-            Kami menerima permintaan untuk reset password akun Anda. Jika Anda tidak melakukan permintaan ini, silakan abaikan email ini.
+            Kami menerima permintaan untuk mengatur ulang kata sandi akun Anda di sistem Yayasan Baitul Muslim Lampung Timur. Jika Anda tidak melakukan permintaan ini, mohon abaikan email ini.
 
-            Untuk reset password, silakan buka link berikut:
+            Untuk mengatur ulang kata sandi, silakan buka tautan berikut:
             {reset_link}
 
-            PENTING:
-            - Link ini hanya berlaku selama 1 jam
-            - Link hanya dapat digunakan sekali
-            - Jangan bagikan link ini kepada siapa pun
+            PERHATIAN PENTING:
+            - Tautan ini hanya berlaku selama 1 jam
+            - Tautan hanya dapat digunakan satu kali
+            - Jangan bagikan tautan ini kepada siapa pun demi keamanan akun Anda
 
-            Jika Anda mengalami masalah, silakan hubungi administrator sistem.
+            Butuh bantuan? Silakan hubungi administrator sekolah atau tim IT support.
 
             Email ini dikirim secara otomatis, mohon tidak membalas email ini.
 
-            © 2024 Government Auth System. All rights reserved.
+            © 2025 Yayasan Baitul Muslim Lampung Timur. Hak cipta dilindungi undang-undang.
             """
         }
 
@@ -141,76 +162,133 @@ class EmailTemplates:
             Email template data untuk Brevo API
         """
         return {
-            "subject": "Password Reset Successful - Government Auth System",
+            "subject": "Kata Sandi Berhasil Direset - Yayasan Baitul Muslim Lampung Timur",
             "htmlContent": f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
-                <title>Password Reset Successful</title>
+                <title>Kata Sandi Berhasil Direset - Yayasan Baitul Muslim</title>
                 <style>
-                    body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }}
-                    .container {{ max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-                    .header {{ text-align: center; margin-bottom: 30px; }}
-                    .logo {{ font-size: 24px; font-weight: bold; color: #2563eb; }}
-                    .content {{ line-height: 1.6; color: #333; }}
-                    .success {{ background-color: #d1fae5; border: 1px solid #10b981; padding: 15px; border-radius: 5px; margin: 20px 0; }}
-                    .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }}
+                    body {{
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        margin: 0;
+                        padding: 20px;
+                        background-color: #f8fafc;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        background-color: white;
+                        padding: 30px;
+                        border-radius: 12px;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                    }}
+                    .header {{
+                        text-align: center;
+                        margin-bottom: 30px;
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 20px;
+                    }}
+                    .logo {{
+                        font-size: 26px;
+                        font-weight: bold;
+                        color: #1e40af;
+                        margin-bottom: 5px;
+                    }}
+                    .subtitle {{
+                        font-size: 14px;
+                        color: #64748b;
+                    }}
+                    .content {{
+                        line-height: 1.6;
+                        color: #334155;
+                    }}
+                    .success {{
+                        background-color: #d1fae5;
+                        border-left: 4px solid #10b981;
+                        padding: 15px;
+                        border-radius: 5px;
+                        margin: 20px 0;
+                    }}
+                    .security-tips {{
+                        background-color: #f0f9ff;
+                        border-left: 4px solid #0ea5e9;
+                        padding: 15px;
+                        border-radius: 5px;
+                        margin: 20px 0;
+                    }}
+                    .footer {{
+                        margin-top: 30px;
+                        padding-top: 20px;
+                        border-top: 1px solid #e2e8f0;
+                        font-size: 12px;
+                        color: #64748b;
+                        text-align: center;
+                    }}
                 </style>
             </head>
             <body>
                 <div class="container">
                     <div class="header">
-                        <div class="logo">Government Auth System</div>
+                        <div class="logo">🕌 Yayasan Baitul Muslim</div>
+                        <div class="subtitle">Lembaga Pendidikan Islam Terpadu - Lampung Timur</div>
                     </div>
                     
                     <div class="content">
-                        <h2>Password Reset Successful</h2>
-                        <p>Dear {nama},</p>
+                        <h2 style="color: #1e40af;">Kata Sandi Berhasil Direset</h2>
+                        <p>Yth. <strong>{nama}</strong>,</p>
                         
                         <div class="success">
-                            <strong>✅ Password Anda telah berhasil direset!</strong>
+                            <strong>✅ Kata sandi Anda telah berhasil direset!</strong>
                         </div>
                         
-                        <p>Password akun Anda telah berhasil diubah. Anda sekarang dapat login dengan password baru Anda.</p>
+                        <p>Kata sandi akun Anda di sistem Yayasan Baitul Muslim Lampung Timur telah berhasil diubah. Anda sekarang dapat masuk kembali menggunakan kata sandi baru Anda.</p>
                         
-                        <p>Jika Anda tidak melakukan perubahan password ini, segera hubungi administrator sistem untuk keamanan akun Anda.</p>
+                        <p>⚠️ <strong>Jika Anda tidak melakukan perubahan kata sandi ini</strong>, segera hubungi administrator yayasan atau tim IT support kami untuk keamanan akun Anda.</p>
                         
-                        <p><strong>Tips Keamanan:</strong></p>
-                        <ul>
-                            <li>Gunakan password yang kuat dan unik</li>
-                            <li>Jangan bagikan password kepada siapa pun</li>
-                            <li>Logout dari semua perangkat setelah menggunakan</li>
-                        </ul>
+                        <div class="security-tips">
+                            <p><strong>💡 Tips Keamanan Akun:</strong></p>
+                            <ul style="margin: 10px 0;">
+                                <li>Gunakan kata sandi yang kuat dan unik (minimal 8 karakter dengan kombinasi huruf, angka, dan simbol)</li>
+                                <li>Jangan bagikan kata sandi kepada siapa pun, termasuk rekan kerja</li>
+                                <li>Keluar dari sistem setelah selesai menggunakan, terutama di komputer bersama</li>
+                                <li>Ubah kata sandi secara berkala untuk menjaga keamanan</li>
+                            </ul>
+                        </div>
+
+                        <p><strong>Butuh bantuan?</strong> Silakan hubungi administrator yayasan atau tim IT support kami jika Anda mengalami kesulitan.</p>
                     </div>
                     
                     <div class="footer">
                         <p>Email ini dikirim secara otomatis, mohon tidak membalas email ini.</p>
-                        <p>Jika Anda mengalami masalah, silakan hubungi administrator sistem.</p>
-                        <p>&copy; 2024 Government Auth System. All rights reserved.</p>
+                        <p>© 2025 Yayasan Baitul Muslim Lampung Timur. Hak cipta dilindungi undang-undang.</p>
                     </div>
                 </div>
             </body>
             </html>
             """,
             "textContent": f"""
-            Password Reset Successful - Government Auth System
+            Kata Sandi Berhasil Direset - Yayasan Baitul Muslim Lampung Timur
             
-            Dear {nama},
+            Yth. {nama},
             
-            ✅ Password Anda telah berhasil direset!
+            ✅ Kata sandi Anda telah berhasil direset!
             
-            Password akun Anda telah berhasil diubah. Anda sekarang dapat login dengan password baru Anda.
+            Kata sandi akun Anda di sistem Yayasan Baitul Muslim Lampung Timur telah berhasil diubah. Anda sekarang dapat masuk kembali menggunakan kata sandi baru Anda.
             
-            Jika Anda tidak melakukan perubahan password ini, segera hubungi administrator sistem untuk keamanan akun Anda.
+            ⚠️ Jika Anda tidak melakukan perubahan kata sandi ini, segera hubungi administrator yayasan atau tim IT support kami untuk keamanan akun Anda.
             
-            Tips Keamanan:
-            - Gunakan password yang kuat dan unik
-            - Jangan bagikan password kepada siapa pun
-            - Logout dari semua perangkat setelah menggunakan
+            Tips Keamanan Akun:
+            - Gunakan kata sandi yang kuat dan unik (minimal 8 karakter dengan kombinasi huruf, angka, dan simbol)
+            - Jangan bagikan kata sandi kepada siapa pun, termasuk rekan kerja
+            - Keluar dari sistem setelah selesai menggunakan, terutama di komputer bersama
+            - Ubah kata sandi secara berkala untuk menjaga keamanan
+            
+            Butuh bantuan? Silakan hubungi administrator yayasan atau tim IT support kami jika Anda mengalami kesulitan.
             
             Email ini dikirim secara otomatis, mohon tidak membalas email ini.
             
-            © 2025 Sistem Evaluasi Perwadag. All rights reserved.
+            © 2025 Yayasan Baitul Muslim Lampung Timur. Hak cipta dilindungi undang-undang.
             """
         }

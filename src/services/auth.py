@@ -179,11 +179,12 @@ class AuthService:
         
         # Save token to database
         try:
-            await self.user_repo.create_password_reset_token(
-                user.id,
-                token,
-                expires_at
-            )
+            token_data = {
+                "user_id": user.id,
+                "token": token,
+                "expires_at": expires_at
+            }
+            await self.user_repo.create_password_reset_token(token_data)
             logger.info(f"Password reset token created for user: {user.full_name}")
         except Exception as e:
             logger.error(f"Failed to create password reset token for {mask_email(user.email)}: {str(e)}")

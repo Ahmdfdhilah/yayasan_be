@@ -72,7 +72,7 @@ class DashboardService:
                 )
         
         # Route to appropriate dashboard based on role
-        if user_role == "ADMIN":
+        if user_role in ["SUPER_ADMIN", "ADMIN"]:
             return await self._get_admin_dashboard(user_obj, filters, period)
         elif user_role == "KEPALA_SEKOLAH":
             return await self._get_principal_dashboard(user_obj, filters, period)
@@ -214,7 +214,7 @@ class DashboardService:
             rpp_stats=rpp_stats,
             evaluation_stats=eval_stats,
             organizations=org_summaries,
-            user_role="ADMIN",
+            user_role=user_obj.role,  # Use actual user role (SUPER_ADMIN or ADMIN)
             organization_name=None,
             last_updated=datetime.utcnow(),
             system_overview=system_overview,

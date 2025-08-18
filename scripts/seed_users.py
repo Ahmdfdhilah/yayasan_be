@@ -80,6 +80,21 @@ class UserSeeder:
         
         users_data = []
         
+        # Super Admin (highest level)
+        users_data.append({
+            "email": "superadmin@tafatur.id",
+            "password": "@Password123",
+            "profile": {
+                "name": "Super Administrator",
+                "phone": "081234567890",
+                "address": "Jakarta, Indonesia",
+                "position": "Super Administrator"
+            },
+            "organization_id": None,
+            "status": UserStatus.ACTIVE,
+            "role": UserRoleEnum.SUPER_ADMIN
+        })
+        
         # System Admin
         users_data.append({
             "email": "admin@tafatur.id",
@@ -744,7 +759,7 @@ class UserSeeder:
         print(f"Total users: {user_total}")
         
         # List users by role (using single role system)
-        roles = [UserRoleEnum.ADMIN, UserRoleEnum.KEPALA_SEKOLAH, UserRoleEnum.GURU]
+        roles = [UserRoleEnum.SUPER_ADMIN, UserRoleEnum.ADMIN, UserRoleEnum.KEPALA_SEKOLAH, UserRoleEnum.GURU]
         for role_enum in roles:
             users_with_role = await self.session.execute(
                 text("SELECT COUNT(*) FROM users WHERE role = :role_name AND deleted_at IS NULL"),
@@ -845,6 +860,7 @@ class UserSeeder:
                 member_count = len([m for m in board_members if hasattr(m, 'group_id') and m.group_id == group.id])
                 print(f"  - {group_name}: {member_count} members")
             print("\nLogin credentials:")
+            print("Super Admin: superadmin@tafatur.id / @Password123")
             print("Admin: admin@tafatur.id / @Password123")
             print("Kepala Sekolah: kepsek@[school-domain].sch.id / @Password123")
             print("Guru: guru[1-10]@[school-domain].sch.id / @Password123")

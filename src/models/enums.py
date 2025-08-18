@@ -5,6 +5,7 @@ from enum import Enum
 
 class UserRole(str, Enum):
     """User role enum for role-based access control."""
+    SUPER_ADMIN = "SUPER_ADMIN"
     ADMIN = "ADMIN"
     GURU = "GURU"
     KEPALA_SEKOLAH = "KEPALA_SEKOLAH"

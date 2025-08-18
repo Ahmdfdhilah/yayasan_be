@@ -146,8 +146,8 @@ def require_roles(required_roles: List[str]):
 
 # ===== PKG ROLE-BASED DEPENDENCIES =====
 
-# Admin - Administrative functions
-admin_required = require_roles(["ADMIN"])
+# Admin - Administrative functions (includes SUPER_ADMIN)
+admin_required = require_roles(["SUPER_ADMIN", "ADMIN"])
 
 # Kepala Sekolah - School principal, primary evaluator and RPP reviewer
 kepala_sekolah_required = require_roles(["KEPALA_SEKOLAH"])
@@ -156,14 +156,14 @@ kepala_sekolah_required = require_roles(["KEPALA_SEKOLAH"])
 guru_required = require_roles(["GURU"])
 
 # Combined role dependencies for common access patterns
-management_roles_required = require_roles(["ADMIN", "KEPALA_SEKOLAH"])
-evaluator_roles_required = require_roles(["ADMIN", "KEPALA_SEKOLAH"])
-media_manager_roles_required = require_roles(["ADMIN"])
+management_roles_required = require_roles(["SUPER_ADMIN", "ADMIN", "KEPALA_SEKOLAH"])
+evaluator_roles_required = require_roles(["SUPER_ADMIN", "ADMIN", "KEPALA_SEKOLAH"])
+media_manager_roles_required = require_roles(["SUPER_ADMIN", "ADMIN"])
 
 # RPP Submission specific dependencies
 guru_or_kepala_sekolah = require_roles(["GURU", "KEPALA_SEKOLAH"])
-admin_or_kepala_sekolah = require_roles(["ADMIN", "KEPALA_SEKOLAH"])
-any_authorized_user = require_roles(["ADMIN", "KEPALA_SEKOLAH", "GURU"])
+admin_or_kepala_sekolah = require_roles(["SUPER_ADMIN", "ADMIN", "KEPALA_SEKOLAH"])
+any_authorized_user = require_roles(["SUPER_ADMIN", "ADMIN", "KEPALA_SEKOLAH", "GURU"])
 
 
 # ===== PKG BUSINESS PROCESS PERMISSIONS =====
@@ -174,43 +174,43 @@ def require_rpp_submission_access():
 
 
 def require_rpp_review_access():
-    """Require access to review RPP (Kepala Sekolah, Admin)."""
-    return require_roles(["ADMIN", "KEPALA_SEKOLAH"])
+    """Require access to review RPP (Kepala Sekolah, Admin, Super Admin)."""
+    return require_roles(["SUPER_ADMIN", "ADMIN", "KEPALA_SEKOLAH"])
 
 
 def require_evaluation_create_access():
     """Require access to create teacher evaluations (evaluators)."""
-    return require_roles(["ADMIN", "KEPALA_SEKOLAH"])
+    return require_roles(["SUPER_ADMIN", "ADMIN", "KEPALA_SEKOLAH"])
 
 
 def require_evaluation_view_access():
     """Require access to view evaluation results."""
-    return require_roles(["ADMIN", "KEPALA_SEKOLAH", "GURU"])
+    return require_roles(["SUPER_ADMIN", "ADMIN", "KEPALA_SEKOLAH", "GURU"])
 
 
 def require_evaluation_aspect_management():
     """Require access to manage evaluation aspects."""
-    return require_roles(["ADMIN", "KEPALA_SEKOLAH"])
+    return require_roles(["SUPER_ADMIN", "ADMIN", "KEPALA_SEKOLAH"])
 
 
 def require_user_management_access():
     """Require access to manage users."""
-    return require_roles(["ADMIN"])
+    return require_roles(["SUPER_ADMIN", "ADMIN"])
 
 
 def require_organization_management_access():
     """Require access to manage organizations."""
-    return require_roles(["ADMIN"])
+    return require_roles(["SUPER_ADMIN", "ADMIN"])
 
 
 def require_media_management_access():
     """Require access to manage media files."""
-    return require_roles(["ADMIN"])
+    return require_roles(["SUPER_ADMIN", "ADMIN"])
 
 
 def require_analytics_access():
     """Require access to view analytics and reports."""
-    return require_roles(["ADMIN", "KEPALA_SEKOLAH"])
+    return require_roles(["SUPER_ADMIN", "ADMIN", "KEPALA_SEKOLAH"])
 
 
 # ===== PKG UTILITY FUNCTIONS =====
@@ -227,9 +227,14 @@ def has_any_role(user: Dict, roles: List[str]) -> bool:
     return user_role in roles
 
 
+def is_super_admin(user: Dict) -> bool:
+    """Check if user is super admin."""
+    return has_role(user, "SUPER_ADMIN")
+
+
 def is_admin(user: Dict) -> bool:
-    """Check if user is admin."""
-    return has_role(user, "ADMIN")
+    """Check if user is admin (includes super admin)."""
+    return has_any_role(user, ["SUPER_ADMIN", "ADMIN"])
 
 
 def is_kepala_sekolah(user: Dict) -> bool:
@@ -245,15 +250,16 @@ def is_guru(user: Dict) -> bool:
 def is_evaluator(user: Dict) -> bool:
     """Check if user can perform evaluations.
     
+    - Super Admins can evaluate everyone
     - Admins can evaluate kepala sekolah
     - Kepala sekolah can evaluate teachers in their organization
     """
-    return has_any_role(user, ["ADMIN", "KEPALA_SEKOLAH"])
+    return has_any_role(user, ["SUPER_ADMIN", "ADMIN", "KEPALA_SEKOLAH"])
 
 
 def is_rpp_reviewer(user: Dict) -> bool:
     """Check if user can review RPP submissions."""
-    return has_any_role(user, ["ADMIN"])
+    return has_any_role(user, ["SUPER_ADMIN", "ADMIN"])
 
 
 def can_manage_users(user: Dict) -> bool:
@@ -268,7 +274,7 @@ def can_manage_organization(user: Dict) -> bool:
 
 def can_access_analytics(user: Dict) -> bool:
     """Check if user can access analytics and reports."""
-    return has_any_role(user, ["ADMIN"])
+    return has_any_role(user, ["SUPER_ADMIN", "ADMIN"])
 
 
 # ===== ORGANIZATIONAL BOUNDARY CHECKS =====
@@ -493,7 +499,7 @@ def get_user_permissions_summary(user: Dict) -> Dict[str, Any]:
         "can_create_evaluations": is_evaluator(user),
         "can_manage_users": can_manage_users(user),
         "can_manage_organization": can_manage_organization(user),
-        "can_manage_media": has_any_role(user, ["ADMIN"]),
+        "can_manage_media": has_any_role(user, ["SUPER_ADMIN", "ADMIN"]),
         "can_access_analytics": can_access_analytics(user),
         "rate_limit": get_rate_limit_by_role(user)
     }

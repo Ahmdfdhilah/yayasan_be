@@ -291,8 +291,8 @@ async def get_pending_reviews(
     )
     
     # Role-based filtering
-    if user_role == "ADMIN":
-        # Admin can see all pending submissions (especially from kepala sekolah)
+    if user_role in ["SUPER_ADMIN", "ADMIN"]:
+        # Super Admin and Admin can see all pending submissions (especially from kepala sekolah)
         pass
     elif user_role == "KEPALA_SEKOLAH":
         # Kepala sekolah can only see guru submissions from their organization
@@ -364,7 +364,7 @@ async def get_submissions(
 
     # Role-based access control
     user_role = current_user.get("role")
-    if user_role != "ADMIN":
+    if user_role not in ["SUPER_ADMIN", "ADMIN"]:
         if user_role == "KEPALA_SEKOLAH":
             # Kepala sekolah can see submissions in their organization
             filters.organization_id = current_user.get("organization_id")
@@ -395,7 +395,7 @@ async def get_submission(
 
     # Role-based access control
     user_role = current_user.get("role")
-    if user_role != "ADMIN":
+    if user_role not in ["SUPER_ADMIN", "ADMIN"]:
         if user_role == "GURU":
             # Teachers can only see their own submissions
             if submission.teacher_id != current_user["id"]:
@@ -432,7 +432,7 @@ async def get_submission_statistics(
     - Kepala Sekolah: Can see statistics for their organization
     """
     organization_id = None
-    if current_user.get("role") != "ADMIN":
+    if current_user.get("role") not in ["SUPER_ADMIN", "ADMIN"]:
         organization_id = current_user.get("organization_id")
 
     return await rpp_service.get_submission_statistics(period_id, organization_id)
@@ -457,7 +457,7 @@ async def get_dashboard_overview(
     - Guru: Personal submissions + organization overview
     """
     organization_id = None
-    if current_user.get("role") != "ADMIN":
+    if current_user.get("role") not in ["SUPER_ADMIN", "ADMIN"]:
         organization_id = current_user.get("organization_id")
 
     return await rpp_service.get_dashboard_data(current_user["id"], organization_id)
@@ -494,7 +494,7 @@ async def get_submission_items(
 
     # Role-based access control
     user_role = current_user.get("role")
-    if user_role != "ADMIN":
+    if user_role not in ["SUPER_ADMIN", "ADMIN"]:
         if user_role == "KEPALA_SEKOLAH":
             filters.organization_id = current_user.get("organization_id")
         elif user_role == "GURU":

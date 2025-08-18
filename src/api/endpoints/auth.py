@@ -199,7 +199,7 @@ async def check_password_reset_eligibility(
     Requires admin role or user checking their own eligibility.
     """
     # Check if user is admin or checking their own eligibility
-    if current_user["id"] != user_id and current_user.get("role") != "ADMIN":
+    if current_user["id"] != user_id and current_user.get("role") not in ["SUPER_ADMIN", "ADMIN"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=get_message("auth", "not_authorized_check_password_reset")
@@ -218,7 +218,7 @@ async def get_default_password_info(
     
     Requires admin role.
     """
-    if current_user.get("role") != "ADMIN":
+    if current_user.get("role") not in ["SUPER_ADMIN", "ADMIN"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=get_message("auth", "admin_role_required")

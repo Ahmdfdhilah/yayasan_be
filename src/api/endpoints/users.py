@@ -1,7 +1,7 @@
 """User management endpoints for unified schema system."""
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -166,6 +166,32 @@ async def list_users(
     return await user_service.get_all_users_with_filters(filters)
 
 
+@router.get(
+    "/allowed-roles",
+    response_model=List[str],
+    summary="Get allowed roles for current user"
+)
+async def get_allowed_roles(
+    current_user: dict = Depends(get_current_active_user)
+):
+    """
+    Get list of roles that current user is allowed to assign to other users.
+    
+    **Role restrictions:**
+    - **SUPER_ADMIN**: Can assign any role including ADMIN and SUPER_ADMIN
+    - **ADMIN**: Can only assign GURU and KEPALA_SEKOLAH roles
+    - **Others**: Cannot assign roles
+    """
+    current_role = current_user.get("role")
+    
+    if current_role == "SUPER_ADMIN":
+        return ["ADMIN", "GURU", "KEPALA_SEKOLAH"]  # SUPER_ADMIN removed from UI
+    elif current_role == "ADMIN":
+        return ["GURU", "KEPALA_SEKOLAH"]
+    else:
+        return []  # Other roles cannot assign roles
+
+
 @router.post(
     "",
     response_model=UserResponse,
@@ -177,6 +203,7 @@ async def create_user(
     organization_id: Optional[int] = Query(
         None, description="Organization ID for the user"
     ),
+    current_user: dict = Depends(get_current_active_user),
     user_service: UserService = Depends(get_user_service),
 ):
     """
@@ -184,7 +211,7 @@ async def create_user(
 
     Requires admin role.
     """
-    return await user_service.create_user(user_data, organization_id)
+    return await user_service.create_user(user_data, organization_id, current_user["id"])
 
 
 @router.post(
@@ -198,6 +225,7 @@ async def create_user_multipart(
     organization_id: Optional[int] = Query(
         None, description="Organization ID for the user"
     ),
+    current_user: dict = Depends(get_current_active_user),
     user_service: UserService = Depends(get_user_service),
 ):
     """
@@ -217,7 +245,7 @@ async def create_user_multipart(
     # Convert to UserCreate schema
     user_create = UserCreate(**create_data)
     
-    return await user_service.create_user(user_create, organization_id)
+    return await user_service.create_user(user_create, organization_id, current_user["id"])
 
 
 @router.get(
@@ -244,6 +272,7 @@ async def get_user(user_id: int, user_service: UserService = Depends(get_user_se
 async def update_user(
     user_id: int,
     user_data: AdminUserUpdate,
+    current_user: dict = Depends(get_current_active_user),
     user_service: UserService = Depends(get_user_service),
 ):
     """
@@ -251,7 +280,7 @@ async def update_user(
 
     Requires admin role. Allows updating email, profile, status, and organization.
     """
-    return await user_service.update_user(user_id, user_data)
+    return await user_service.update_user(user_id, user_data, current_user["id"])
 
 
 @router.put(
@@ -263,6 +292,7 @@ async def update_user(
 async def update_user_multipart(
     user_id: int,
     multipart_data: Tuple[Dict[str, Any], Optional[UploadFile]] = Depends(get_user_multipart_update()),
+    current_user: dict = Depends(get_current_active_user),
     user_service: UserService = Depends(get_user_service),
 ):
     """
@@ -282,7 +312,7 @@ async def update_user_multipart(
     # Convert to AdminUserUpdate schema
     admin_user_update = AdminUserUpdate(**update_data)
     
-    return await user_service.update_user(user_id, admin_user_update)
+    return await user_service.update_user(user_id, admin_user_update, current_user["id"])
 
 
 @router.delete(
@@ -292,14 +322,16 @@ async def update_user_multipart(
     summary="Delete user",
 )
 async def delete_user(
-    user_id: int, user_service: UserService = Depends(get_user_service)
+    user_id: int,
+    current_user: dict = Depends(get_current_active_user),
+    user_service: UserService = Depends(get_user_service)
 ):
     """
     Soft delete user.
 
     Requires admin role.
     """
-    return await user_service.delete_user(user_id)
+    return await user_service.delete_user(user_id, current_user["id"])
 
 
 @router.post(

@@ -233,6 +233,17 @@ class UserRepository:
         result = await self.session.execute(query)
         return result.scalar() or 0
     
+    async def count_users_with_role_enum(self, role: UserRoleEnum) -> int:
+        """Count users with specific role (using enum)."""
+        query = select(func.count(User.id)).where(
+            and_(
+                User.role == role,
+                User.deleted_at.is_(None)
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalar() or 0
+    
     async def get_user_statistics(self) -> Dict[str, Any]:
         """Get user statistics."""
         # Total users

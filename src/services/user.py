@@ -26,8 +26,18 @@ class UserService:
         """Helper method to get user role."""
         return user.role.value
     
-    async def create_user(self, user_data: UserCreate, organization_id: Optional[int] = None) -> UserResponse:
+    async def create_user(self, user_data: UserCreate, organization_id: Optional[int] = None, current_user_id: Optional[int] = None) -> UserResponse:
         """Create user with unified schema."""
+        # Additional permission check: ADMIN cannot create ADMIN or SUPER_ADMIN
+        if current_user_id is not None:
+            current_user = await self.user_repo.get_by_id(current_user_id)
+            if current_user and current_user.role == UserRole.ADMIN:
+                if user_data.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Admin cannot create other Admin or Super Admin accounts"
+                    )
+        
         # Validate email uniqueness
         existing_user = await self.user_repo.get_by_email(user_data.email)
         if existing_user:
@@ -62,7 +72,7 @@ class UserService:
         user_role = self._get_user_role(user)
         return UserResponse.from_user_model(user, user_role)
     
-    async def update_user(self, user_id: int, user_data: Union[UserUpdate, AdminUserUpdate]) -> UserResponse:
+    async def update_user(self, user_id: int, user_data: Union[UserUpdate, AdminUserUpdate], current_user_id: Optional[int] = None) -> UserResponse:
         """Update user information."""
         # Check if user exists
         existing_user = await self.user_repo.get_by_id(user_id)
@@ -72,6 +82,16 @@ class UserService:
                 detail=get_message("user", "not_found")
             )
         
+        # Additional permission check: ADMIN cannot edit other ADMINs or SUPER_ADMINs
+        if current_user_id is not None:
+            current_user = await self.user_repo.get_by_id(current_user_id)
+            if current_user and current_user.role == UserRole.ADMIN:
+                if existing_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Admin cannot modify other Admin or Super Admin accounts"
+                    )
+        
         # Validate email uniqueness if being updated
         if hasattr(user_data, 'email') and user_data.email:
             existing_email_user = await self.user_repo.get_by_email(user_data.email)
@@ -80,6 +100,10 @@ class UserService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=get_message("user", "email_exists")
                 )
+        
+        # Validate role changes if role is being updated and current_user_id is provided
+        if hasattr(user_data, 'role') and user_data.role is not None and current_user_id is not None:
+            await self._validate_role_change(user_id, user_data.role, current_user_id)
         
         # Handle password update for admin users
         password_updated = False
@@ -192,7 +216,7 @@ class UserService:
         
         return MessageResponse(message=f"Password set successfully for user {user.display_name}")
     
-    async def delete_user(self, user_id: int) -> MessageResponse:
+    async def delete_user(self, user_id: int, current_user_id: Optional[int] = None) -> MessageResponse:
         """Soft delete user."""
         # Get user
         user = await self.user_repo.get_by_id(user_id)
@@ -201,6 +225,23 @@ class UserService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=get_message("user", "not_found")
             )
+        
+        # CRITICAL PROTECTION: Never allow SUPER_ADMIN to be deleted
+        if user.role == UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Super Admin account cannot be deleted for system security"
+            )
+        
+        # Additional permission check: ADMIN cannot delete other ADMINs or SUPER_ADMINs
+        if current_user_id is not None:
+            current_user = await self.user_repo.get_by_id(current_user_id)
+            if current_user and current_user.role == UserRole.ADMIN:
+                if user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Admin cannot delete other Admin or Super Admin accounts"
+                    )
         
         # Check if user has admin role (prevent deleting last admin)
         if user.is_admin():
@@ -277,7 +318,8 @@ class UserService:
     async def activate_user(self, user_id: int) -> UserResponse:
         """Activate user."""
         user_data = UserUpdate(status=UserStatus.ACTIVE)
-        return await self.update_user(user_id, user_data)
+        # Use internal update to skip role validation for status changes
+        return await self._update_user_without_role_validation(user_id, user_data)
     
     async def deactivate_user(self, user_id: int) -> UserResponse:
         """Deactivate user."""
@@ -293,17 +335,17 @@ class UserService:
                     )
         
         user_data = UserUpdate(status=UserStatus.INACTIVE)
-        return await self.update_user(user_id, user_data)
+        return await self._update_user_without_role_validation(user_id, user_data)
     
     async def suspend_user(self, user_id: int) -> UserResponse:
         """Suspend user."""
         user_data = UserUpdate(status=UserStatus.SUSPENDED)
-        return await self.update_user(user_id, user_data)
+        return await self._update_user_without_role_validation(user_id, user_data)
     
     async def update_user_profile(self, user_id: int, profile_data: Dict[str, Any]) -> UserResponse:
         """Update user profile data."""
         user_data = UserUpdate(profile=profile_data)
-        return await self.update_user(user_id, user_data)
+        return await self._update_user_without_role_validation(user_id, user_data)
     
     async def get_user_profile_field(self, user_id: int, field_name: str) -> Optional[str]:
         """Get specific field from user profile."""
@@ -330,4 +372,112 @@ class UserService:
         
         # Save changes
         user_data = UserUpdate(profile=user.profile)
-        return await self.update_user(user_id, user_data)
+        return await self._update_user_without_role_validation(user_id, user_data)
+    
+    async def _validate_role_change(self, target_user_id: int, new_role: UserRole, current_user_id: int) -> None:
+        """Validate role change restrictions."""
+        # Get current user (who is making the change)
+        current_user = await self.user_repo.get_by_id(current_user_id)
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Current user not found"
+            )
+        
+        # Get target user (who is being changed)
+        target_user = await self.user_repo.get_by_id(target_user_id)
+        if not target_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=get_message("user", "not_found")
+            )
+        
+        current_user_role = current_user.role
+        target_current_role = target_user.role
+        
+        # Rule 1: Only SUPER_ADMIN can change anyone to SUPER_ADMIN or ADMIN
+        if new_role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
+            if current_user_role != UserRole.SUPER_ADMIN:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only Super Admin can assign Admin or Super Admin roles"
+                )
+        
+        # Rule 2: ADMIN can only change roles to GURU or KEPALA_SEKOLAH
+        if current_user_role == UserRole.ADMIN:
+            if new_role not in [UserRole.GURU, UserRole.KEPALA_SEKOLAH]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Admin can only assign Guru or Kepala Sekolah roles"
+                )
+        
+        # Rule 3: Ensure only one SUPER_ADMIN exists
+        if new_role == UserRole.SUPER_ADMIN:
+            existing_super_admin_count = await self._count_users_with_role(UserRole.SUPER_ADMIN)
+            # If target user is already super admin, allow (no change)
+            if target_current_role != UserRole.SUPER_ADMIN and existing_super_admin_count > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Only one Super Admin is allowed in the system"
+                )
+        
+        # Rule 4: CRITICAL PROTECTION - Never allow SUPER_ADMIN role to be changed
+        if target_current_role == UserRole.SUPER_ADMIN and new_role != UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Super Admin role cannot be changed for system security"
+            )
+    
+    async def _count_users_with_role(self, role: UserRole) -> int:
+        """Count users with specific role."""
+        return await self.user_repo.count_users_with_role_enum(role)
+    
+    async def _update_user_without_role_validation(self, user_id: int, user_data: Union[UserUpdate, AdminUserUpdate]) -> UserResponse:
+        """Update user without role change validation (for internal operations)."""
+        # Check if user exists
+        existing_user = await self.user_repo.get_by_id(user_id)
+        if not existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=get_message("user", "not_found")
+            )
+
+        # Check for email conflicts only if email is being updated
+        if hasattr(user_data, 'email') and user_data.email:
+            if user_data.email != existing_user.email:
+                existing_email_user = await self.user_repo.get_by_email(user_data.email)
+                if existing_email_user and existing_email_user.id != user_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=get_message("user", "email_exists")
+                    )
+        
+        # Handle password update for admin users
+        if isinstance(user_data, AdminUserUpdate) and user_data.password:
+            # Hash the new password
+            hashed_password = get_password_hash(user_data.password)
+            await self.user_repo.update_password(user_id, hashed_password)
+            # Remove password from update data
+            user_data_dict = user_data.model_dump(exclude_unset=True)
+            user_data_dict.pop('password', None)
+            # Create new update without password
+            from pydantic import BaseModel
+            class TempUpdate(BaseModel):
+                email: Optional[str] = None
+                profile: Optional[Dict[str, Any]] = None
+                organization_id: Optional[int] = None
+                role: Optional[UserRole] = None
+                status: Optional[UserStatus] = None
+            user_data = TempUpdate(**user_data_dict)
+        
+        # Update user in database
+        updated_user = await self.user_repo.update(user_id, user_data)
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update user"
+            )
+
+        # Return updated user with role
+        user_role = self._get_user_role(updated_user)
+        return UserResponse.from_user_model(updated_user, user_role)

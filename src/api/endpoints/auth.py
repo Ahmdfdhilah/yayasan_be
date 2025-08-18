@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
+from src.core.config import settings
 from src.repositories.user import UserRepository
 from src.services.user import UserService
 from src.services.auth import AuthService
@@ -45,8 +46,9 @@ async def login(
         value=token_response.access_token,
         max_age=token_response.expires_in,
         httponly=True,
-        secure=True,
-        samesite="lax"
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN
     )
     
     # Set refresh token cookie (longer expiration)
@@ -55,8 +57,9 @@ async def login(
         value=token_response.refresh_token,
         max_age=30 * 24 * 60 * 60,  # 30 days
         httponly=True,
-        secure=True,
-        samesite="lax"
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN
     )
     
     return token_response
@@ -90,8 +93,9 @@ async def refresh_token(
         value=token_response.access_token,
         max_age=token_response.expires_in,
         httponly=True,
-        secure=True,
-        samesite="lax"
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN
     )
     
     return token_response
@@ -109,8 +113,20 @@ async def logout(
     Clears authentication cookies.
     """
     # Clear cookies
-    response.delete_cookie(key="access_token", httponly=True, secure=True, samesite="lax")
-    response.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="lax")
+    response.delete_cookie(
+        key="access_token", 
+        httponly=True, 
+        secure=settings.COOKIE_SECURE, 
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN
+    )
+    response.delete_cookie(
+        key="refresh_token", 
+        httponly=True, 
+        secure=settings.COOKIE_SECURE, 
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN
+    )
     
     return await auth_service.logout()
 

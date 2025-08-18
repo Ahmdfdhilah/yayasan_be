@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
+    # Cookie Settings
+    COOKIE_SECURE: bool = True  # Set to False for development without HTTP
+    COOKIE_SAMESITE: str = "lax"  # Options: strict, lax, none
+    COOKIE_DOMAIN: Optional[str] = None  # Set to domain for production
+    
+    # Environment
+    ENVIRONMENT: str = "production"  # Options: development, staging, production
 
     # Redis (optional)
     REDIS_HOST: Optional[str] = None

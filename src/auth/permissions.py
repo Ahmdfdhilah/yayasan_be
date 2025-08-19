@@ -80,7 +80,7 @@ async def get_current_user(
             )
 
         # Get user role (single role system)
-        user_role = user.role
+        user_role = user.role.value
         
         user_data = {
             "id": user.id,

@@ -16,7 +16,7 @@ from src.schemas.gallery import (
     GalleryFilterParams
 )
 from src.schemas.shared import MessageResponse
-from src.auth.permissions import get_current_active_user, require_roles
+from src.auth.permissions import get_current_active_user, admin_required
 from src.utils.direct_file_upload import (
     DirectFileUploader,
     get_gallery_multipart,
@@ -26,9 +26,6 @@ from src.utils.direct_file_upload import (
 )
 
 router = APIRouter()
-
-# Dependency for admin-only endpoints
-admin_required = require_roles(["admin"])
 
 
 async def get_gallery_service(session: AsyncSession = Depends(get_db)) -> GalleryService:

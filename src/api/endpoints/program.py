@@ -9,7 +9,7 @@ from src.repositories.program import ProgramRepository
 from src.services.program import ProgramService
 from src.schemas.program import ProgramCreate, ProgramUpdate, ProgramResponse, ProgramListResponse, ProgramFilterParams
 from src.schemas.shared import MessageResponse
-from src.auth.permissions import require_roles
+from src.auth.permissions import admin_required
 from src.utils.direct_file_upload import (
     DirectFileUploader,
     get_program_multipart,
@@ -19,7 +19,6 @@ from src.utils.direct_file_upload import (
 )
 
 router = APIRouter()
-admin_required = require_roles(["admin"])
 
 
 # ===== DEPENDENCIES =====

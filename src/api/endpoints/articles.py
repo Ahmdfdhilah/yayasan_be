@@ -18,7 +18,7 @@ from src.schemas.article import (
     CategoryListResponse
 )
 from src.schemas.shared import MessageResponse
-from src.auth.permissions import get_current_active_user, require_roles
+from src.auth.permissions import get_current_active_user, admin_required
 from src.utils.direct_file_upload import (
     DirectFileUploader,
     get_article_multipart,
@@ -28,12 +28,6 @@ from src.utils.direct_file_upload import (
 )
 
 router = APIRouter()
-
-# Dependency for admin-only endpoints
-admin_required = require_roles(["admin"])
-
-# Dependency for admin-only content management endpoints
-admin_content_required = require_roles(["admin"])
 
 
 async def get_article_service(session: AsyncSession = Depends(get_db)) -> ArticleService:
@@ -194,7 +188,7 @@ async def search_articles(
 
 @router.get("/statistics", summary="Get article statistics")
 async def get_article_statistics(
-    current_user: dict = Depends(admin_content_required),
+    current_user: dict = Depends(admin_required),
     article_service: ArticleService = Depends(get_article_service),
 ):
     """
@@ -348,7 +342,7 @@ async def duplicate_article(
 async def bulk_publish_articles(
     article_ids: List[int] = Body(..., description="List of article IDs to publish"),
     is_published: bool = Body(True, description="Publication status"),
-    current_user: dict = Depends(admin_content_required),
+    current_user: dict = Depends(admin_required),
     article_service: ArticleService = Depends(get_article_service),
 ):
     """
@@ -362,7 +356,7 @@ async def bulk_publish_articles(
 @router.post("/bulk/delete", response_model=MessageResponse, summary="Bulk delete articles")
 async def bulk_delete_articles(
     article_ids: List[int] = Body(..., description="List of article IDs to delete"),
-    current_user: dict = Depends(admin_content_required),
+    current_user: dict = Depends(admin_required),
     article_service: ArticleService = Depends(get_article_service),
 ):
     """

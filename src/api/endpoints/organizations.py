@@ -15,7 +15,7 @@ from src.schemas.organization import (
 )
 from src.schemas.shared import MessageResponse
 # Remove OrganizationType import as it's no longer used
-from src.auth.permissions import get_current_active_user, require_roles
+from src.auth.permissions import get_current_active_user, admin_required, management_roles_required
 from src.utils.direct_file_upload import (
     DirectFileUploader,
     get_organization_multipart,
@@ -26,9 +26,8 @@ from src.utils.direct_file_upload import (
 
 router = APIRouter()
 
-# Permission dependencies
-admin_required = require_roles(["admin"])
-admin_or_manager = require_roles(["admin", "kepala_sekolah"])
+# Permission dependencies imported from permissions.py
+# admin_required and management_roles_required imported above
 
 
 async def get_organization_service(session: AsyncSession = Depends(get_db)) -> OrganizationService:
@@ -126,7 +125,7 @@ async def search_organizations(
 @router.get("/recent", response_model=List[OrganizationSummary], summary="Get recent organizations")
 async def get_recent_organizations(
     limit: int = Query(10, ge=1, le=50, description="Maximum results"),
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """
@@ -173,7 +172,7 @@ async def get_organization(
 async def update_organization(
     org_id: int,
     form_data: Tuple[Dict[str, Any], Optional[UploadFile]] = Depends(get_organization_multipart_update()),
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """
@@ -224,7 +223,7 @@ async def delete_organization(
 async def assign_head(
     org_id: int,
     assign_data: AssignHeadRequest,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """
@@ -243,7 +242,7 @@ async def assign_head(
 async def remove_head(
     org_id: int,
     remove_data: RemoveHeadRequest,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     org_service: OrganizationService = Depends(get_organization_service)
 ):
     """

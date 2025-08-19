@@ -20,12 +20,9 @@ from src.schemas.message import (
 )
 from src.schemas.shared import MessageResponse as SharedMessageResponse
 from src.models.message import MessageStatus
-from src.auth.permissions import get_current_active_user, require_roles
+from src.auth.permissions import get_current_active_user, admin_required
 
 router = APIRouter()
-
-# Dependency for admin-only endpoints
-admin_required = require_roles(["admin"])
 
 
 async def get_message_service(session: AsyncSession = Depends(get_db)) -> MessageService:

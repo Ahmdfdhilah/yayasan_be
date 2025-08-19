@@ -9,7 +9,7 @@ from src.repositories.mitra import MitraRepository
 from src.services.mitra import MitraService
 from src.schemas.mitra import MitraCreate, MitraUpdate, MitraResponse, MitraListResponse, MitraFilterParams
 from src.schemas.shared import MessageResponse
-from src.auth.permissions import require_roles
+from src.auth.permissions import admin_required
 from src.utils.direct_file_upload import (
     DirectFileUploader,
     get_mitra_multipart,
@@ -19,7 +19,6 @@ from src.utils.direct_file_upload import (
 )
 
 router = APIRouter()
-admin_required = require_roles(["admin"])
 
 
 # ===== DEPENDENCIES =====

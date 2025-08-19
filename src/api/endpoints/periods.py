@@ -12,13 +12,9 @@ from src.schemas.period import (
     PeriodFilter, PeriodActivate, PeriodListResponse
 )
 from src.schemas.shared import MessageResponse
-from src.auth.permissions import get_current_active_user, require_roles
+from src.auth.permissions import get_current_active_user, admin_required, management_roles_required
 
 router = APIRouter()
-
-# Role-based permissions
-admin_required = require_roles(["admin"])
-admin_or_manager = require_roles(["admin", "kepala_sekolah"])
 
 
 async def get_period_service(session: AsyncSession = Depends(get_db)) -> PeriodService:
@@ -30,7 +26,7 @@ async def get_period_service(session: AsyncSession = Depends(get_db)) -> PeriodS
 @router.post("/", response_model=PeriodResponse, summary="Create new period")
 async def create_period(
     period_data: PeriodCreate,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     period_service: PeriodService = Depends(get_period_service)
 ):
     """
@@ -98,7 +94,7 @@ async def get_period(
 @router.get("/{period_id}/stats", response_model=PeriodWithStats, summary="Get period with statistics")
 async def get_period_with_stats(
     period_id: int,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     period_service: PeriodService = Depends(get_period_service)
 ):
     """
@@ -113,7 +109,7 @@ async def get_period_with_stats(
 async def update_period(
     period_id: int,
     period_data: PeriodUpdate,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     period_service: PeriodService = Depends(get_period_service)
 ):
     """
@@ -127,7 +123,7 @@ async def update_period(
 @router.patch("/{period_id}/activate", response_model=PeriodResponse, summary="Activate period")
 async def activate_period(
     period_id: int,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     period_service: PeriodService = Depends(get_period_service)
 ):
     """
@@ -141,7 +137,7 @@ async def activate_period(
 @router.patch("/{period_id}/deactivate", response_model=PeriodResponse, summary="Deactivate period")
 async def deactivate_period(
     period_id: int,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     period_service: PeriodService = Depends(get_period_service)
 ):
     """
@@ -156,7 +152,7 @@ async def deactivate_period(
 async def toggle_period_status(
     period_id: int,
     activation_data: PeriodActivate,
-    current_user: dict = Depends(admin_or_manager),
+    current_user: dict = Depends(management_roles_required),
     period_service: PeriodService = Depends(get_period_service)
 ):
     """

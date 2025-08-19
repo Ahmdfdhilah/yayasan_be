@@ -15,7 +15,7 @@ from src.schemas.board_management import (
     BoardMemberUpdate,
     BoardMemberFilterParams
 )
-from src.auth.permissions import require_roles
+from src.auth.permissions import admin_required
 from src.utils.direct_file_upload import (
     DirectFileUploader,
     get_board_member_multipart,
@@ -25,7 +25,6 @@ from src.utils.direct_file_upload import (
 )
 
 router = APIRouter()
-admin_required = require_roles(["admin"])
 
 
 # ===== DEPENDENCIES =====

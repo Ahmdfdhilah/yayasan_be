@@ -140,14 +140,14 @@ class MediaFileService:
             user_role = user_role or "guru"
             
             # Admin has full access
-            if user_role == "admin":
+            if user_role in ["admin", "ADMIN", "SUPER_ADMIN"]:
                 has_access = True
             # Kepala sekolah can access files from same organization
-            elif user_role == "kepala_sekolah":
+            elif user_role in ["kepala_sekolah", "KEPALA_SEKOLAH"]:
                 if user_organization_id and media_file.organization_id == user_organization_id:
                     has_access = True
             # Guru can only access their own files
-            elif user_role == "guru":
+            elif user_role in ["guru", "GURU"]:
                 if media_file.uploader_id == user_id:
                     has_access = True
             # File uploader can always access their own file
@@ -212,14 +212,14 @@ class MediaFileService:
         user_role = user_role or "guru"
         
         # Admin has full access
-        if user_role == "admin":
+        if user_role in ["admin", "ADMIN", "SUPER_ADMIN"]:
             has_access = True
         # Kepala sekolah can update files from same organization
-        elif user_role == "kepala_sekolah":
+        elif user_role in ["kepala_sekolah", "KEPALA_SEKOLAH"]:
             if user_organization_id and media_file.organization_id == user_organization_id:
                 has_access = True
         # Guru can only update their own files
-        elif user_role == "guru":
+        elif user_role in ["guru", "GURU"]:
             if media_file.uploader_id == user_id:
                 has_access = True
         # File uploader can always update their own file
@@ -262,14 +262,14 @@ class MediaFileService:
         user_role = user_role or "guru"
         
         # Admin has full access
-        if user_role == "admin":
+        if user_role in ["admin", "ADMIN", "SUPER_ADMIN"]:
             has_access = True
         # Kepala sekolah can delete files from same organization
-        elif user_role == "kepala_sekolah":
+        elif user_role in ["kepala_sekolah", "KEPALA_SEKOLAH"]:
             if user_organization_id and media_file.organization_id == user_organization_id:
                 has_access = True
         # Guru can only delete their own files
-        elif user_role == "guru":
+        elif user_role in ["guru", "GURU"]:
             if media_file.uploader_id == user_id:
                 has_access = True
         # File uploader can always delete their own file
@@ -329,14 +329,14 @@ class MediaFileService:
             user_role = user_role or "guru"
             
             # Admin has full access
-            if user_role == "admin":
+            if user_role in ["admin", "ADMIN", "SUPER_ADMIN"]:
                 has_access = True
             # Kepala sekolah can access files from same organization
-            elif user_role == "kepala_sekolah":
+            elif user_role in ["kepala_sekolah", "KEPALA_SEKOLAH"]:
                 if user_organization_id and media_file.organization_id == user_organization_id:
                     has_access = True
             # Guru can only access their own files
-            elif user_role == "guru":
+            elif user_role in ["guru", "GURU"]:
                 if media_file.uploader_id == user_id:
                     has_access = True
             # File uploader can always access their own file
@@ -418,14 +418,14 @@ class MediaFileService:
             user_role = user_role or "guru"
             
             # Admin has full access
-            if user_role == "admin":
+            if user_role in ["admin", "ADMIN", "SUPER_ADMIN"]:
                 has_access = True
             # Kepala sekolah can access files from same organization
-            elif user_role == "kepala_sekolah":
+            elif user_role in ["kepala_sekolah", "KEPALA_SEKOLAH"]:
                 if user_organization_id and media_file.organization_id == user_organization_id:
                     has_access = True
             # Guru can only access their own files
-            elif user_role == "guru":
+            elif user_role in ["guru", "GURU"]:
                 if media_file.uploader_id == user_id:
                     has_access = True
             # File uploader can always access their own file

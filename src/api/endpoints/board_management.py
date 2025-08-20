@@ -110,6 +110,11 @@ async def create_board_member(
     uploader = DirectFileUploader()
     image_url = await uploader.upload_file(image, "board_members")
     complete_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Ensure member_order has a valid value (>= 1)
+    if "member_order" not in complete_data or complete_data.get("member_order", 0) < 1:
+        complete_data["member_order"] = 1
+    
     board_member_data = BoardMemberCreate(**complete_data)
     return await board_member_service.create_board_member(board_member_data, current_user["id"])
 
@@ -152,6 +157,11 @@ async def update_board_member(
     uploader = DirectFileUploader()
     image_url = await process_image_upload(image, "board_members", uploader)
     complete_data = merge_data_with_image_url(json_data, image_url)
+    
+    # Ensure member_order has a valid value if provided (>= 1)
+    if "member_order" in complete_data and complete_data["member_order"] is not None and complete_data["member_order"] < 1:
+        complete_data["member_order"] = 1
+    
     board_member_data = BoardMemberUpdate(**complete_data)
     return await board_member_service.update_board_member(board_member_id, board_member_data, current_user["id"])
 

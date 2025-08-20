@@ -247,5 +247,5 @@ async def validate_user_access(
         "user_id": current_user["id"],
         "has_access": has_access,
         "required_roles": required_roles,
-        "user_roles": current_user.get("roles", [])
+        "user_role": current_user.get("role", "")
     }

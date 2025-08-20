@@ -392,7 +392,7 @@ async def log_access_attempt(user: Dict, resource: str, action: str = "access", 
     log_data = {
         "user_id": user.get("id"),
         "email": user.get("email"),
-        "roles": user.get("roles", []),
+        "role": user.get("role", ""),
         "organization_id": user.get("organization_id"),
         "resource": resource,
         "action": action,
@@ -488,11 +488,11 @@ def get_user_permissions_summary(user: Dict) -> Dict[str, Any]:
     """
     Get a summary of user permissions for debugging/admin purposes.
     """
-    roles = user.get("roles", [])
+    role = user.get("role", "")
     
     return {
         "user_id": user.get("id"),
-        "roles": roles,
+        "role": role,
         "organization_id": user.get("organization_id"),
         "can_submit_rpp": is_guru(user),
         "can_review_rpp": is_rpp_reviewer(user),

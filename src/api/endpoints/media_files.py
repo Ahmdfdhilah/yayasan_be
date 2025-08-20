@@ -16,7 +16,6 @@ from src.schemas.media_file import (
 )
 from src.schemas.shared import MessageResponse
 from src.schemas.media_file import MediaFileFilterParams
-from src.utils.messages import get_message
 
 router = APIRouter(prefix="/media-files", tags=["Media Files"])
 
@@ -82,18 +81,18 @@ async def list_media_files(
     
     **Returns:** Paginated list of media files
     """
-    user_roles = current_user.get("roles", [])
+    user_role = current_user.get("role")
     user_organization_id = current_user.get("organization_id")
     
     # Apply role-based filtering
-    if "admin" in user_roles:
+    if user_role in ["admin", "ADMIN", "SUPER_ADMIN"]:
         # Admin can see all files - no additional filtering
         pass
-    elif "kepala_sekolah" in user_roles:
+    elif user_role in ["kepala_sekolah", "KEPALA_SEKOLAH"]:
         # Kepala sekolah can see files from same organization and public files
         if not filters.organization_id and not filters.is_public:
             filters.organization_id = user_organization_id
-    elif "guru" in user_roles:
+    elif user_role in ["guru", "GURU"]:
         # Guru can only see their own files and public files
         if not filters.uploader_id and not filters.is_public:
             filters.uploader_id = current_user["id"]
@@ -130,16 +129,16 @@ async def get_files_by_uploader(
     
     **Returns:** Paginated list of media files uploaded by the specified user
     """
-    user_roles = current_user.get("roles", [])
+    user_role = current_user.get("role")
     user_organization_id = current_user.get("organization_id")
     
     has_access = False
     
     # Admin has full access
-    if "admin" in user_roles:
+    if user_role in ["admin", "ADMIN", "SUPER_ADMIN"]:
         has_access = True
     # Kepala sekolah can access files from users in same organization
-    elif "kepala_sekolah" in user_roles:
+    elif user_role in ["kepala_sekolah", "KEPALA_SEKOLAH"]:
         # Need to check if target uploader is in same organization
         # For now, allow if user requests their own files
         if current_user["id"] == uploader_id:
@@ -201,7 +200,7 @@ async def get_media_file(
     return await service.get_file(
         file_id=file_id, 
         user_id=current_user["id"],
-        user_roles=current_user.get("roles", []),
+        user_role=current_user.get("role"),
         user_organization_id=current_user.get("organization_id")
     )
 
@@ -223,13 +222,13 @@ async def get_file_view_info(
     **Returns:** File view information with static URL for direct access
     """
     user_id = current_user["id"] if current_user else None
-    user_roles = current_user.get("roles", []) if current_user else []
+    user_role = current_user.get("role") if current_user else None
     user_organization_id = current_user.get("organization_id") if current_user else None
     
     return await service.get_file_view_info(
         file_id=file_id, 
         user_id=user_id,
-        user_roles=user_roles,
+        user_role=user_role,
         user_organization_id=user_organization_id
     )
 
@@ -251,13 +250,13 @@ async def download_media_file(
     **Returns:** File content with appropriate headers for download
     """
     user_id = current_user["id"] if current_user else None
-    user_roles = current_user.get("roles", []) if current_user else []
+    user_role = current_user.get("role") if current_user else None
     user_organization_id = current_user.get("organization_id") if current_user else None
     
     content, filename, mime_type = await service.get_file_content(
         file_id=file_id, 
         user_id=user_id,
-        user_roles=user_roles,
+        user_role=user_role,
         user_organization_id=user_organization_id
     )
     
@@ -297,7 +296,7 @@ async def update_media_file(
         file_id=file_id,
         file_data=file_data,
         user_id=current_user["id"],
-        user_roles=current_user.get("roles", []),
+        user_role=current_user.get("role"),
         user_organization_id=current_user.get("organization_id")
     )
 
@@ -321,7 +320,7 @@ async def delete_media_file(
     return await service.delete_file(
         file_id=file_id, 
         user_id=current_user["id"],
-        user_roles=current_user.get("roles", []),
+        user_role=current_user.get("role"),
         user_organization_id=current_user.get("organization_id")
     )
 

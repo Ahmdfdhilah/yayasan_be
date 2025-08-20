@@ -22,10 +22,19 @@ class OrganizationRepository:
     
     async def create(self, org_data: OrganizationCreate) -> Organization:
         """Create organization."""
+        display_order = org_data.display_order
+        
+        # Shift existing organizations to make room for new organization
+        if display_order:
+            await self._shift_display_orders(display_order, shift_up=True)
+        
         organization = Organization(
             name=org_data.name,
             description=org_data.description,
-            head_id=org_data.head_id
+            excerpt=org_data.excerpt,
+            img_url=org_data.img_url,
+            head_id=org_data.head_id,
+            display_order=display_order
         )
         
         self.session.add(organization)
@@ -58,8 +67,15 @@ class OrganizationRepository:
         if not organization:
             return None
         
-        # Update fields
+        # Handle display_order changes
         update_data = org_data.model_dump(exclude_unset=True)
+        new_display_order = update_data.get('display_order')
+        
+        if new_display_order and new_display_order != organization.display_order:
+            # Shift other organizations to make room for updated order
+            await self._shift_display_orders(new_display_order, shift_up=True, exclude_id=org_id)
+        
+        # Update fields
         for key, value in update_data.items():
             setattr(organization, key, value)
         
@@ -153,12 +169,14 @@ class OrganizationRepository:
         # Apply sorting
         if filters.sort_by == "name":
             sort_column = Organization.name
+        elif filters.sort_by == "display_order":
+            sort_column = Organization.display_order
         elif filters.sort_by == "created_at":
             sort_column = Organization.created_at
         elif filters.sort_by == "updated_at":
             sort_column = Organization.updated_at
         else:
-            sort_column = Organization.name
+            sort_column = Organization.display_order
         
         if filters.sort_order == "desc":
             query = query.order_by(sort_column.desc())
@@ -229,7 +247,7 @@ class OrganizationRepository:
                     Organization.deleted_at.is_(None)
                 )
             )
-            .order_by(Organization.name)
+            .order_by(Organization.display_order, Organization.name)
             .limit(limit)
         )
         
@@ -316,6 +334,25 @@ class OrganizationRepository:
     
     async def get_all(self) -> List[Organization]:
         """Get all active organizations."""
-        query = select(Organization).where(Organization.deleted_at.is_(None)).order_by(Organization.name)
+        query = select(Organization).where(Organization.deleted_at.is_(None)).order_by(Organization.display_order, Organization.name)
         result = await self.session.execute(query)
         return list(result.scalars().all())
+    
+    # ===== SMART ORDERING UTILITIES =====
+    
+    async def _shift_display_orders(self, from_order: int, shift_up: bool = True, exclude_id: Optional[int] = None) -> None:
+        """Shift display orders to make room for new/updated organization."""
+        conditions = [
+            Organization.deleted_at.is_(None),
+            Organization.display_order >= from_order
+        ]
+        if exclude_id:
+            conditions.append(Organization.id != exclude_id)
+        
+        # Shift all organizations at or after the target position
+        if shift_up:
+            stmt = update(Organization).where(and_(*conditions)).values(display_order=Organization.display_order + 1)
+        else:
+            stmt = update(Organization).where(and_(*conditions)).values(display_order=Organization.display_order - 1)
+        
+        await self.session.execute(stmt)

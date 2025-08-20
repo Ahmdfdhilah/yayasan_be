@@ -79,7 +79,7 @@ async def list_organizations(
     q: Optional[str] = Query(None, description="Search query"),
     has_users: Optional[bool] = Query(None, description="Filter organizations with/without users"),
     has_head: Optional[bool] = Query(None, description="Filter organizations with/without head"),
-    sort_by: str = Query("name", description="Sort field"),
+    sort_by: str = Query("display_order", description="Sort field"),
     sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order"),
     org_service: OrganizationService = Depends(get_organization_service)
 ):

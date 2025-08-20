@@ -23,6 +23,7 @@ class Organization(BaseModel, SQLModel, table=True):
     description: Optional[str] = Field(default=None, description="Full HTML description")
     excerpt: Optional[str] = Field(max_length=500, default=None, description="Short summary excerpt")
     img_url: Optional[str] = Field(max_length=500, default=None, description="Organization image URL")
+    display_order: int = Field(default=1, ge=1, description="Display order for sorting organizations")
     
     # Head/Principal of the organization
     head_id: Optional[int] = Field(

@@ -20,6 +20,7 @@ class OrganizationBase(BaseModel):
     excerpt: Optional[str] = Field(None, max_length=500, description="Short summary excerpt")
     img_url: Optional[str] = Field(None, max_length=500, description="Organization image URL")
     head_id: Optional[int] = Field(None, description="ID of the organization head/principal")
+    display_order: int = Field(default=1, ge=1, description="Display order for sorting organizations")
     
     @field_validator('name')
     @classmethod
@@ -42,6 +43,7 @@ class OrganizationUpdate(BaseModel):
     excerpt: Optional[str] = Field(None, max_length=500, description="Short summary excerpt")
     img_url: Optional[str] = Field(None, max_length=500, description="Organization image URL")
     head_id: Optional[int] = Field(None, description="ID of the organization head/principal")
+    display_order: Optional[int] = Field(None, ge=1, description="Display order for sorting organizations")
     
     @field_validator('name')
     @classmethod
@@ -60,6 +62,7 @@ class OrganizationResponse(BaseModel):
     excerpt: Optional[str] = None
     img_url: Optional[str] = None
     head_id: Optional[int] = None
+    display_order: int
     created_at: datetime
     updated_at: Optional[datetime] = None
     
@@ -78,6 +81,7 @@ class OrganizationResponse(BaseModel):
             excerpt=org.excerpt,
             img_url=org.img_url,
             head_id=org.head_id,
+            display_order=org.display_order,
             created_at=org.created_at,
             updated_at=org.updated_at,
             display_name=org.display_name,
@@ -100,6 +104,7 @@ class OrganizationSummary(BaseModel):
     description: Optional[str] = None
     excerpt: Optional[str] = None
     img_url: Optional[str] = None
+    display_order: int
     user_count: int = Field(default=0, description="Number of users")
     created_at: datetime
     
@@ -112,6 +117,7 @@ class OrganizationSummary(BaseModel):
             description=org.description,
             excerpt=org.excerpt,
             img_url=org.img_url,
+            display_order=org.display_order,
             user_count=user_count,
             created_at=org.created_at
         )
@@ -132,7 +138,7 @@ class SearchParams(BaseModel):
     """Base search parameters."""
     
     q: Optional[str] = Field(default=None, description="Search query")
-    sort_by: str = Field(default="created_at", description="Sort field")
+    sort_by: str = Field(default="display_order", description="Sort field")
     sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sort order")
 
 

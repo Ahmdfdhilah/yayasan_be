@@ -339,6 +339,7 @@ async def get_submissions(
     period_id: Optional[int] = Query(None, description="Filter by period ID"),
     status: Optional[RPPSubmissionStatus] = Query(None, description="Filter by status"),
     reviewer_id: Optional[int] = Query(None, description="Filter by reviewer ID"),
+    organization_id: Optional[int] = Query(None, description="Filter by organization ID"),
     search: Optional[str] = Query(None, min_length=1, max_length=100, description="Search by teacher name"),
     limit: int = Query(100, ge=1, le=500, description="Number of items per page"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
@@ -364,7 +365,11 @@ async def get_submissions(
 
     # Role-based access control
     user_role = current_user.get("role")
-    if user_role not in ["SUPER_ADMIN", "ADMIN"]:
+    if user_role in ["SUPER_ADMIN", "ADMIN"]:
+        # Admin can filter by organization_id if provided
+        if organization_id:
+            filters.organization_id = organization_id
+    else:
         if user_role == "KEPALA_SEKOLAH":
             # Kepala sekolah can see submissions in their organization
             filters.organization_id = current_user.get("organization_id")

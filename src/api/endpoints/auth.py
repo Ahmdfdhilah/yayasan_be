@@ -40,11 +40,12 @@ async def login(
     """
     token_response = await auth_service.login(login_data)
     
-    # Set access token cookie
+    # Set access token cookie with grace period
+    access_token_max_age = (settings.ACCESS_TOKEN_EXPIRE_MINUTES + 5) * 60
     response.set_cookie(
         key="access_token",
         value=token_response.access_token,
-        max_age=token_response.expires_in,
+        max_age=access_token_max_age,
         httponly=True,
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
@@ -87,11 +88,12 @@ async def refresh_token(
     
     token_response = await auth_service.refresh_token(refresh_token_str)
     
-    # Update access token cookie
+    # Update access token cookie with grace period
+    access_token_max_age = (settings.ACCESS_TOKEN_EXPIRE_MINUTES + 5) * 60
     response.set_cookie(
         key="access_token",
         value=token_response.access_token,
-        max_age=token_response.expires_in,
+        max_age=access_token_max_age,
         httponly=True,
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,

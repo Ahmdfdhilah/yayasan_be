@@ -26,6 +26,9 @@ class JWTBearer(HTTPBearer):
             
         # If auto_error is True and no token found, raise exception
         if self.auto_error:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info("No access token found in cookies - user needs to login")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authentication required. Please login.",
@@ -93,7 +96,11 @@ async def get_current_user(
 
         return user_data
 
-    except JWTError:
+    except JWTError as e:
+        # Add logging for JWT specific errors
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"JWT token error - likely expired or invalid: {str(e)}")
         raise credentials_exception
     except ValueError:
         raise credentials_exception

@@ -136,6 +136,9 @@ class AuthService:
             )
             
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Token refresh failed for user: {e}")
             if isinstance(e, HTTPException):
                 raise e
             raise HTTPException(

@@ -521,6 +521,14 @@ class EvaluationAspectRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
+    async def get_category_by_name(self, category_name: str) -> Optional[EvaluationCategory]:
+        """Get evaluation category by ID."""
+        query = select(EvaluationCategory).where(
+            and_(EvaluationCategory.name == category_name, EvaluationCategory.deleted_at.is_(None))
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+    
     async def get_all_categories(self, include_inactive: bool = False) -> List[EvaluationCategory]:
         """Get all evaluation categories ordered by display_order."""
         query = select(EvaluationCategory).where(EvaluationCategory.deleted_at.is_(None))

@@ -149,7 +149,7 @@ class UserRepository:
             search_term = f"%{filters.search}%"
             search_filter = or_(
                 User.email.ilike(search_term),
-                func.json_extract(User.profile, '$.name').ilike(search_term)
+                func.json_extract_path_text(User.profile, 'name').ilike(search_term)
             )
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)
@@ -186,7 +186,7 @@ class UserRepository:
         
         # Apply sorting
         if filters.sort_by == "name":
-            sort_column = func.json_extract(User.profile, '$.name')
+            sort_column = func.json_extract_path_text(User.profile, 'name')
         elif filters.sort_by == "email":
             sort_column = User.email
         else:

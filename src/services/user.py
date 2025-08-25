@@ -245,7 +245,7 @@ class UserService:
         
         # Check if user has admin role (prevent deleting last admin)
         if user.is_admin():
-            admin_count = await self.user_repo.count_users_with_role("admin")
+            admin_count = await self.user_repo.count_users_with_role("ADMIN")
             if admin_count <= 1:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -327,7 +327,7 @@ class UserService:
         user = await self.user_repo.get_by_id(user_id)
         if user:
             if user.is_admin():
-                admin_count = await self.user_repo.count_users_with_role("admin")
+                admin_count = await self.user_repo.count_users_with_role("ADMIN")
                 if admin_count <= 1:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,

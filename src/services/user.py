@@ -29,14 +29,14 @@ class UserService:
     async def create_user(self, user_data: UserCreate, organization_id: Optional[int] = None, current_user_id: Optional[int] = None) -> UserResponse:
         """Create user with unified schema."""
         # Additional permission check: ADMIN cannot create ADMIN or SUPER_ADMIN
-        if current_user_id is not None:
-            current_user = await self.user_repo.get_by_id(current_user_id)
-            if current_user and current_user.role == UserRole.ADMIN:
-                if user_data.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Admin cannot create other Admin or Super Admin accounts"
-                    )
+        # if current_user_id is not None:
+        #     current_user = await self.user_repo.get_by_id(current_user_id)
+        #     if current_user and current_user.role == UserRole.ADMIN:
+        #         if user_data.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        #             raise HTTPException(
+        #                 status_code=status.HTTP_403_FORBIDDEN,
+        #                 detail="Admin cannot create other Admin or Super Admin accounts"
+        #             )
         
         # Validate email uniqueness
         existing_user = await self.user_repo.get_by_email(user_data.email)
@@ -83,14 +83,14 @@ class UserService:
             )
         
         # Additional permission check: ADMIN cannot edit other ADMINs or SUPER_ADMINs
-        if current_user_id is not None:
-            current_user = await self.user_repo.get_by_id(current_user_id)
-            if current_user and current_user.role == UserRole.ADMIN:
-                if existing_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Admin cannot modify other Admin or Super Admin accounts"
-                    )
+        # if current_user_id is not None:
+        #     current_user = await self.user_repo.get_by_id(current_user_id)
+        #     if current_user and current_user.role == UserRole.ADMIN:
+        #         if existing_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        #             raise HTTPException(
+        #                 status_code=status.HTTP_403_FORBIDDEN,
+        #                 detail="Admin cannot modify other Admin or Super Admin accounts"
+        #             )
         
         # Validate email uniqueness if being updated
         if hasattr(user_data, 'email') and user_data.email:
@@ -234,14 +234,14 @@ class UserService:
             )
         
         # Additional permission check: ADMIN cannot delete other ADMINs or SUPER_ADMINs
-        if current_user_id is not None:
-            current_user = await self.user_repo.get_by_id(current_user_id)
-            if current_user and current_user.role == UserRole.ADMIN:
-                if user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Admin cannot delete other Admin or Super Admin accounts"
-                    )
+        # if current_user_id is not None:
+        #     current_user = await self.user_repo.get_by_id(current_user_id)
+        #     if current_user and current_user.role == UserRole.ADMIN:
+        #         if user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        #             raise HTTPException(
+        #                 status_code=status.HTTP_403_FORBIDDEN,
+        #                 detail="Admin cannot delete other Admin or Super Admin accounts"
+        #             )
         
         # Check if user has admin role (prevent deleting last admin)
         if user.is_admin():

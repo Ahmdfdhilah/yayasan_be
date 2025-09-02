@@ -185,9 +185,9 @@ async def get_allowed_roles(
     current_role = current_user.get("role")
     
     if current_role == "SUPER_ADMIN":
-        return ["ADMIN", "GURU", "KEPALA_SEKOLAH"]  # SUPER_ADMIN removed from UI
+        return ["ADMIN", "GURU", "KEPALA_SEKOLAH"] 
     elif current_role == "ADMIN":
-        return ["GURU", "KEPALA_SEKOLAH"]
+        return ["GURU", "KEPALA_SEKOLAH", "ADMIN"] #todo
     else:
         return []  # Other roles cannot assign roles
 

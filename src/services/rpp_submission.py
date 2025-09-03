@@ -255,6 +255,12 @@ class RPPSubmissionService:
                 detail=get_message("submission", "submission_not_found")
             )
         
+        if not review_data.review_notes and review_data.status == RPPSubmissionStatus.REJECTED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=get_message("submission", "submission_notes_must_have")
+            )
+        
         # Get submitter's role
         submitter = await self.user_repo.get_by_id(submission.teacher_id)
         if not submitter:

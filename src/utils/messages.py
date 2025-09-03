@@ -73,6 +73,7 @@ class Messages:
         "submission_not_found": "Pengajuan tidak ditemukan",
         "submission_exists": "Pengajuan sudah ada untuk periode ini",
         "invalid_status": "Status pengajuan tidak valid",
+        "submission_notes_must_have": "Harus mengisi notes jika penolakan"
     }
     
     # Evaluation messages

@@ -900,6 +900,9 @@ class EvaluationAspectRepository:
 
     async def delete_category(self, category_id: int) -> bool:
         """Delete category with cascade deletion of all associated aspects."""
+        import uuid
+        suffix = f"__deleted__{uuid.uuid4().hex[:8]}"
+
         try:
             # First, get all aspects in this category
             aspects_query = select(EvaluationAspect).where(
@@ -928,7 +931,7 @@ class EvaluationAspectRepository:
                 )
                 .values(
                     deleted_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
+                    updated_at=datetime.utcnow(),
                 )
             )
             await self.session.execute(aspects_delete_query)
@@ -939,7 +942,8 @@ class EvaluationAspectRepository:
                 .where(EvaluationCategory.id == category_id)
                 .values(
                     deleted_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
+                    updated_at=datetime.utcnow(),
+                    name=(EvaluationCategory.name + suffix)
                 )
             )
             result = await self.session.execute(category_delete_query)

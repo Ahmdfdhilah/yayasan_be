@@ -128,8 +128,8 @@ api_router.include_router(
 # RPP Submissions - untuk pengelolaan RPP submission
 api_router.include_router(
     rpp_submissions.router,
-    prefix="/rpp-submissions",
-    tags=["RPP Submissions"],
+    prefix="/submissions",
+    tags=["Submissions"],
     responses={
         401: {"description": "Unauthorized"},
         403: {"description": "Forbidden"},

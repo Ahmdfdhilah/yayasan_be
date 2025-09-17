@@ -237,6 +237,12 @@ class AuthService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
+        if reset_token.used:
+            logger.error("Cannot use same url for reset password")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tidak bisa pakai link yang sudah dipakai"
+            )
         
         # Check if new password is different from current
         from src.auth.jwt import verify_password, get_password_hash
@@ -262,7 +268,7 @@ class AuthService:
         
         # Mark token as used
         try:
-            await self.user_repo.use_password_reset_token(reset_data.token)
+            await self.user_repo.mark_token_as_used(reset_token.id)
             logger.info(f"Reset token marked as used: {reset_data.token[:8]}...")
         except Exception as e:
             logger.error(f"Failed to mark reset token as used: {str(e)}")
@@ -287,9 +293,6 @@ class AuthService:
     
     async def logout(self) -> MessageResponse:
         """Logout user (simple version without session management)."""
-        # In a simple JWT implementation, logout is handled client-side
-        # by discarding the token. In more advanced implementations,
-        # you might want to blacklist the token.
         return MessageResponse(message="Logged out successfully")
     
     async def get_current_user_info(self, user_id: int) -> UserResponse:

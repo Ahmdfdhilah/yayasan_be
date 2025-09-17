@@ -23,7 +23,7 @@ async def init_redis() -> None:
     
     try:
         redis_pool = redis.ConnectionPool(
-            host=settings.REDIS_HOST,
+            host=settings.REDIS_HOST or 'localhost',
             port=settings.REDIS_PORT or 6379,
             password=settings.REDIS_PASSWORD,
             db=settings.REDIS_DB,
@@ -58,8 +58,8 @@ async def close_redis() -> None:
     logger.info("Redis connection closed")
 
 
-def get_redis() -> Optional[redis.Redis]:
-    """Get Redis client instance."""
+async def get_redis() -> Optional[redis.Redis]:
+    """Get Redis client instance (async style)."""
     return redis_client
 
 

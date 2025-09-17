@@ -9,6 +9,7 @@ from pathlib import Path
 
 from src.core.config import settings
 from src.core.database import init_db
+from src.core.redis import init_redis
 from src.api.router import api_router
 from src.middleware.error_handler import add_error_handlers
 from src.middleware.rate_limiting import add_rate_limiting
@@ -25,12 +26,13 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("🚀 Starting Government Auth API...")
 
-    # Initialize database
+    # Initialize database  and redis
     try:
         await init_db()
-        logger.info("✅ Database initialized successfully")
+        await init_redis()
+        logger.info("✅ Databases initialized successfully")
     except Exception as e:
-        logger.error(f"❌ Database initialization failed: {e}")
+        logger.error(f"❌ Databases initialization failed: {e}")
         raise
 
     # Log configuration

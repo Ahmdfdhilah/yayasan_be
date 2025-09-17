@@ -76,7 +76,7 @@ def create_application() -> FastAPI:
     )
 
     # # Add rate limiting middleware
-    # add_rate_limiting(app)
+    add_rate_limiting(app)
 
     # Di dalam create_application()
     uploads_path = Path(settings.UPLOADS_PATH)  # "static/uploads"

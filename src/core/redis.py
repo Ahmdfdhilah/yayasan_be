@@ -1,4 +1,4 @@
-"""Redis connection and utilities."""
+"""Redis connection and utilities with better error handling and configuration."""
 
 import redis.asyncio as redis
 from typing import Optional, Any
@@ -22,23 +22,40 @@ async def init_redis() -> None:
         return
     
     try:
+        # Handle empty string passwords properly
+        redis_password = settings.REDIS_PASSWORD if settings.REDIS_PASSWORD else None
+        
         redis_pool = redis.ConnectionPool(
-            host=settings.REDIS_HOST or 'localhost',
+            host=settings.REDIS_HOST,
             port=settings.REDIS_PORT or 6379,
-            password=settings.REDIS_PASSWORD,
+            password=redis_password,  
             db=settings.REDIS_DB,
             decode_responses=True,
-            max_connections=20
+            max_connections=20,
+            retry_on_timeout=True,
+            socket_connect_timeout=5,
+            socket_timeout=5
         )
         
         redis_client = redis.Redis(connection_pool=redis_pool)
         
-        # Test connection
+        # Test connection with more detailed error handling
         await redis_client.ping()
-        logger.info("✅ Redis connected successfully")
+        logger.info(f"✅ Redis connected successfully to {settings.REDIS_HOST}:{settings.REDIS_PORT}")
         
+    except redis.ConnectionError as e:
+        logger.error(f"❌ Redis connection failed - Connection Error: {e}")
+        logger.error(f"Redis config: host={settings.REDIS_HOST}, port={settings.REDIS_PORT}, db={settings.REDIS_DB}")
+        redis_pool = None
+        redis_client = None
+    except redis.AuthenticationError as e:
+        logger.error(f"❌ Redis authentication failed: {e}")
+        logger.error("Check REDIS_PASSWORD configuration")
+        redis_pool = None
+        redis_client = None
     except Exception as e:
-        logger.error(f"❌ Redis connection failed: {e}")
+        logger.error(f"❌ Redis initialization failed: {e}")
+        logger.error(f"Redis config: host={settings.REDIS_HOST}, port={settings.REDIS_PORT}, db={settings.REDIS_DB}")
         redis_pool = None
         redis_client = None
 
@@ -48,10 +65,16 @@ async def close_redis() -> None:
     global redis_pool, redis_client
     
     if redis_client:
-        await redis_client.close()
+        try:
+            await redis_client.close()
+        except Exception as e:
+            logger.error(f"Error closing Redis client: {e}")
     
     if redis_pool:
-        await redis_pool.disconnect()
+        try:
+            await redis_pool.disconnect()
+        except Exception as e:
+            logger.error(f"Error disconnecting Redis pool: {e}")
     
     redis_pool = None
     redis_client = None
@@ -60,16 +83,25 @@ async def close_redis() -> None:
 
 async def get_redis() -> Optional[redis.Redis]:
     """Get Redis client instance (async style)."""
-    return redis_client
+    if redis_client is None:
+        logger.warning("Redis client is not initialized")
+        return None
+    
+    try:
+        # Quick health check
+        await redis_client.ping()
+        return redis_client
+    except Exception as e:
+        logger.error(f"Redis health check failed: {e}")
+        return None
 
 
 async def redis_set(key: str, value: Any, expire: Optional[int] = None) -> bool:
     """Set a value in Redis with optional expiration."""
-    if not redis_client:
-        logger.warning("Redis not available")
+    client = await get_redis()
+    if not client:
+        logger.warning("Redis not available for SET operation")
         return False
-    
-    logger.debug("sett redis")
     
     try:
         # Serialize value to JSON if it's not a string
@@ -77,7 +109,8 @@ async def redis_set(key: str, value: Any, expire: Optional[int] = None) -> bool:
             value = json.dumps(value)
         
         expire_time = expire or settings.REDIS_TTL
-        await redis_client.setex(key, expire_time, value)
+        await client.setex(key, expire_time, value)
+        logger.debug(f"Redis SET successful for key: {key}")
         return True
         
     except Exception as e:
@@ -87,12 +120,13 @@ async def redis_set(key: str, value: Any, expire: Optional[int] = None) -> bool:
 
 async def redis_get(key: str) -> Optional[Any]:
     """Get a value from Redis."""
-    if not redis_client:
-        logger.warning("Redis not available")
+    client = await get_redis()
+    if not client:
+        logger.warning("Redis not available for GET operation")
         return None
     
     try:
-        value = await redis_client.get(key)
+        value = await client.get(key)
         if value is None:
             return None
         
@@ -109,12 +143,13 @@ async def redis_get(key: str) -> Optional[Any]:
 
 async def redis_delete(key: str) -> bool:
     """Delete a key from Redis."""
-    if not redis_client:
-        logger.warning("Redis not available")
+    client = await get_redis()
+    if not client:
+        logger.warning("Redis not available for DELETE operation")
         return False
     
     try:
-        result = await redis_client.delete(key)
+        result = await client.delete(key)
         return result > 0
         
     except Exception as e:
@@ -124,11 +159,12 @@ async def redis_delete(key: str) -> bool:
 
 async def redis_exists(key: str) -> bool:
     """Check if a key exists in Redis."""
-    if not redis_client:
+    client = await get_redis()
+    if not client:
         return False
     
     try:
-        result = await redis_client.exists(key)
+        result = await client.exists(key)
         return result > 0
         
     except Exception as e:
@@ -138,13 +174,14 @@ async def redis_exists(key: str) -> bool:
 
 async def redis_increment(key: str, amount: int = 1, expire: Optional[int] = None) -> Optional[int]:
     """Increment a counter in Redis."""
-    if not redis_client:
-        logger.warning("Redis not available")
+    client = await get_redis()
+    if not client:
+        logger.warning("Redis not available for INCREMENT operation")
         return None
     
     try:
         # Use pipeline for atomic operation
-        async with redis_client.pipeline() as pipe:
+        async with client.pipeline() as pipe:
             await pipe.incrby(key, amount)
             if expire:
                 await pipe.expire(key, expire)
@@ -158,11 +195,12 @@ async def redis_increment(key: str, amount: int = 1, expire: Optional[int] = Non
 
 async def redis_get_pattern(pattern: str) -> list:
     """Get all keys matching a pattern."""
-    if not redis_client:
+    client = await get_redis()
+    if not client:
         return []
     
     try:
-        keys = await redis_client.keys(pattern)
+        keys = await client.keys(pattern)
         return keys
         
     except Exception as e:
@@ -172,7 +210,8 @@ async def redis_get_pattern(pattern: str) -> list:
 
 async def redis_flush_pattern(pattern: str) -> int:
     """Delete all keys matching a pattern."""
-    if not redis_client:
+    client = await get_redis()
+    if not client:
         return 0
     
     try:
@@ -180,7 +219,7 @@ async def redis_flush_pattern(pattern: str) -> int:
         if not keys:
             return 0
         
-        result = await redis_client.delete(*keys)
+        result = await client.delete(*keys)
         return result
         
     except Exception as e:

@@ -1,4 +1,4 @@
-"""Application settings and configuration."""
+"""Application settings and configuration with proper Redis handling."""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import PostgresDsn, field_validator
@@ -39,14 +39,14 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Cookie Settings
-    COOKIE_SECURE: bool = True  # Set to False for development without HTTP
+    COOKIE_SECURE: bool = True  # Set to False for development without HTTPS
     COOKIE_SAMESITE: str = "lax"  # Options: strict, lax, none
     COOKIE_DOMAIN: Optional[str] = None  # Set to domain for production
     
     # Environment
     ENVIRONMENT: str = "production"  # Options: development, staging, production
 
-    # Redis (optional)
+    # Redis (optional) - Fixed to handle empty strings properly
     REDIS_HOST: Optional[str] = None
     REDIS_PORT: Optional[int] = None
     REDIS_PASSWORD: Optional[str] = None
@@ -112,7 +112,7 @@ class Settings(BaseSettings):
     EMAIL_SENDER_NAME: str = "Government Auth System"
     EMAIL_RESET_URL_BASE: str = "http://localhost:5173/reset-password"
 
-       # Configure bleach for HTML sanitization
+    # Configure bleach for HTML sanitization
     ALLOWED_TAGS: ClassVar[list[str]] = [
         # Existing tags
         "a", "abbr", "acronym", "b", "blockquote", "br", "code", "div", 
@@ -183,6 +183,33 @@ class Settings(BaseSettings):
     # Password Reset Settings
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 1
     PASSWORD_RESET_TOKEN_LENGTH: int = 32
+
+    # Field validators for proper handling of environment variables
+    @field_validator("REDIS_HOST", mode="before")
+    def validate_redis_host(cls, v):
+        """Handle empty string as None for Redis host."""
+        if v == "" or v is None:
+            return None
+        return v
+
+    @field_validator("REDIS_PORT", mode="before")
+    def validate_redis_port(cls, v):
+        """Handle Redis port conversion."""
+        if v == "" or v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return int(v)
+            except ValueError:
+                return None
+        return v
+
+    @field_validator("REDIS_PASSWORD", mode="before")
+    def validate_redis_password(cls, v):
+        """Handle empty string as None for Redis password."""
+        if v == "" or v is None:
+            return None
+        return v
 
     @field_validator("DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: Optional[str], info: Dict[str, Any]) -> Any:
